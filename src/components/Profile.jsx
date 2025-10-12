@@ -58,11 +58,11 @@ export default function Profile({ session }) {
       
       <div className="space-y-4">
         <div className="p-3 bg-gray-50 rounded">
-          <strong>Полное имя:</strong> {profile.full_name || 'Не указано'}
+          <p><strong>Фамилия:</strong> {profile.last_name  || 'Не указано'}</p>
         </div>
         
         <div className="p-3 bg-gray-50 rounded">
-          <strong>Имя пользователя:</strong> {profile.username || 'Не указано'}
+          <p><strong>Имя:</strong> {profile.first_name || 'Не указано'}</p>
         </div>
         
         <div className="p-3 bg-gray-50 rounded">

@@ -6,8 +6,8 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState('');
@@ -25,8 +25,8 @@ export default function Auth() {
           password,
           options: {
             data: {
-              username: username,
-              full_name: fullName,
+              firstName: firstName,
+              lastName: lastName,
               role: 'student'
             }
           }
@@ -48,8 +48,8 @@ export default function Auth() {
             // Очищаем форму
             setEmail('');
             setPassword('');
-            setFullName('');
-            setUsername('');
+            setFirstName('');
+            setLastName('');
             setSelectedGroupId(null);
           }
         }
@@ -112,29 +112,27 @@ export default function Auth() {
 
         {isSignUp && (
           <>
-            <div>
-              <label className="block text-sm font-medium mb-1">Полное имя</label>
-              <input
-                type="text"
-                placeholder="Введите ваше полное имя"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-1">Имя пользователя</label>
-              <input
-                type="text"
-                placeholder="Придумайте имя пользователя"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
+        <div>
+          <input
+            type="text"
+            placeholder="Фамилия"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+
+        <div>
+          <input
+            type="text" 
+            placeholder="Имя"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
 
             <div className="border-t pt-4">
               <h3 className="text-lg font-medium mb-3">Выбор учебной группы</h3>
