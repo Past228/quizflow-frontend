@@ -25,8 +25,8 @@ export default function Auth() {
           password,
           options: {
             data: {
-              firstName: firstName,
-              lastName: lastName,
+              first_name: firstName,
+              last_name: lastName,
               role: 'student'
             }
           }
@@ -112,27 +112,29 @@ export default function Auth() {
 
         {isSignUp && (
           <>
-        <div>
-          <input
-            type="text"
-            placeholder="Фамилия"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            className="w-full p-2 border rounded"
-            required
-          />
-        </div>
-
-        <div>
-          <input
-            type="text" 
-            placeholder="Имя"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            className="w-full p-2 border rounded"
-            required
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Фамилия</label>
+              <input
+                type="text"
+                placeholder="Введите вашу фамилию"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Имя</label>
+              <input
+                type="text"
+                placeholder="Введите ваше имя"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
 
             <div className="border-t pt-4">
               <h3 className="text-lg font-medium mb-3">Выбор учебной группы</h3>
