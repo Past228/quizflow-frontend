@@ -1,236 +1,158 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 export default function GroupSelector({ onGroupSelect }) {
   const [buildings, setBuildings] = useState([]);
   const [courses, setCourses] = useState([]);
   const [groups, setGroups] = useState([]);
-  
   const [selectedBuilding, setSelectedBuilding] = useState('');
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('');
-  const [loading, setLoading] = useState({
-    buildings: false,
-    courses: false,
-    groups: false
-  });
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-
+  // Загружаем корпуса при монтировании
   useEffect(() => {
-    fetchBuildings();
-  }, [API_BASE]);
+    loadBuildings();
+  }, []);
 
-  const fetchBuildings = async () => {
+  const loadBuildings = async () => {
     try {
-      setLoading(prev => ({ ...prev, buildings: true }));
-      setError('');
-      
-      const response = await fetch(`${API_BASE}/api/buildings`);
-      if (!response.ok) throw new Error('Ошибка загрузки корпусов');
-      
-      const data = await response.json();
-      setBuildings(data);
+      const { data, error } = await supabase
+        .from('buildings')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setBuildings(data || []);
     } catch (error) {
-      console.error('Error fetching buildings:', error);
-      setError('Не удалось загрузить список корпусов');
-    } finally {
-      setLoading(prev => ({ ...prev, buildings: false }));
+      console.error('Ошибка загрузки корпусов:', error);
     }
   };
 
+  // Загружаем курсы при выборе корпуса
   useEffect(() => {
-    if (!selectedBuilding) {
+    if (selectedBuilding) {
+      loadCourses(selectedBuilding);
+    } else {
       setCourses([]);
-      return;
+      setSelectedCourse('');
     }
-    
-    fetchCourses(selectedBuilding);
-    
-    setSelectedCourse('');
-    setSelectedGroup('');
-    setGroups([]);
-  }, [selectedBuilding, API_BASE]);
+  }, [selectedBuilding]);
 
-  const fetchCourses = async (buildingId) => {
+  const loadCourses = async (buildingId) => {
     try {
-      setLoading(prev => ({ ...prev, courses: true }));
-      setError('');
-      
-      const response = await fetch(`${API_BASE}/api/buildings/${buildingId}/courses`);
-      if (!response.ok) throw new Error('Ошибка загрузки курсов');
-      
-      const data = await response.json();
-      setCourses(data);
-    } catch (error) {
-      console.error('Error fetching courses:', error);
-      setError('Не удалось загрузить список курсов');
-    } finally {
-      setLoading(prev => ({ ...prev, courses: false }));
-    }
-  };
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('building_id', buildingId)
+        .order('course_number');
 
-  useEffect(() => {
-    if (!selectedCourse) {
+      if (error) throw error;
+      setCourses(data || []);
+      setSelectedCourse('');
       setGroups([]);
-      return;
-    }
-    
-    fetchGroups(selectedCourse);
-    
-    setSelectedGroup('');
-  }, [selectedCourse, API_BASE]);
-
-  const fetchGroups = async (courseId) => {
-    try {
-      setLoading(prev => ({ ...prev, groups: true }));
-      setError('');
-      
-      const response = await fetch(`${API_BASE}/api/courses/${courseId}/groups`);
-      if (!response.ok) throw new Error('Ошибка загрузки групп');
-      
-      const data = await response.json();
-      setGroups(data);
+      setSelectedGroup('');
     } catch (error) {
-      console.error('Error fetching groups:', error);
-      setError('Не удалось загрузить список групп');
-    } finally {
-      setLoading(prev => ({ ...prev, groups: false }));
+      console.error('Ошибка загрузки курсов:', error);
     }
   };
 
+  // Загружаем группы при выборе курса
   useEffect(() => {
-    if (selectedGroup && onGroupSelect) {
-      onGroupSelect(selectedGroup);
-    } else if (!selectedGroup && onGroupSelect) {
-      onGroupSelect(null);
+    if (selectedCourse) {
+      loadGroups(selectedCourse);
+    } else {
+      setGroups([]);
+      setSelectedGroup('');
     }
-  }, [selectedGroup, onGroupSelect]);
+  }, [selectedCourse]);
 
-  const handleBuildingChange = (e) => {
-    setSelectedBuilding(e.target.value);
-    setSelectedCourse('');
-    setSelectedGroup('');
-    setCourses([]);
-    setGroups([]);
+  const loadGroups = async (courseId) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('student_groups')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('group_number');
+
+      if (error) throw error;
+      setGroups(data || []);
+      setSelectedGroup('');
+    } catch (error) {
+      console.error('Ошибка загрузки групп:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleCourseChange = (e) => {
-    setSelectedCourse(e.target.value);
-    setSelectedGroup('');
-    setGroups([]);
-  };
-
-  const handleGroupChange = (e) => {
-    setSelectedGroup(e.target.value);
+  // Обработчик выбора группы
+  const handleGroupSelect = (groupId) => {
+    setSelectedGroup(groupId);
+    onGroupSelect(groupId);
   };
 
   return (
     <div className="space-y-4">
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-          {error}
-          <button 
-            onClick={fetchBuildings}
-            className="ml-2 underline hover:text-red-800"
-          >
-            Обновить
-          </button>
-        </div>
-      )}
-
+      {/* Выбор корпуса */}
       <div>
-        <label className="block text-sm font-medium mb-2 text-gray-700">
-          Корпус {loading.buildings && '⏳'}
-        </label>
-        <select 
-          value={selectedBuilding} 
-          onChange={handleBuildingChange}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-          disabled={loading.buildings}
+        <label className="block text-sm font-medium mb-2">Корпус</label>
+        <select
+          value={selectedBuilding}
+          onChange={(e) => setSelectedBuilding(e.target.value)}
+          className="w-full p-3 border rounded-lg bg-white"
         >
           <option value="">Выберите корпус</option>
-          {buildings.map(building => (
+          {buildings.map((building) => (
             <option key={building.id} value={building.id}>
               {building.name}
             </option>
           ))}
         </select>
-        {!selectedBuilding && buildings.length > 0 && (
-          <p className="text-xs text-gray-500 mt-1">Выберите учебный корпус</p>
-        )}
       </div>
 
+      {/* Выбор курса */}
       <div>
-        <label className="block text-sm font-medium mb-2 text-gray-700">
-          Курс {loading.courses && '⏳'}
-        </label>
-        <select 
-          value={selectedCourse} 
-          onChange={handleCourseChange}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
-          disabled={!selectedBuilding || loading.courses}
+        <label className="block text-sm font-medium mb-2">Курс</label>
+        <select
+          value={selectedCourse}
+          onChange={(e) => setSelectedCourse(e.target.value)}
+          disabled={!selectedBuilding}
+          className="w-full p-3 border rounded-lg bg-white disabled:bg-gray-100"
         >
           <option value="">Выберите курс</option>
-          {courses.map(course => (
+          {courses.map((course) => (
             <option key={course.id} value={course.id}>
-              {course.course_number} курс
+              Курс {course.course_number}
             </option>
           ))}
         </select>
-        {selectedBuilding && !selectedCourse && (
-          <p className="text-xs text-gray-500 mt-1">
-            {courses.length === 0 ? 'Загрузка курсов...' : 'Выберите номер курса'}
-          </p>
-        )}
       </div>
 
+      {/* Выбор группы */}
       <div>
-        <label className="block text-sm font-medium mb-2 text-gray-700">
-          Группа {loading.groups && '⏳'}
-        </label>
-        <select 
-          value={selectedGroup} 
-          onChange={handleGroupChange}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
-          disabled={!selectedCourse || loading.groups}
+        <label className="block text-sm font-medium mb-2">Группа</label>
+        <select
+          value={selectedGroup}
+          onChange={(e) => handleGroupSelect(e.target.value)}
+          disabled={!selectedCourse || loading}
+          className="w-full p-3 border rounded-lg bg-white disabled:bg-gray-100"
         >
           <option value="">Выберите группу</option>
-          {groups.map(group => (
+          {groups.map((group) => (
             <option key={group.id} value={group.id}>
               Группа {group.group_number}
             </option>
           ))}
         </select>
-        {selectedCourse && !selectedGroup && (
-          <p className="text-xs text-gray-500 mt-1">
-            {groups.length === 0 ? 'Загрузка групп...' : 'Выберите учебную группу'}
-          </p>
-        )}
+        {loading && <div className="text-sm text-gray-500 mt-1">Загрузка групп...</div>}
       </div>
 
-      {/* Информация о выборе */}
-      {selectedGroup && (
-        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-center text-green-700">
-            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            <span className="font-medium">Группа выбрана</span>
-          </div>
-        </div>
-      )}
-
-      {/* Отладочная информация (можно удалить в продакшене) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="p-2 bg-gray-100 rounded text-xs text-gray-600">
-          <div><strong>Отладка:</strong></div>
-          <div>Building: {selectedBuilding}</div>
-          <div>Course: {selectedCourse}</div>
-          <div>Group: {selectedGroup}</div>
-          <div>Groups count: {groups.length}</div>
-        </div>
-      )}
+      {/* Отладочная информация */}
+      <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+        <div>Выбрано: Корпус={selectedBuilding}, Курс={selectedCourse}, Группа={selectedGroup}</div>
+        <div>Доступно: Корпусов={buildings.length}, Курсов={courses.length}, Групп={groups.length}</div>
+      </div>
     </div>
   );
 }
