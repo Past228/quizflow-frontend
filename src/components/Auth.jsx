@@ -25,99 +25,94 @@ export default function Auth() {
           return;
         }
 
-        console.log('🚀 РЕГИСТРАЦИЯ:', { email, firstName, lastName, selectedGroupId });
-
-        // 1. РЕГИСТРАЦИЯ С META DATA
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              first_name: firstName,
-              last_name: lastName,
-              group_id: selectedGroupId // ДОБАВЛЯЕМ ГРУППУ СРАЗУ В META DATA
-            }
-          }
+        console.log('🚀 РЕГИСТРАЦИЯ:', { 
+          email, 
+          firstName, 
+          lastName, 
+          selectedGroupId,
+          groupIdType: typeof selectedGroupId
         });
 
-        if (authError) throw authError;
-        if (!authData.user) throw new Error('Пользователь не создан');
+        // 1. РЕГИСТРАЦИЯ В AUTH (БЕЗ META DATA)
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password
+          // Убраны options.data - чтобы не мешать триггеру
+        });
 
-        console.log('✅ ПОЛЬЗОВАТЕЛЬ СОЗДАН:', authData.user.id);
-
-        // 2. ПРОВЕРЯЕМ ТРИГГЕР - если профиль создается автоматически
-        let profile = null;
-        let retries = 5;
-        
-        while (retries > 0) {
-          const { data: profileData, error: profileError } = await supabase
-            .from('profilex') // ИСПРАВЛЕНО: profilex вместо profiles
-            .select('*')
-            .eq('id', authData.user.id)
-            .single();
-
-          if (profileData && !profileError) {
-            profile = profileData;
-            console.log('✅ ПРОФИЛЬ НАЙДЕН:', profile);
-            break;
-          }
-          
-          console.log('⏳ Ожидание создания профиля... попытка', 6 - retries);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          retries--;
+        if (authError) {
+          console.error('❌ Ошибка аутентификации:', authError);
+          throw authError;
         }
 
-        // 3. ЕСЛИ ПРОФИЛЬ НЕ СОЗДАЛСЯ АВТОМАТИЧЕСКИ - СОЗДАЕМ ВРУЧНУЮ
-        if (!profile) {
-          console.log('🛠 Создаем профиль вручную...');
-          const { data: newProfile, error: createError } = await supabase
-            .from('profilex')
-            .insert({
-              id: authData.user.id,
-              first_name: firstName,
-              last_name: lastName,
-              email: email,
-              group_id: selectedGroupId,
-              role: 'student',
-              updated_at: new Date().toISOString()
-            })
-            .select()
-            .single();
+        if (!authData.user) {
+          throw new Error('Пользователь не создан');
+        }
 
-          if (createError) {
-            console.error('❌ Ошибка создания профиля:', createError);
-            throw new Error('Не удалось создать профиль: ' + createError.message);
-          }
+        console.log('✅ ПОЛЬЗОВАТЕЛЬ AUTH СОЗДАН:', authData.user.id);
+
+        // 2. СОЗДАЕМ ПРОФИЛЬ ВРУЧНУЮ В TABLЕ PROFILEX
+        const { data: profileData, error: profileError } = await supabase
+          .from('profilex')
+          .insert({
+            id: authData.user.id,
+            email: email,
+            first_name: firstName,
+            last_name: lastName,
+            group_id: selectedGroupId,
+            role: 'student',
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (profileError) {
+          console.error('❌ Ошибка создания профиля:', profileError);
           
-          profile = newProfile;
-          console.log('✅ ПРОФИЛЬ СОЗДАН ВРУЧНУЮ:', profile);
-        } else {
-          // 4. ОБНОВЛЯЕМ ГРУППУ ЕСЛИ ПРОФИЛЬ УЖЕ БЫЛ
+          // Если ошибка профиля, пробуем обновить существующий (на случай если триггер сработал)
           const { error: updateError } = await supabase
-            .from('profilex') // ИСПРАВЛЕНО: profilex вместо profiles
-            .update({ 
-              group_id: selectedGroupId,
+            .from('profilex')
+            .update({
               first_name: firstName,
               last_name: lastName,
+              group_id: selectedGroupId,
               updated_at: new Date().toISOString()
             })
             .eq('id', authData.user.id);
 
           if (updateError) {
             console.error('❌ Ошибка обновления профиля:', updateError);
-            throw new Error('Данные не сохранены: ' + updateError.message);
+            throw new Error('Не удалось сохранить данные профиля: ' + profileError.message);
           }
-          console.log('✅ ПРОФИЛЬ ОБНОВЛЕН С ГРУППОЙ');
+          
+          console.log('✅ ПРОФИЛЬ ОБНОВЛЕН');
+        } else {
+          console.log('✅ ПРОФИЛЬ СОЗДАН:', profileData);
         }
 
-        console.log('✅ РЕГИСТРАЦИЯ ЗАВЕРШЕНА');
+        // 3. ПРОВЕРЯЕМ ЧТО ПРОФИЛЬ СОХРАНИЛСЯ
+        const { data: finalProfile, error: checkError } = await supabase
+          .from('profilex')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (checkError || !finalProfile) {
+          console.error('❌ Профиль не найден после создания:', checkError);
+          throw new Error('Профиль не был сохранен в базе данных');
+        }
+
+        console.log('✅ ФИНАЛЬНЫЙ ПРОФИЛЬ:', finalProfile);
         setMessage('✅ Регистрация успешна! Проверьте email для подтверждения.');
         resetForm();
 
       } else {
         // ВХОД
         console.log('🔑 ВХОД:', email);
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ 
+          email, 
+          password 
+        });
         if (error) throw error;
         setMessage('✅ Вход выполнен!');
       }
@@ -205,7 +200,9 @@ export default function Auth() {
               
               {selectedGroupId && (
                 <div className="mt-3 p-3 bg-green-50 rounded-lg">
-                  <span className="text-green-700">✅ Группа выбрана</span>
+                  <span className="text-green-700">
+                    ✅ Группа выбрана (ID: {selectedGroupId})
+                  </span>
                 </div>
               )}
             </div>
@@ -215,9 +212,9 @@ export default function Auth() {
         <button
           type="submit"
           disabled={loading || (isSignUp && !selectedGroupId)}
-          className="w-full bg-blue-600 text-white p-3 rounded-lg disabled:bg-gray-400"
+          className="w-full bg-blue-600 text-white p-3 rounded-lg disabled:bg-gray-400 hover:bg-blue-700 transition-colors"
         >
-          {loading ? '⏳' : (isSignUp ? 'Зарегистрироваться' : 'Войти')}
+          {loading ? '⏳ Обработка...' : (isSignUp ? 'Зарегистрироваться' : 'Войти')}
         </button>
       </form>
 
@@ -228,9 +225,9 @@ export default function Auth() {
             setMessage('');
             resetForm();
           }}
-          className="text-blue-600 underline"
+          className="text-blue-600 underline hover:text-blue-800"
         >
-          {isSignUp ? 'Войти' : 'Зарегистрироваться'}
+          {isSignUp ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
         </button>
       </div>
     </div>
