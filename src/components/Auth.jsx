@@ -34,7 +34,8 @@ export default function Auth() {
           options: {
             data: {
               first_name: firstName,
-              last_name: lastName
+              last_name: lastName,
+              group_id: selectedGroupId // ДОБАВЛЯЕМ ГРУППУ СРАЗУ В META DATA
             }
           }
         });
@@ -44,36 +45,72 @@ export default function Auth() {
 
         console.log('✅ ПОЛЬЗОВАТЕЛЬ СОЗДАН:', authData.user.id);
 
-        // 2. ЖДЕМ 3 СЕКУНДЫ для создания профиля через триггер
-        console.log('⏳ Ожидание создания профиля...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // 2. ПРОВЕРЯЕМ ТРИГГЕР - если профиль создается автоматически
+        let profile = null;
+        let retries = 5;
+        
+        while (retries > 0) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profilex') // ИСПРАВЛЕНО: profilex вместо profiles
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
 
-        // 3. ПРОВЕРЯЕМ СОЗДАЛСЯ ЛИ ПРОФИЛЬ
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
-
-        if (profileError || !profile) {
-          console.error('❌ Профиль не создан автоматически');
-          throw new Error('Профиль не создан. Обратитесь к администратору.');
+          if (profileData && !profileError) {
+            profile = profileData;
+            console.log('✅ ПРОФИЛЬ НАЙДЕН:', profile);
+            break;
+          }
+          
+          console.log('⏳ Ожидание создания профиля... попытка', 6 - retries);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          retries--;
         }
 
-        console.log('✅ ПРОФИЛЬ СОЗДАН:', profile);
+        // 3. ЕСЛИ ПРОФИЛЬ НЕ СОЗДАЛСЯ АВТОМАТИЧЕСКИ - СОЗДАЕМ ВРУЧНУЮ
+        if (!profile) {
+          console.log('🛠 Создаем профиль вручную...');
+          const { data: newProfile, error: createError } = await supabase
+            .from('profilex')
+            .insert({
+              id: authData.user.id,
+              first_name: firstName,
+              last_name: lastName,
+              email: email,
+              group_id: selectedGroupId,
+              role: 'student',
+              updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
 
-        // 4. ОБНОВЛЯЕМ ГРУППУ
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ group_id: selectedGroupId })
-          .eq('id', authData.user.id);
+          if (createError) {
+            console.error('❌ Ошибка создания профиля:', createError);
+            throw new Error('Не удалось создать профиль: ' + createError.message);
+          }
+          
+          profile = newProfile;
+          console.log('✅ ПРОФИЛЬ СОЗДАН ВРУЧНУЮ:', profile);
+        } else {
+          // 4. ОБНОВЛЯЕМ ГРУППУ ЕСЛИ ПРОФИЛЬ УЖЕ БЫЛ
+          const { error: updateError } = await supabase
+            .from('profilex') // ИСПРАВЛЕНО: profilex вместо profiles
+            .update({ 
+              group_id: selectedGroupId,
+              first_name: firstName,
+              last_name: lastName,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', authData.user.id);
 
-        if (updateError) {
-          console.error('❌ Ошибка обновления группы:', updateError);
-          throw new Error('Группа не сохранена: ' + updateError.message);
+          if (updateError) {
+            console.error('❌ Ошибка обновления профиля:', updateError);
+            throw new Error('Данные не сохранены: ' + updateError.message);
+          }
+          console.log('✅ ПРОФИЛЬ ОБНОВЛЕН С ГРУППОЙ');
         }
 
-        console.log('✅ ГРУППА СОХРАНЕНА');
+        console.log('✅ РЕГИСТРАЦИЯ ЗАВЕРШЕНА');
         setMessage('✅ Регистрация успешна! Проверьте email для подтверждения.');
         resetForm();
 
