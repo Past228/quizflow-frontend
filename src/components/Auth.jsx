@@ -19,79 +19,85 @@ export default function Auth() {
 
     try {
       if (isSignUp) {
-        // ВАЖНО: Проверяем, что группа выбрана
+        // ВАЖНО: Проверяем что группа выбрана
         if (!selectedGroupId) {
-          setMessage('Ошибка: Выберите учебную группу');
+          setMessage('❌ Ошибка: Выберите учебную группу');
           setLoading(false);
           return;
         }
 
-        console.log('Начало регистрации:', { email, firstName, lastName, selectedGroupId });
-
-        // 1. Регистрация в Supabase Auth
-        const { data, error } = await supabase.auth.signUp({
+        console.log('🚀 ДАННЫЕ РЕГИСТРАЦИИ:', {
           email,
-          password,
-          options: {
-            data: {
-              first_name: firstName,
-              last_name: lastName,
-              role: 'student'
-            }
-          }
+          firstName, 
+          lastName,
+          selectedGroupId,
+          groupIdType: typeof selectedGroupId
         });
 
-        if (error) {
-          console.error('Ошибка регистрации:', error);
-          setMessage('Ошибка регистрации: ' + error.message);
+        // 1. СОЗДАЕМ ПОЛЬЗОВАТЕЛЯ (упрощенная версия)
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password
+        });
+
+        if (authError) {
+          console.error('❌ ОШИБКА АУТЕНТИФИКАЦИИ:', authError);
+          setMessage('Ошибка регистрации: ' + authError.message);
           return;
         }
 
-        if (data.user) {
-          console.log('Пользователь создан, ID:', data.user.id);
+        if (!authData.user) {
+          setMessage('Ошибка: Пользователь не создан');
+          return;
+        }
+
+        console.log('✅ ПОЛЬЗОВАТЕЛЬ СОЗДАН:', authData.user.id);
+
+        // 2. ЖДЕМ 1 СЕКУНДУ чтобы триггер создал профиль
+        console.log('⏳ Ожидание создания профиля...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // 3. ОБНОВЛЯЕМ ПРОФИЛЬ С ГРУППОЙ
+        console.log('🔄 ОБНОВЛЕНИЕ ПРОФИЛЯ С group_id:', selectedGroupId);
+        
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            group_id: selectedGroupId,  // Прямое использование значения
+            first_name: firstName,
+            last_name: lastName
+          })
+          .eq('id', authData.user.id);
+
+        if (updateError) {
+          console.error('❌ ОШИБКА ОБНОВЛЕНИЯ ПРОФИЛЯ:', updateError);
           
-          // 2. Ждем создания профиля через триггер (2 секунды)
-          console.log('Ожидание создания профиля...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // 3. Обновляем профиль с выбранной группой
-          console.log('Обновление профиля с group_id:', selectedGroupId);
-          const { error: profileError } = await supabase
+          // 4. ЕСЛИ ОБНОВЛЕНИЕ НЕ УДАЛОСЬ - СОЗДАЕМ ПРОФИЛЬ ВРУЧНУЮ
+          console.log('🔄 СОЗДАНИЕ ПРОФИЛЯ ВРУЧНУЮ...');
+          const { error: insertError } = await supabase
             .from('profiles')
-            .update({ 
+            .insert({
+              id: authData.user.id,
+              first_name: firstName,
+              last_name: lastName,
+              role: 'student',
               group_id: selectedGroupId
-            })
-            .eq('id', data.user.id);
+            });
 
-          if (profileError) {
-            console.error('Ошибка обновления профиля:', profileError);
-            
-            // 4. Если обновление не удалось, пробуем вставить новый профиль
-            console.log('Попытка создания профиля вручную...');
-            const { error: insertError } = await supabase
-              .from('profiles')
-              .insert({
-                id: data.user.id,
-                first_name: firstName,
-                last_name: lastName,
-                role: 'student',
-                group_id: selectedGroupId
-              });
-
-            if (insertError) {
-              console.error('Ошибка создания профиля:', insertError);
-              setMessage('Ошибка при сохранении данных: ' + insertError.message);
-            } else {
-              console.log('Профиль создан вручную успешно');
-              setMessage('Регистрация успешна! Проверьте вашу почту для подтверждения.');
-              resetForm();
-            }
+          if (insertError) {
+            console.error('❌ ОШИБКА СОЗДАНИЯ ПРОФИЛЯ:', insertError);
+            setMessage('Критическая ошибка: ' + insertError.message);
           } else {
-            console.log('Профиль обновлен успешно');
-            setMessage('Регистрация успешна! Проверьте вашу почту для подтверждения.');
+            console.log('✅ ПРОФИЛЬ СОЗДАН ВРУЧНУЮ');
+            setMessage('✅ Регистрация успешна! Проверьте почту.');
             resetForm();
           }
+        } else {
+          console.log('✅ ПРОФИЛЬ ОБНОВЛЕН УСПЕШНО');
+          setMessage('✅ Регистрация успешна! Проверьте почту.');
+          resetForm();
         }
+
       } else {
         // Вход (без изменений)
         const { error } = await supabase.auth.signInWithPassword({ 
@@ -103,7 +109,7 @@ export default function Auth() {
         }
       }
     } catch (error) {
-      console.error('Общая ошибка:', error);
+      console.error('💥 НЕОЖИДАННАЯ ОШИБКА:', error);
       setMessage('Произошла ошибка: ' + error.message);
     } finally {
       setLoading(false);
@@ -127,7 +133,7 @@ export default function Auth() {
       
       {message && (
         <div className={`p-3 rounded mb-4 ${
-          message.includes('успешна') ? 'bg-green-100 text-green-800 border border-green-200' : 
+          message.includes('✅') ? 'bg-green-100 text-green-800 border border-green-200' : 
           'bg-red-100 text-red-800 border border-red-200'
         }`}>
           {message}
@@ -190,7 +196,6 @@ export default function Auth() {
               <h3 className="text-lg font-medium mb-3 text-gray-800">Выбор учебной группы</h3>
               <GroupSelector onGroupSelect={setSelectedGroupId} />
               
-              {/* Индикатор выбранной группы */}
               {selectedGroupId && (
                 <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700">
                   <div className="flex items-center">
