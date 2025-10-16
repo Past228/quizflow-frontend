@@ -13,83 +13,102 @@ export default function Auth() {
   const [message, setMessage] = useState('');
 
   const handleAuth = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setMessage('');
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
 
-  try {
-    if (isSignUp) {
-      // Регистрация
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-            role: 'student'
-          }
+    try {
+      if (isSignUp) {
+        // ВАЖНО: Проверяем, что группа выбрана
+        if (!selectedGroupId) {
+          setMessage('Ошибка: Выберите учебную группу');
+          setLoading(false);
+          return;
         }
-      });
 
-      if (error) {
-        setMessage('Ошибка регистрации: ' + error.message);
-      } else if (data.user) {
-        // ВАЖНО: Ждем немного чтобы профиль создался через триггер
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Обновляем профиль с выбранной группой
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ 
-            group_id: selectedGroupId,
-            first_name: firstName,
-            last_name: lastName
-          })
-          .eq('id', data.user.id);
+        console.log('Начало регистрации:', { email, firstName, lastName, selectedGroupId });
 
-        if (profileError) {
-          console.error('Profile update error:', profileError);
-          
-          // Пробуем создать профиль вручную если триггер не сработал
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert({
-              id: data.user.id,
+        // 1. Регистрация в Supabase Auth
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
               first_name: firstName,
               last_name: lastName,
-              role: 'student',
-              group_id: selectedGroupId
-            });
+              role: 'student'
+            }
+          }
+        });
 
-          if (insertError) {
-            setMessage('Ошибка при сохранении профиля: ' + insertError.message);
+        if (error) {
+          console.error('Ошибка регистрации:', error);
+          setMessage('Ошибка регистрации: ' + error.message);
+          return;
+        }
+
+        if (data.user) {
+          console.log('Пользователь создан, ID:', data.user.id);
+          
+          // 2. Ждем создания профиля через триггер (2 секунды)
+          console.log('Ожидание создания профиля...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // 3. Обновляем профиль с выбранной группой
+          console.log('Обновление профиля с group_id:', selectedGroupId);
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ 
+              group_id: selectedGroupId
+            })
+            .eq('id', data.user.id);
+
+          if (profileError) {
+            console.error('Ошибка обновления профиля:', profileError);
+            
+            // 4. Если обновление не удалось, пробуем вставить новый профиль
+            console.log('Попытка создания профиля вручную...');
+            const { error: insertError } = await supabase
+              .from('profiles')
+              .insert({
+                id: data.user.id,
+                first_name: firstName,
+                last_name: lastName,
+                role: 'student',
+                group_id: selectedGroupId
+              });
+
+            if (insertError) {
+              console.error('Ошибка создания профиля:', insertError);
+              setMessage('Ошибка при сохранении данных: ' + insertError.message);
+            } else {
+              console.log('Профиль создан вручную успешно');
+              setMessage('Регистрация успешна! Проверьте вашу почту для подтверждения.');
+              resetForm();
+            }
           } else {
+            console.log('Профиль обновлен успешно');
             setMessage('Регистрация успешна! Проверьте вашу почту для подтверждения.');
             resetForm();
           }
-        } else {
-          setMessage('Регистрация успешна! Проверьте вашу почту для подтверждения.');
-          resetForm();
+        }
+      } else {
+        // Вход (без изменений)
+        const { error } = await supabase.auth.signInWithPassword({ 
+          email, 
+          password 
+        });
+        if (error) {
+          setMessage('Ошибка входа: ' + error.message);
         }
       }
-    } else {
-      // Вход
-      const { error } = await supabase.auth.signInWithPassword({ 
-        email, 
-        password 
-      });
-      if (error) {
-        setMessage('Ошибка входа: ' + error.message);
-      }
+    } catch (error) {
+      console.error('Общая ошибка:', error);
+      setMessage('Произошла ошибка: ' + error.message);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Auth error:', error);
-    setMessage('Произошла ошибка: ' + error.message);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const resetForm = () => {
     setEmail('');
@@ -178,7 +197,7 @@ export default function Auth() {
                     <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
-                    <span className="font-medium">Группа выбрана</span>
+                    <span className="font-medium">Группа выбрана (ID: {selectedGroupId})</span>
                   </div>
                 </div>
               )}
@@ -208,7 +227,7 @@ export default function Auth() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Загрузка...
+              Регистрация...
             </>
           ) : (
             isSignUp ? 'Зарегистрироваться' : 'Войти'
