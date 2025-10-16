@@ -58,7 +58,7 @@ export default function Auth() {
           selectedGroupId 
         });
 
-        // 1. ПРОСТАЯ РЕГИСТРАЦИЯ БЕЗ СЛОЖНОЙ ЛОГИКИ
+        // 1. РЕГИСТРАЦИЯ
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
           password,
@@ -85,11 +85,48 @@ export default function Auth() {
 
         console.log('✅ ПОЛЬЗОВАТЕЛЬ СОЗДАН:', authData.user.id);
 
-        // 2. НЕ ДЕЛАЕМ ВХОД И НЕ ПРОВЕРЯЕМ ПРОФИЛЬ СРАЗУ
-        // Профиль создастся через триггер, группа сохранится в meta data
-        
-        console.log('✅ РЕГИСТРАЦИЯ УСПЕШНА');
-        setMessage('✅ Регистрация успешна! Проверьте email для подтверждения. После подтверждения вы сможете войти в систему.');
+        // 2. ЖДЕМ и ПРОВЕРЯЕМ создание профиля
+        console.log('⏳ Ожидаем создания профиля...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // 3. ПРОВЕРЯЕМ СОЗДАЛСЯ ЛИ ПРОФИЛЬ
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileError || !profile) {
+          console.log('❌ Профиль не создан автоматически');
+          throw new Error('Профиль не создан. Обратитесь к администратору.');
+        }
+
+        console.log('✅ ПРОФИЛЬ СОЗДАН:', profile);
+
+        // 4. ПРОВЕРЯЕМ СОХРАНИЛАСЬ ЛИ ГРУППА
+        if (profile.group_id !== parseInt(selectedGroupId)) {
+          console.log('🔄 Группа не сохранилась, обновляем...');
+          
+          // Пробуем обновить группу
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ 
+              group_id: selectedGroupId,
+              first_name: firstName,
+              last_name: lastName 
+            })
+            .eq('id', authData.user.id);
+
+          if (updateError) {
+            console.error('❌ Ошибка обновления профиля:', updateError);
+            throw new Error('Данные группы не сохранились: ' + updateError.message);
+          }
+          
+          console.log('✅ ГРУППА ОБНОВЛЕНА');
+        }
+
+        console.log('✅ РЕГИСТРАЦИЯ ЗАВЕРШЕНА');
+        setMessage('✅ Регистрация успешна! Проверьте email для подтверждения.');
         resetForm();
 
       } else {
@@ -250,7 +287,7 @@ export default function Auth() {
                 <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
                   <span className="text-green-700 flex items-center">
                     <span className="mr-2">✅</span>
-                    Группа выбрана
+                    Группа выбрана (ID: {selectedGroupId})
                   </span>
                 </div>
               ) : (
