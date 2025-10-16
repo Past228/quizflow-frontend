@@ -13,73 +13,83 @@ export default function Auth() {
   const [message, setMessage] = useState('');
 
   const handleAuth = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage('');
+  e.preventDefault();
+  setLoading(true);
+  setMessage('');
 
-    try {
-      if (isSignUp) {
-        // Регистрация
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
+  try {
+    if (isSignUp) {
+      // Регистрация
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            role: 'student'
+          }
+        }
+      });
+
+      if (error) {
+        setMessage('Ошибка регистрации: ' + error.message);
+      } else if (data.user) {
+        // ВАЖНО: Ждем немного чтобы профиль создался через триггер
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Обновляем профиль с выбранной группой
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ 
+            group_id: selectedGroupId,
+            first_name: firstName,
+            last_name: lastName
+          })
+          .eq('id', data.user.id);
+
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          
+          // Пробуем создать профиль вручную если триггер не сработал
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: data.user.id,
               first_name: firstName,
               last_name: lastName,
-              role: 'student'
-            }
-          }
-        });
+              role: 'student',
+              group_id: selectedGroupId
+            });
 
-        if (error) {
-          setMessage('Ошибка регистрации: ' + error.message);
-        } else if (data.user) {
-          // Обновляем профиль с выбранной группой и дополнительными данными
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({ 
-              group_id: selectedGroupId,
-              first_name: firstName,
-              last_name: lastName
-            })
-            .eq('id', data.user.id);
-
-          if (profileError) {
-            console.error('Profile update error:', profileError);
-            setMessage('Ошибка при сохранении профиля: ' + profileError.message);
-            
-            // Показываем успех, но с предупреждением о группе
-            if (profileError.message.includes('group_id')) {
-              setMessage('Регистрация успешна, но группа не сохранена. Обратитесь к администратору.');
-            }
+          if (insertError) {
+            setMessage('Ошибка при сохранении профиля: ' + insertError.message);
           } else {
             setMessage('Регистрация успешна! Проверьте вашу почту для подтверждения.');
-            // Очищаем форму
-            setEmail('');
-            setPassword('');
-            setFirstName('');
-            setLastName('');
-            setSelectedGroupId(null);
+            resetForm();
           }
-        }
-      } else {
-        // Вход
-        const { error } = await supabase.auth.signInWithPassword({ 
-          email, 
-          password 
-        });
-        if (error) {
-          setMessage('Ошибка входа: ' + error.message);
+        } else {
+          setMessage('Регистрация успешна! Проверьте вашу почту для подтверждения.');
+          resetForm();
         }
       }
-    } catch (error) {
-      console.error('Auth error:', error);
-      setMessage('Произошла ошибка: ' + error.message);
-    } finally {
-      setLoading(false);
+    } else {
+      // Вход
+      const { error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
+      if (error) {
+        setMessage('Ошибка входа: ' + error.message);
+      }
     }
-  };
+  } catch (error) {
+    console.error('Auth error:', error);
+    setMessage('Произошла ошибка: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const resetForm = () => {
     setEmail('');
