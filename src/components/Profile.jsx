@@ -7,6 +7,7 @@ export default function Profile({ session }) {
   const [loading, setLoading] = useState(true);
   const [testsLoading, setTestsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [profileNotFound, setProfileNotFound] = useState(false);
 
   useEffect(() => {
     getProfile();
@@ -22,6 +23,7 @@ export default function Profile({ session }) {
     try {
       setLoading(true);
       setError(null);
+      setProfileNotFound(false);
       
       const { data, error } = await supabase
         .from('profiles')
@@ -43,6 +45,14 @@ export default function Profile({ session }) {
 
       if (error) {
         console.error('Supabase error:', error);
+        
+        // Проверяем, является ли ошибка "профиль не найден"
+        if (error.code === 'PGRST116' || error.message.includes('No rows found')) {
+          setProfileNotFound(true);
+          setError('Профиль не найден в базе данных');
+          return;
+        }
+        
         setError('Ошибка загрузки профиля: ' + error.message);
         return;
       }
@@ -94,6 +104,84 @@ export default function Profile({ session }) {
     }
   }
 
+  const handleRecreateProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: session.user.id,
+          email: session.user.email,
+          first_name: 'Новый',
+          last_name: 'Пользователь',
+          role: 'student',
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      // Перезагружаем профиль
+      await getProfile();
+      
+    } catch (error) {
+      console.error('Ошибка создания профиля:', error);
+      setError('Не удалось создать профиль: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // Случай когда профиль не найден в базе
+  if (profileNotFound) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-lg">
+          <div className="text-center">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Профиль не найден</h2>
+            <p className="text-gray-600 mb-6">
+              Ваш аккаунт есть в системе, но профиль не был создан или был удален.
+            </p>
+            
+            <div className="space-y-3">
+              <button
+                onClick={handleRecreateProfile}
+                disabled={loading}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Создание...
+                  </div>
+                ) : (
+                  'Создать новый профиль'
+                )}
+              </button>
+              
+              <button
+                onClick={handleSignOut}
+                className="w-full bg-gray-500 text-white py-3 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Выйти и зарегистрироваться заново
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
@@ -108,18 +196,26 @@ export default function Profile({ session }) {
     </div>
   );
 
-  if (error) return (
+  if (error && !profileNotFound) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full p-6 bg-white border border-red-200 rounded-lg shadow-lg">
         <div className="text-red-600 text-center">
           <h2 className="text-xl font-bold mb-4">Ошибка загрузки профиля</h2>
           <p className="mb-4">{error}</p>
-          <button 
-            onClick={getProfile}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition duration-200"
-          >
-            Повторить попытку
-          </button>
+          <div className="space-y-2">
+            <button 
+              onClick={getProfile}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition duration-200"
+            >
+              Повторить попытку
+            </button>
+            <button 
+              onClick={handleSignOut}
+              className="w-full bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition duration-200"
+            >
+              Выйти
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -281,7 +377,7 @@ export default function Profile({ session }) {
             {/* Кнопка выхода */}
             <div className="border-t mt-8 pt-6">
               <button
-                onClick={() => supabase.auth.signOut()}
+                onClick={handleSignOut}
                 className="w-full bg-red-600 hover:bg-red-700 text-white p-4 rounded-lg transition duration-200 font-semibold flex items-center justify-center"
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
