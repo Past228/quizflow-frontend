@@ -228,6 +228,11 @@
             font-weight: 600;
             margin-bottom: 4px;
         }
+
+        /* Скрываем элементы полностью */
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -268,15 +273,15 @@
             <div class="form-section" id="personalInfoSection">
                 <div class="form-group">
                     <label for="lastName">Фамилия:</label>
-                    <!-- ИСПРАВЛЕНО: правильные кавычки и имена -->
-                    <input type="text" id="lastName" name="lastName" required placeholder="Введите вашу фамилию">
+                    <!-- УБРАЛИ required - будет добавляться динамически -->
+                    <input type="text" id="lastName" name="lastName" placeholder="Введите вашу фамилию">
                     <div class="error-text" id="lastNameError"></div>
                 </div>
 
                 <div class="form-group">
                     <label for="firstName">Имя:</label>
-                    <!-- ИСПРАВЛЕНО: правильные кавычки и имена -->
-                    <input type="text" id="firstName" name="firstName" required placeholder="Введите ваше имя">
+                    <!-- УБРАЛИ required - будет добавляться динамически -->
+                    <input type="text" id="firstName" name="firstName" placeholder="Введите ваше имя">
                     <div class="error-text" id="firstNameError"></div>
                 </div>
             </div>

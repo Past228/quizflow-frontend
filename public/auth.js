@@ -248,12 +248,27 @@ function updateUIForAuthMode() {
         elements.toggleAuthBtn.textContent = 'Уже есть аккаунт? Войти';
         elements.personalInfoSection.style.display = 'block';
         elements.groupSection.style.display = 'block';
+        
+        // Добавляем required для регистрации
+        elements.firstName.setAttribute('required', '');
+        elements.lastName.setAttribute('required', '');
+        elements.building.setAttribute('required', '');
+        elements.course.setAttribute('required', '');
+        elements.group.setAttribute('required', '');
+        
     } else {
         elements.formTitle.textContent = 'Вход';
         elements.submitBtn.textContent = 'Войти';
         elements.toggleAuthBtn.textContent = 'Нет аккаунта? Зарегистрироваться';
         elements.personalInfoSection.style.display = 'none';
         elements.groupSection.style.display = 'none';
+        
+        // Убираем required для входа
+        elements.firstName.removeAttribute('required');
+        elements.lastName.removeAttribute('required');
+        elements.building.removeAttribute('required');
+        elements.course.removeAttribute('required');
+        elements.group.removeAttribute('required');
     }
 }
 
