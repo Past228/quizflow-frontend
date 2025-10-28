@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabaseClient'
-import Auth from './components/Auth'
+import AuthWithHTML from './components/AuthWithHTML';
 import Profile from './components/Profile'
 
 function App() {

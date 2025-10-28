@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuizFlow - Регистрация</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: white;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #111827;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .leader-text {
+            font-size: 18px;
+            color: #374151;
+        }
+
+        .login-btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .login-btn:hover {
+            background: #1d4ed8;
+        }
+
+        /* Main Content */
+        .main {
+            max-width: 400px;
+            margin: 32px auto;
+            padding: 0 16px;
+        }
+
+        .form-title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 32px;
+        }
+
+        /* Form Styles */
+        .form-section {
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin-top: 16px;
+            transition: background-color 0.2s;
+        }
+
+        .submit-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .submit-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .toggle-auth {
+            text-align: center;
+            margin-top: 24px;
+        }
+
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: #2563eb;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: underline;
+        }
+
+        .toggle-btn:hover {
+            color: #1d4ed8;
+        }
+
+        /* Messages */
+        .message {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .message.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .error-text {
+            color: #dc2626;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        /* Group Selection */
+        .group-section {
+            border-top: 1px solid #e5e7eb;
+            padding-top: 24px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 16px;
+        }
+
+        .group-success {
+            background: #dcfce7;
+            color: #166534;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 16px;
+            border: 1px solid #bbf7d0;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Debug Info */
+        .debug-info {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 16px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .debug-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">QuizFlow</div>
+        <div class="header-right">
+            <span class="leader-text">Лидерброд</span>
+            <button class="login-btn" id="loginBtn">Войти</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <h2 class="form-title" id="formTitle">Регистрация</h2>
+
+        <!-- Messages -->
+        <div id="messageContainer"></div>
+
+        <!-- Auth Form -->
+        <form id="authForm">
+            <!-- Email & Password Section -->
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required placeholder="Введите ваш email">
+                    <div class="error-text" id="emailError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Пароль:</label>
+                    <input type="password" id="password" name="password" required placeholder="Введите ваш пароль" minlength="6">
+                    <div class="error-text" id="passwordError"></div>
+                </div>
+            </div>
+
+            <!-- Personal Info Section -->
+            <div class="form-section" id="personalInfoSection">
+                <div class="form-group">
+                    <label for="lastName">Фамилия:</label>
+                    <input type="text" id="lastName" name="lastName" required placeholder="Введите вашу фамилию">
+                    <div class="error-text" id="lastNameError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="firstName">Имя:</label>
+                    <input type="text" id="firstName" name="firstName" required placeholder="Введите ваше имя">
+                    <div class="error-text" id="firstNameError"></div>
+                </div>
+            </div>
+
+            <!-- Group Selection Section -->
+            <div class="group-section" id="groupSection">
+                <h3 class="section-title">Выбор учебной группы</h3>
+                
+                <!-- Group Selector -->
+                <div id="groupSelector">
+                    <div class="form-group">
+                        <label for="building">Корпус</label>
+                        <select id="building" name="building">
+                            <option value="">Выберите корпус</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="course">Курс</label>
+                        <select id="course" name="course" disabled>
+                            <option value="">Сначала выберите корпус</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="group">Группа</label>
+                        <select id="group" name="group" disabled>
+                            <option value="">Сначала выберите курс</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="error-text" id="groupError"></div>
+                
+                <div id="groupSuccess" class="group-success" style="display: none;">
+                    Группа успешно выбрана
+                </div>
+
+                <!-- Debug Info -->
+                <div class="debug-info">
+                    <div class="debug-title">Отладочная информация:</div>
+                    <div>Выбрано: Корпус=<span id="debugBuilding">нет</span>, Курс=<span id="debugCourse">нет</span>, Группа=<span id="debugGroup">нет</span></div>
+                    <div>Доступно: Корпусов=<span id="debugBuildingsCount">0</span>, Курсов=<span id="debugCoursesCount">0</span>, Групп=<span id="debugGroupsCount">0</span></div>
+                    <div>Загрузка: <span id="debugLoading">{"buildings":false,"courses":false,"groups":false}</span></div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="submit-btn" id="submitBtn">
+                Зарегистрироваться
+            </button>
+        </form>
+
+        <!-- Toggle Auth -->
+        <div class="toggle-auth">
+            <button class="toggle-btn" id="toggleAuthBtn">
+                Уже есть аккаунт? Войти
+            </button>
+        </div>
+    </main>
+
+    <script>
+        // State management
+        let state = {
+            isSignUp: true,
+            loading: false,
+            buildings: [],
+            courses: [],
+            groups: [],
+            selectedBuilding: '',
+            selectedCourse: '',
+            selectedGroup: '',
+            loadingStates: {
+                buildings: false,
+                courses: false,
+                groups: false
+            }
+        };
+
+        // DOM Elements
+        const elements = {
+            formTitle: document.getElementById('formTitle'),
+            messageContainer: document.getElementById('messageContainer'),
+            authForm: document.getElementById('authForm'),
+            personalInfoSection: document.getElementById('personalInfoSection'),
+            groupSection: document.getElementById('groupSection'),
+            submitBtn: document.getElementById('submitBtn'),
+            toggleAuthBtn: document.getElementById('toggleAuthBtn'),
+            loginBtn: document.getElementById('loginBtn'),
+            
+            // Input fields
+            email: document.getElementById('email'),
+            password: document.getElementById('password'),
+            firstName: document.getElementById('firstName'),
+            lastName: document.getElementById('lastName'),
+            
+            // Group selects
+            building: document.getElementById('building'),
+            course: document.getElementById('course'),
+            group: document.getElementById('group'),
+            
+            // Error displays
+            emailError: document.getElementById('emailError'),
+            passwordError: document.getElementById('passwordError'),
+            firstNameError: document.getElementById('firstNameError'),
+            lastNameError: document.getElementById('lastNameError'),
+            groupError: document.getElementById('groupError'),
+            
+            // Success message
+            groupSuccess: document.getElementById('groupSuccess'),
+            
+            // Debug info
+            debugBuilding: document.getElementById('debugBuilding'),
+            debugCourse: document.getElementById('debugCourse'),
+            debugGroup: document.getElementById('debugGroup'),
+            debugBuildingsCount: document.getElementById('debugBuildingsCount'),
+            debugCoursesCount: document.getElementById('debugCoursesCount'),
+            debugGroupsCount: document.getElementById('debugGroupsCount'),
+            debugLoading: document.getElementById('debugLoading')
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            loadBuildings();
+        });
+
+        function initializeEventListeners() {
+            // Form submission
+            elements.authForm.addEventListener('submit', handleFormSubmit);
+            
+            // Toggle between sign up and sign in
+            elements.toggleAuthBtn.addEventListener('click', handleToggleAuth);
+            elements.loginBtn.addEventListener('click', handleLoginClick);
+            
+            // Group selection
+            elements.building.addEventListener('change', handleBuildingChange);
+            elements.course.addEventListener('change', handleCourseChange);
+            elements.group.addEventListener('change', handleGroupChange);
+        }
+
+        // Communication with React parent
+        function sendMessageToParent(message) {
+            if (window.parent && window.parent.postMessage) {
+                window.parent.postMessage(message, '*');
+            }
+        }
+
+        // Message handlers will be implemented in React component
+    </script>
+</body>
+</html>
