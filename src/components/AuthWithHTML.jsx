@@ -58,7 +58,7 @@ export default function AuthWithHTML() {
             if (Object.keys(errors).length > 0) {
                 sendMessageToIframe({
                     type: 'VALIDATION_ERRORS',
-                    data: { errors } // ИСПРАВЛЕНО: добавил data
+                    data: { errors }
                 });
                 return;
             }
@@ -72,7 +72,7 @@ export default function AuthWithHTML() {
             console.error('Auth error:', error);
             sendMessageToIframe({
                 type: 'AUTH_ERROR',
-                data: { message: error.message } // ИСПРАВЛЕНО: добавил data
+                data: { message: error.message }
             });
         } finally {
             setLoading(false);
@@ -105,30 +105,36 @@ export default function AuthWithHTML() {
             throw new Error('Не удалось создать пользователя');
         }
 
-        // Ждем создания профиля
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Проверяем создание профиля
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authData.user.id)
-            .single();
-
-        if (profileError || !profile) {
-            throw new Error('Профиль не создан. Обратитесь к администратору.');
-        }
-
+        // УСПЕШНАЯ РЕГИСТРАЦИЯ - показываем сообщение о подтверждении почты
         sendMessageToIframe({
             type: 'AUTH_SUCCESS',
-            data: { message: 'Регистрация успешна! Проверьте email для подтверждения.' } // ИСПРАВЛЕНО: добавил data
+            data: { 
+                message: 'Регистрация успешна! Пожалуйста, проверьте вашу электронную почту для подтверждения учетной записи перед входом.' 
+            }
         });
+
+        // Дополнительная проверка профиля (не блокирующая)
+        setTimeout(async () => {
+            try {
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', authData.user.id)
+                    .single();
+
+                if (profileError || !profile) {
+                    console.warn('Профиль не создан автоматически');
+                }
+            } catch (error) {
+                console.error('Error checking profile:', error);
+            }
+        }, 2000);
     };
 
     const handleSignIn = async (formData) => {
         console.log('Sign in with:', formData);
 
-        const { error } = await supabase.auth.signInWithPassword({ 
+        const { data, error } = await supabase.auth.signInWithPassword({ 
             email: formData.email, 
             password: formData.password 
         });
@@ -137,28 +143,31 @@ export default function AuthWithHTML() {
             if (error.message.includes('Invalid login credentials')) {
                 throw new Error('Неверный email или пароль');
             } else if (error.message.includes('Email not confirmed')) {
-                throw new Error('Email не подтвержден. Проверьте вашу почту');
+                throw new Error('Email не подтвержден. Пожалуйста, проверьте вашу почту и подтвердите учетную запись перед входом.');
+            } else if (error.message.includes('Email not verified')) {
+                throw new Error('Email не подтвержден. Пожалуйста, проверьте вашу почту и подтвердите учетную запись.');
             }
             throw error;
         }
         
+        // Успешный вход
         sendMessageToIframe({
             type: 'AUTH_SUCCESS',
-            data: { message: 'Вход выполнен!' } // ИСПРАВЛЕНО: добавил data
+            data: { message: 'Вход выполнен успешно!' }
         });
     };
 
     const handleToggleAuth = (data) => {
         sendMessageToIframe({
             type: 'SET_AUTH_MODE',
-            data: { isSignUp: data.isSignUp } // ИСПРАВЛЕНО: добавил data
+            data: { isSignUp: data.isSignUp }
         });
     };
 
     const handleLoginButtonClick = () => {
         sendMessageToIframe({
             type: 'SET_AUTH_MODE',
-            data: { isSignUp: false } // ИСПРАВЛЕНО: добавил data
+            data: { isSignUp: false }
         });
     };
 
@@ -166,7 +175,7 @@ export default function AuthWithHTML() {
         try {
             sendMessageToIframe({
                 type: 'LOADING_STATE',
-                data: { // ИСПРАВЛЕНО: добавил data
+                data: {
                     resource: 'buildings',
                     loading: true
                 }
@@ -181,12 +190,12 @@ export default function AuthWithHTML() {
 
             sendMessageToIframe({
                 type: 'BUILDINGS_LOADED',
-                data: { buildings: data || [] } // ИСПРАВЛЕНО: добавил data
+                data: { buildings: data || [] }
             });
         } catch (error) {
             sendMessageToIframe({
                 type: 'LOAD_ERROR',
-                data: { // ИСПРАВЛЕНО: добавил data
+                data: {
                     resource: 'buildings',
                     message: error.message
                 }
@@ -198,7 +207,7 @@ export default function AuthWithHTML() {
         try {
             sendMessageToIframe({
                 type: 'LOADING_STATE',
-                data: { // ИСПРАВЛЕНО: добавил data
+                data: {
                     resource: 'courses',
                     loading: true
                 }
@@ -214,12 +223,12 @@ export default function AuthWithHTML() {
 
             sendMessageToIframe({
                 type: 'COURSES_LOADED',
-                data: { courses: data || [] } // ИСПРАВЛЕНО: добавил data
+                data: { courses: data || [] }
             });
         } catch (error) {
             sendMessageToIframe({
                 type: 'LOAD_ERROR',
-                data: { // ИСПРАВЛЕНО: добавил data
+                data: {
                     resource: 'courses',
                     message: error.message
                 }
@@ -231,7 +240,7 @@ export default function AuthWithHTML() {
         try {
             sendMessageToIframe({
                 type: 'LOADING_STATE',
-                data: { // ИСПРАВЛЕНО: добавил data
+                data: {
                     resource: 'groups',
                     loading: true
                 }
@@ -247,12 +256,12 @@ export default function AuthWithHTML() {
 
             sendMessageToIframe({
                 type: 'GROUPS_LOADED',
-                data: { groups: data || [] } // ИСПРАВЛЕНО: добавил data
+                data: { groups: data || [] }
             });
         } catch (error) {
             sendMessageToIframe({
                 type: 'LOAD_ERROR',
-                data: { // ИСПРАВЛЕНО: добавил data
+                data: {
                     resource: 'groups',
                     message: error.message
                 }
