@@ -1,6 +1,3 @@
-// Этот файл должен быть подключен в auth.html перед закрывающим тегом </body>
-// <script src="/auth.js"></script>
-
 // State management
 let state = {
     isSignUp: true,
@@ -63,8 +60,10 @@ const elements = {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Auth HTML loaded');
     initializeEventListeners();
     updateUIForAuthMode();
+    // Запрашиваем корпуса при загрузке
     sendMessageToParent({ type: 'LOAD_BUILDINGS_REQUEST' });
 });
 
@@ -84,6 +83,7 @@ function initializeEventListeners() {
 
 // Communication with React parent
 function sendMessageToParent(message) {
+    console.log('Sending message to parent:', message);
     if (window.parent && window.parent.postMessage) {
         window.parent.postMessage(message, '*');
     }
@@ -91,6 +91,8 @@ function sendMessageToParent(message) {
 
 // Message handlers from React
 window.addEventListener('message', function(event) {
+    console.log('Received message from parent:', event.data);
+    
     const { type, data } = event.data;
     
     switch (type) {
@@ -138,6 +140,7 @@ window.addEventListener('message', function(event) {
 // Event Handlers
 function handleFormSubmit(e) {
     e.preventDefault();
+    console.log('Form submitted');
     
     const formData = {
         email: elements.email.value,
@@ -147,6 +150,8 @@ function handleFormSubmit(e) {
         selectedGroupId: state.selectedGroupId,
         isSignUp: state.isSignUp
     };
+    
+    console.log('Form data:', formData);
     
     sendMessageToParent({
         type: 'AUTH_FORM_SUBMIT',

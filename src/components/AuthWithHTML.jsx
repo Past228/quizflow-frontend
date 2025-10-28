@@ -3,15 +3,14 @@ import { supabase } from '../lib/supabaseClient';
 
 export default function AuthWithHTML() {
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
     const iframeRef = useRef(null);
 
     useEffect(() => {
         const handleMessage = async (event) => {
-            // Проверяем источник сообщения для безопасности
-            if (event.source !== iframeRef.current.contentWindow) return;
-
+            // Для разработки принимаем сообщения от любого источника
             const { type, data } = event.data;
+
+            console.log('Received message from iframe:', type, data);
 
             switch (type) {
                 case 'AUTH_FORM_SUBMIT':
@@ -27,15 +26,15 @@ export default function AuthWithHTML() {
                     break;
                     
                 case 'LOAD_BUILDINGS_REQUEST':
-                    handleLoadBuildingsRequest();
+                    await handleLoadBuildingsRequest();
                     break;
                     
                 case 'BUILDING_SELECTED':
-                    handleBuildingSelected(data);
+                    await handleBuildingSelected(data);
                     break;
                     
                 case 'COURSE_SELECTED':
-                    handleCourseSelected(data);
+                    await handleCourseSelected(data);
                     break;
                     
                 case 'GROUP_SELECTED':
@@ -51,10 +50,8 @@ export default function AuthWithHTML() {
         return () => window.removeEventListener('message', handleMessage);
     }, []);
 
-    // Функции для обработки сообщений от HTML
     const handleAuthSubmit = async (formData) => {
         setLoading(true);
-        setMessage('');
 
         try {
             // Валидация
@@ -68,10 +65,8 @@ export default function AuthWithHTML() {
             }
 
             if (formData.isSignUp) {
-                // Регистрация
                 await handleSignUp(formData);
             } else {
-                // Вход
                 await handleSignIn(formData);
             }
         } catch (error) {
@@ -86,6 +81,8 @@ export default function AuthWithHTML() {
     };
 
     const handleSignUp = async (formData) => {
+        console.log('Sign up with:', formData);
+
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email: formData.email,
             password: formData.password,
@@ -123,22 +120,6 @@ export default function AuthWithHTML() {
             throw new Error('Профиль не создан. Обратитесь к администратору.');
         }
 
-        // Проверяем сохранение группы
-        if (profile.group_id !== parseInt(formData.selectedGroupId)) {
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ 
-                    group_id: formData.selectedGroupId,
-                    first_name: formData.firstName,
-                    last_name: formData.lastName 
-                })
-                .eq('id', authData.user.id);
-
-            if (updateError) {
-                throw new Error('Данные группы не сохранились: ' + updateError.message);
-            }
-        }
-
         sendMessageToIframe({
             type: 'AUTH_SUCCESS',
             message: 'Регистрация успешна! Проверьте email для подтверждения.'
@@ -146,6 +127,8 @@ export default function AuthWithHTML() {
     };
 
     const handleSignIn = async (formData) => {
+        console.log('Sign in with:', formData);
+
         const { error } = await supabase.auth.signInWithPassword({ 
             email: formData.email, 
             password: formData.password 
@@ -167,8 +150,10 @@ export default function AuthWithHTML() {
     };
 
     const handleToggleAuth = (data) => {
-        // Логика переключения между регистрацией и входом
-        console.log('Toggle auth to:', data.isSignUp);
+        sendMessageToIframe({
+            type: 'SET_AUTH_MODE',
+            isSignUp: data.isSignUp
+        });
     };
 
     const handleLoginButtonClick = () => {
@@ -265,7 +250,6 @@ export default function AuthWithHTML() {
     };
 
     const handleGroupSelected = (groupId) => {
-        // Группа выбрана - можно сохранить в state если нужно
         console.log('Group selected:', groupId);
     };
 
@@ -295,6 +279,7 @@ export default function AuthWithHTML() {
 
     const sendMessageToIframe = (message) => {
         if (iframeRef.current && iframeRef.current.contentWindow) {
+            console.log('Sending message to iframe:', message);
             iframeRef.current.contentWindow.postMessage(message, '*');
         }
     };
@@ -309,6 +294,7 @@ export default function AuthWithHTML() {
                 frameBorder="0"
                 title="Auth Form"
                 style={{ display: 'block' }}
+                onLoad={() => console.log('Iframe loaded')}
             />
             
             {loading && (
@@ -335,7 +321,7 @@ export default function AuthWithHTML() {
                         alignItems: 'center',
                         gap: '10px'
                     }}>
-                        <div className="spinner" style={{
+                        <div style={{
                             width: '20px',
                             height: '20px',
                             border: '2px solid transparent',

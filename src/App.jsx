@@ -58,7 +58,8 @@ function App() {
           <p className="text-gray-600 text-lg">Платформа для учебного тестирования</p>
         </header>
         
-        {!session ? <Auth /> : <Profile key={session.user.id} session={session} />}
+        {/* ИЗМЕНИЛИ ЭТУ СТРОКУ: Auth -> AuthWithHTML */}
+        {!session ? <AuthWithHTML /> : <Profile key={session.user.id} session={session} />}
         
         <footer className="text-center py-8 text-gray-500 text-sm">
           <p>© 2024 QuizFlow. Все права защищены.</p>
