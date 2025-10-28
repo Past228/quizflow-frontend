@@ -52,19 +52,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4">
-        <header className="text-center py-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">QuizFlow</h1>
-          <p className="text-gray-600 text-lg">Платформа для учебного тестирования</p>
-        </header>
-        
-        {/* ИЗМЕНИЛИ ЭТУ СТРОКУ: Auth -> AuthWithHTML */}
-        {!session ? <AuthWithHTML /> : <Profile key={session.user.id} session={session} />}
-        
-        <footer className="text-center py-8 text-gray-500 text-sm">
-          <p>© 2024 QuizFlow. Все права защищены.</p>
-        </footer>
-      </div>
+      {/* УБРАЛИ ЗАГОЛОВКИ И ФУТЕР */}
+      {!session ? <AuthWithHTML /> : <Profile key={session.user.id} session={session} />}
     </div>
   )
 }
