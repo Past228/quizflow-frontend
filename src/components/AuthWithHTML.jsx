@@ -82,6 +82,7 @@ export default function AuthWithHTML() {
     const handleSignUp = async (formData) => {
         console.log('Sign up with:', formData);
 
+        // Сначала создаем пользователя в auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email: formData.email,
             password: formData.password,
@@ -105,30 +106,32 @@ export default function AuthWithHTML() {
             throw new Error('Не удалось создать пользователя');
         }
 
-        // УСПЕШНАЯ РЕГИСТРАЦИЯ - показываем сообщение о подтверждении почты
+        // Теперь создаем профиль в таблице profiles
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+                id: authData.user.id,
+                email: formData.email,
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+                group_id: formData.selectedGroupId,
+                role: 'student',
+                updated_at: new Date().toISOString()
+            });
+
+        if (profileError) {
+            console.error('Profile creation error:', profileError);
+            // Если ошибка создания профиля, но пользователь создан - все равно считаем успехом
+            // Пользователь сможет войти и профиль создастся позже
+        }
+
+        // УСПЕШНАЯ РЕГИСТРАЦИЯ
         sendMessageToIframe({
             type: 'AUTH_SUCCESS',
             data: { 
                 message: 'Регистрация успешна! Пожалуйста, проверьте вашу электронную почту для подтверждения учетной записи перед входом.' 
             }
         });
-
-        // Дополнительная проверка профиля (не блокирующая)
-        setTimeout(async () => {
-            try {
-                const { data: profile, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', authData.user.id)
-                    .single();
-
-                if (profileError || !profile) {
-                    console.warn('Профиль не создан автоматически');
-                }
-            } catch (error) {
-                console.error('Error checking profile:', error);
-            }
-        }, 2000);
     };
 
     const handleSignIn = async (formData) => {
@@ -148,6 +151,35 @@ export default function AuthWithHTML() {
                 throw new Error('Email не подтвержден. Пожалуйста, проверьте вашу почту и подтвердите учетную запись.');
             }
             throw error;
+        }
+
+        // После успешного входа проверяем и создаем профиль если нужно
+        if (data.user) {
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', data.user.id)
+                .single();
+
+            if (profileError && profileError.code === 'PGRST116') {
+                // Профиль не найден - создаем его
+                const userMetadata = data.user.user_metadata;
+                const { error: createError } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: data.user.id,
+                        email: data.user.email,
+                        first_name: userMetadata.first_name || 'Пользователь',
+                        last_name: userMetadata.last_name || '',
+                        group_id: userMetadata.group_id || null,
+                        role: 'student',
+                        updated_at: new Date().toISOString()
+                    });
+
+                if (createError) {
+                    console.error('Error creating profile after login:', createError);
+                }
+            }
         }
         
         // Успешный вход
