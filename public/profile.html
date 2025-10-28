@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuizFlow - Личный кабинет</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #111827;
+        }
+
+        .logo-subtitle {
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: #dc2626;
+        }
+
+        /* Main Layout */
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        @media (min-width: 1024px) {
+            .grid-layout {
+                grid-template-columns: 1fr 2fr;
+                gap: 32px;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* User Info */
+        .user-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .user-avatar {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .user-info h2 {
+            font-size: 20px;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .user-info p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .info-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .info-value {
+            font-weight: 500;
+            color: #111827;
+        }
+
+        .role-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: capitalize;
+        }
+
+        /* Study Info */
+        .study-section h3 {
+            font-size: 18px;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 16px;
+        }
+
+        .study-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .study-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .study-building {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .study-course {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .study-group {
+            background: #f3e8ff;
+            color: #7c3aed;
+        }
+
+        .study-label {
+            font-size: 14px;
+        }
+
+        .study-value {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        /* Tests Section */
+        .tests-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .tests-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #111827;
+        }
+
+        .tests-count {
+            background: #f3f4f6;
+            color: #6b7280;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .tests-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        @media (min-width: 768px) {
+            .tests-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .test-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s;
+        }
+
+        .test-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+        }
+
+        .test-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .test-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 8px;
+        }
+
+        .test-status {
+            background: #dcfce7;
+            color: #166534;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .test-description {
+            color: #6b7280;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+
+        .test-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 16px;
+        }
+
+        .start-test-btn {
+            width: 100%;
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .start-test-btn:hover {
+            background: #059669;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+        }
+
+        .empty-icon {
+            width: 80px;
+            height: 80px;
+            color: #d1d5db;
+            margin: 0 auto 16px;
+        }
+
+        .empty-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .empty-description {
+            color: #9ca3af;
+            font-size: 14px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        /* Loading State */
+        .loading-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-left: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 12px;
+        }
+
+        .loading-text {
+            color: #6b7280;
+            font-size: 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Error State */
+        .error-container {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .error-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .error-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #dc2626;
+            margin-bottom: 8px;
+        }
+
+        .error-message {
+            color: #6b7280;
+            margin-bottom: 24px;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        /* Profile Not Found */
+        .profile-not-found {
+            text-align: center;
+            padding: 60px 20px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .not-found-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .not-found-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 8px;
+        }
+
+        .not-found-message {
+            color: #6b7280;
+            margin-bottom: 24px;
+        }
+
+        .not-found-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div>
+            <div class="logo">QuizFlow</div>
+            <div class="logo-subtitle">Личный кабинет</div>
+        </div>
+        <button class="logout-btn" id="logoutBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+            </svg>
+            Выйти
+        </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Loading State -->
+        <div id="loadingState" class="loading-container" style="display: none;">
+            <div class="spinner"></div>
+            <div class="loading-text">Загрузка профиля...</div>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="error-container" style="display: none;">
+            <div class="error-icon">⚠️</div>
+            <h2 class="error-title" id="errorTitle">Ошибка загрузки профиля</h2>
+            <p class="error-message" id="errorMessage"></p>
+            <div class="error-actions">
+                <button class="btn btn-primary" id="retryBtn">Повторить попытку</button>
+                <button class="btn btn-secondary" id="logoutErrorBtn">Выйти</button>
+            </div>
+        </div>
+
+        <!-- Profile Not Found -->
+        <div id="profileNotFound" class="profile-not-found" style="display: none;">
+            <div class="not-found-icon">⚠️</div>
+            <h2 class="not-found-title">Профиль не найден</h2>
+            <p class="not-found-message">Ваш аккаунт есть в системе, но профиль не был создан или был удален.</p>
+            <div class="not-found-actions">
+                <button class="btn btn-primary btn-full" id="recreateProfileBtn">Создать новый профиль</button>
+                <button class="btn btn-secondary btn-full" id="logoutNotFoundBtn">Выйти и зарегистрироваться заново</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div id="mainContent" style="display: none;">
+            <div class="grid-layout">
+                <!-- Left Column - User Info -->
+                <div class="left-column">
+                    <!-- User Card -->
+                    <div class="card">
+                        <div class="user-header">
+                            <div class="user-avatar" id="userAvatar">ИП</div>
+                            <div class="user-info">
+                                <h2 id="userName">Иван Попов</h2>
+                                <p id="userEmail">user@example.com</p>
+                            </div>
+                        </div>
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Фамилия:</span>
+                                <span class="info-value" id="userLastName">Попов</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Имя:</span>
+                                <span class="info-value" id="userFirstName">Иван</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Почта:</span>
+                                <span class="info-value" id="userEmailValue">user@example.com</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Роль:</span>
+                                <span class="role-badge" id="userRole">Студент</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Study Info -->
+                    <div class="card">
+                        <div class="study-section">
+                            <h3>Учебная информация</h3>
+                            <div id="studyInfoContent">
+                                <!-- Study info will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column - Tests -->
+                <div class="right-column">
+                    <div class="card">
+                        <div class="tests-header">
+                            <h3 class="tests-title">Доступные тесты</h3>
+                            <span class="tests-count" id="testsCount">0 тестов</span>
+                        </div>
+
+                        <!-- Tests Loading -->
+                        <div id="testsLoading" class="loading-container" style="display: none;">
+                            <div class="spinner"></div>
+                            <div class="loading-text">Загрузка тестов...</div>
+                        </div>
+
+                        <!-- Tests Grid -->
+                        <div id="testsGrid" class="tests-grid" style="display: none;">
+                            <!-- Test cards will be populated here -->
+                        </div>
+
+                        <!-- Empty Tests -->
+                        <div id="emptyTests" class="empty-state" style="display: none;">
+                            <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <h4 class="empty-title">Нет доступных тестов</h4>
+                            <p class="empty-description">
+                                Ожидайте назначения тестов от преподавателя. Как только тесты будут назначены вашей группе, они появятся здесь.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Подключаем profile.js -->
+    <script src="/profile.js"></script>
+</body>
+</html>
