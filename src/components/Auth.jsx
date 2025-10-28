@@ -58,7 +58,6 @@ export default function Auth() {
           selectedGroupId 
         });
 
-        // 1. РЕГИСТРАЦИЯ
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
           password,
@@ -85,11 +84,8 @@ export default function Auth() {
 
         console.log('✅ ПОЛЬЗОВАТЕЛЬ СОЗДАН:', authData.user.id);
 
-        // 2. ЖДЕМ и ПРОВЕРЯЕМ создание профиля
-        console.log('⏳ Ожидаем создания профиля...');
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // 3. ПРОВЕРЯЕМ СОЗДАЛСЯ ЛИ ПРОФИЛЬ
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -103,11 +99,9 @@ export default function Auth() {
 
         console.log('✅ ПРОФИЛЬ СОЗДАН:', profile);
 
-        // 4. ПРОВЕРЯЕМ СОХРАНИЛАСЬ ЛИ ГРУППА
         if (profile.group_id !== parseInt(selectedGroupId)) {
           console.log('🔄 Группа не сохранилась, обновляем...');
           
-          // Пробуем обновить группу
           const { error: updateError } = await supabase
             .from('profiles')
             .update({ 
@@ -130,7 +124,6 @@ export default function Auth() {
         resetForm();
 
       } else {
-        // ВХОД
         console.log('🔑 ВХОД:', email);
         const { error } = await supabase.auth.signInWithPassword({ 
           email, 
@@ -174,197 +167,191 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="max-w-6xl mx-auto mb-12">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center">
-            <h1 className="text-3xl font-bold text-gray-900">QuizFlow</h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-xl font-semibold text-gray-700">Лидерберд</span>
-            {!isSignUp && (
-              <button 
-                onClick={() => setIsSignUp(true)}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Войти
-              </button>
-            )}
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-gray-900">QuizFlow</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-lg font-medium text-gray-700">Лидерберд</span>
+              {!isSignUp && (
+                <button className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
+                  Войти
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Auth Form */}
-      <div className="max-w-md mx-auto p-8 bg-white rounded-2xl shadow-xl border border-gray-200">
-        <h2 className="text-3xl font-bold mb-8 text-center text-gray-900">
-          {isSignUp ? 'Регистрация' : 'Вход'}
-        </h2>
-        
-        {message && (
-          <div className={`p-4 rounded-lg mb-6 ${
-            message.includes('✅') ? 'bg-green-100 text-green-800 border border-green-300' : 
-            'bg-red-100 text-red-800 border border-red-300'
-          }`}>
-            {message}
-          </div>
-        )}
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Platform Title */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">QuizFlow</h1>
+          <p className="text-xl text-gray-600">Платформа для учебного тестирования</p>
+        </div>
 
-        <form onSubmit={handleAuth} className="space-y-6">
-          {/* Email & Password Section */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Email:</label>
-              <input
-                type="email"
-                name="email"
-                value={email}
-                onChange={handleInputChange(setEmail)}
-                className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all ${
-                  errors.email ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200 focus:border-blue-500'
-                }`}
-                placeholder="Введите ваш email"
-                required
-              />
-              {errors.email && (
-                <div className="text-red-500 text-sm mt-2 flex items-center">
-                  <span className="mr-2">⚠️</span>
-                  {errors.email}
-                </div>
-              )}
-            </div>
+        {/* Auth Form */}
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-lg border border-gray-200 p-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">
+              {isSignUp ? 'Регистрация' : 'Вход'}
+            </h2>
             
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Пароль:</label>
-              <input
-                type="password"
-                name="password"
-                value={password}
-                onChange={handleInputChange(setPassword)}
-                className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all ${
-                  errors.password ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200 focus:border-blue-500'
-                }`}
-                placeholder="Введите ваш пароль"
-                required
-                minLength="6"
-              />
-              {errors.password && (
-                <div className="text-red-500 text-sm mt-2 flex items-center">
-                  <span className="mr-2">⚠️</span>
-                  {errors.password}
-                </div>
-              )}
-            </div>
-          </div>
+            {message && (
+              <div className={`p-4 rounded-md mb-6 ${
+                message.includes('✅') ? 'bg-green-50 text-green-800 border border-green-200' : 
+                'bg-red-50 text-red-800 border border-red-200'
+              }`}>
+                {message}
+              </div>
+            )}
 
-          {/* Personal Info Section (only for registration) */}
-          {isSignUp && (
-            <>
-              <div className="border-t border-gray-300 pt-6 space-y-4">
+            <form onSubmit={handleAuth} className="space-y-6">
+              {/* Email & Password Section */}
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-gray-700">Фамилия:</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Email:
+                  </label>
                   <input
-                    type="text"
-                    name="lastName"
-                    value={lastName}
-                    onChange={handleInputChange(setLastName)}
-                    className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all ${
-                      errors.lastName ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200 focus:border-blue-500'
-                    }`}
-                    placeholder="Введите вашу фамилию"
+                    type="email"
+                    value={email}
+                    onChange={handleInputChange(setEmail)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Введите ваш email"
                     required
                   />
-                  {errors.lastName && (
-                    <div className="text-red-500 text-sm mt-2 flex items-center">
-                      <span className="mr-2">⚠️</span>
-                      {errors.lastName}
-                    </div>
+                  {errors.email && (
+                    <p className="text-red-500 text-sm mt-1">{errors.email}</p>
                   )}
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-gray-700">Имя:</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Пароль:
+                  </label>
                   <input
-                    type="text"
-                    name="firstName"
-                    value={firstName}
-                    onChange={handleInputChange(setFirstName)}
-                    className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all ${
-                      errors.firstName ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200 focus:border-blue-500'
-                    }`}
-                    placeholder="Введите ваше имя"
+                    type="password"
+                    value={password}
+                    onChange={handleInputChange(setPassword)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Введите ваш пароль"
                     required
+                    minLength="6"
                   />
-                  {errors.firstName && (
-                    <div className="text-red-500 text-sm mt-2 flex items-center">
-                      <span className="mr-2">⚠️</span>
-                      {errors.firstName}
-                    </div>
+                  {errors.password && (
+                    <p className="text-red-500 text-sm mt-1">{errors.password}</p>
                   )}
                 </div>
               </div>
 
-              {/* Group Selection Section */}
-              <div className="border-t border-gray-300 pt-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800">Выбор учебной группы</h3>
-                <GroupSelector onGroupSelect={setSelectedGroupId} />
-                
-                {errors.group && (
-                  <div className="text-red-500 text-sm mt-3 flex items-center">
-                    <span className="mr-2">⚠️</span>
-                    {errors.group}
+              {/* Personal Info Section - Only for Registration */}
+              {isSignUp && (
+                <div className="space-y-4 border-t border-gray-200 pt-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Фамилия:
+                    </label>
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={handleInputChange(setLastName)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Введите вашу фамилию"
+                      required
+                    />
+                    {errors.lastName && (
+                      <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>
+                    )}
                   </div>
-                )}
-                
-                {selectedGroupId ? (
-                  <div className="mt-4 p-4 bg-green-50 rounded-xl border-2 border-green-300">
-                    <span className="text-green-700 font-medium flex items-center">
-                      <span className="mr-2">✅</span>
-                      Группа успешно выбрана
-                    </span>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Имя:
+                    </label>
+                    <input
+                      type="text"
+                      value={firstName}
+                      onChange={handleInputChange(setFirstName)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Введите ваше имя"
+                      required
+                    />
+                    {errors.firstName && (
+                      <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Group Selection - Only for Registration */}
+              {isSignUp && (
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Выбор учебной группы
+                  </h3>
+                  <GroupSelector onGroupSelect={setSelectedGroupId} />
+                  
+                  {errors.group && (
+                    <p className="text-red-500 text-sm mt-2">{errors.group}</p>
+                  )}
+                  
+                  {selectedGroupId && (
+                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                      <p className="text-green-700 text-sm">
+                        Группа успешно выбрана
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Обработка...
                   </div>
                 ) : (
-                  <div className="mt-4 p-4 bg-yellow-50 rounded-xl border-2 border-yellow-300">
-                    <span className="text-yellow-700 flex items-center">
-                      <span className="mr-2">⚠️</span>
-                      Для регистрации необходимо выбрать учебную группу
-                    </span>
-                  </div>
+                  isSignUp ? 'Зарегистрироваться' : 'Войти'
                 )}
-              </div>
-            </>
-          )}
+              </button>
+            </form>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white p-4 rounded-xl disabled:bg-gray-400 hover:bg-blue-700 transition-colors focus:outline-none focus:ring-4 focus:ring-blue-200 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
-          >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
-                Обработка...
-              </div>
-            ) : (
-              isSignUp ? 'Зарегистрироваться' : 'Войти'
-            )}
-          </button>
-        </form>
-
-        {/* Toggle between Sign Up and Sign In */}
-        <div className="mt-8 text-center border-t border-gray-300 pt-6">
-          <button
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              resetForm();
-            }}
-            className="text-blue-600 hover:text-blue-800 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-200 rounded-lg px-4 py-2"
-          >
-            {isSignUp ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
-          </button>
+            {/* Toggle between Sign Up and Sign In */}
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  resetForm();
+                }}
+                className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+              >
+                {isSignUp ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center text-gray-500">
+            <p>© 2024 QuizFlow. Все права защищены.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
