@@ -31,6 +31,10 @@ export default function Profile({ session }) {
                     await handleStartTest(data.testId);
                     break;
                     
+                case 'UPDATE_AVATAR_REQUEST':
+                    await handleUpdateAvatar(data.avatar);
+                    break;
+                    
                 default:
                     console.log('Unknown message type:', type);
             }
@@ -166,6 +170,60 @@ export default function Profile({ session }) {
         }
     };
 
+    const handleUpdateAvatar = async (avatarData) => {
+        try {
+            let updateData = {};
+            
+            if (avatarData.type === 'color') {
+                updateData = {
+                    avatar_color: avatarData.color,
+                    avatar_text: avatarData.text,
+                    avatar_url: null
+                };
+            } else if (avatarData.type === 'image') {
+                // Upload image to Supabase Storage
+                const fileExt = 'jpg';
+                const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage
+                    .from('avatars')
+                    .upload(fileName, dataURLToBlob(avatarData.data));
+
+                if (uploadError) throw uploadError;
+
+                // Get public URL
+                const { data: { publicUrl } } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(fileName);
+
+                updateData = {
+                    avatar_url: publicUrl,
+                    avatar_color: null,
+                    avatar_text: null
+                };
+            }
+
+            // Update profile
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update(updateData)
+                .eq('id', session.user.id);
+
+            if (updateError) throw updateError;
+
+            sendMessageToIframe({
+                type: 'AVATAR_UPDATED',
+                data: { avatarUrl: updateData.avatar_url }
+            });
+
+        } catch (error) {
+            console.error('Avatar update error:', error);
+            sendMessageToIframe({
+                type: 'ERROR_STATE',
+                data: { error: 'Не удалось обновить аватар: ' + error.message }
+            });
+        }
+    };
+
     const handleStartTest = async (testId) => {
         // Здесь будет логика начала теста
         console.log('Starting test:', testId);
@@ -174,6 +232,17 @@ export default function Profile({ session }) {
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
+    };
+
+    const dataURLToBlob = (dataURL) => {
+        const byteString = atob(dataURL.split(',')[1]);
+        const mimeString = dataURL.split(',')[0].split(':')[1].split(';')[0];
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+        }
+        return new Blob([ab], { type: mimeString });
     };
 
     const sendMessageToIframe = (message) => {

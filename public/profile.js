@@ -5,7 +5,18 @@ let state = {
     loading: true,
     testsLoading: false,
     error: null,
-    profileNotFound: false
+    profileNotFound: false,
+    selectedAvatar: null,
+    avatarOptions: [
+        { color: '#3b82f6', text: 'ИП' },
+        { color: '#ef4444', text: 'ИП' },
+        { color: '#10b981', text: 'ИП' },
+        { color: '#f59e0b', text: 'ИП' },
+        { color: '#8b5cf6', text: 'ИП' },
+        { color: '#06b6d4', text: 'ИП' },
+        { color: '#84cc16', text: 'ИП' },
+        { color: '#f97316', text: 'ИП' }
+    ]
 };
 
 // DOM Elements
@@ -26,8 +37,17 @@ const elements = {
     recreateProfileBtn: document.getElementById('recreateProfileBtn'),
     logoutNotFoundBtn: document.getElementById('logoutNotFoundBtn'),
     
-    // Main content elements
+    // Avatar elements
+    avatarContainer: document.getElementById('avatarContainer'),
     userAvatar: document.getElementById('userAvatar'),
+    avatarModal: document.getElementById('avatarModal'),
+    avatarOptions: document.getElementById('avatarOptions'),
+    avatarUpload: document.getElementById('avatarUpload'),
+    uploadTrigger: document.getElementById('uploadTrigger'),
+    cancelAvatarBtn: document.getElementById('cancelAvatarBtn'),
+    saveAvatarBtn: document.getElementById('saveAvatarBtn'),
+    
+    // Main content elements
     userName: document.getElementById('userName'),
     userEmail: document.getElementById('userEmail'),
     userEmailValue: document.getElementById('userEmailValue'),
@@ -67,6 +87,13 @@ function initializeEventListeners() {
     
     // Recreate profile button
     elements.recreateProfileBtn.addEventListener('click', handleRecreateProfile);
+    
+    // Avatar functionality
+    elements.avatarContainer.addEventListener('click', handleAvatarClick);
+    elements.cancelAvatarBtn.addEventListener('click', handleCancelAvatar);
+    elements.saveAvatarBtn.addEventListener('click', handleSaveAvatar);
+    elements.uploadTrigger.addEventListener('click', handleUploadTrigger);
+    elements.avatarUpload.addEventListener('change', handleAvatarUpload);
 }
 
 // Communication with React parent
@@ -107,6 +134,10 @@ window.addEventListener('message', function(event) {
         case 'PROFILE_RECREATED':
             handleProfileRecreated();
             break;
+            
+        case 'AVATAR_UPDATED':
+            handleAvatarUpdated(data.avatarUrl);
+            break;
     }
 });
 
@@ -123,6 +154,43 @@ function handleRetry() {
 
 function handleRecreateProfile() {
     sendMessageToParent({ type: 'RECREATE_PROFILE_REQUEST' });
+}
+
+function handleAvatarClick() {
+    showAvatarModal();
+}
+
+function handleCancelAvatar() {
+    hideAvatarModal();
+}
+
+function handleSaveAvatar() {
+    if (state.selectedAvatar) {
+        sendMessageToParent({
+            type: 'UPDATE_AVATAR_REQUEST',
+            data: { avatar: state.selectedAvatar }
+        });
+        hideAvatarModal();
+    }
+}
+
+function handleUploadTrigger() {
+    elements.avatarUpload.click();
+}
+
+function handleAvatarUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            state.selectedAvatar = {
+                type: 'image',
+                data: e.target.result
+            };
+            updateSelectedAvatarInModal();
+        };
+        reader.readAsDataURL(file);
+    }
 }
 
 // Data Handlers
@@ -185,6 +253,13 @@ function handleProfileRecreated() {
     sendMessageToParent({ type: 'LOAD_PROFILE_REQUEST' });
 }
 
+function handleAvatarUpdated(avatarUrl) {
+    if (state.profile) {
+        state.profile.avatar_url = avatarUrl;
+        updateAvatarUI();
+    }
+}
+
 // UI Updates
 function hideAllStates() {
     elements.loadingState.style.display = 'none';
@@ -227,6 +302,61 @@ function showEmptyTests() {
     elements.emptyTests.style.display = 'block';
 }
 
+function showAvatarModal() {
+    populateAvatarOptions();
+    elements.avatarModal.classList.remove('hidden');
+}
+
+function hideAvatarModal() {
+    elements.avatarModal.classList.add('hidden');
+    state.selectedAvatar = null;
+    elements.avatarUpload.value = '';
+}
+
+function populateAvatarOptions() {
+    let optionsHTML = '';
+    
+    state.avatarOptions.forEach((option, index) => {
+        const isSelected = state.selectedAvatar && state.selectedAvatar.type === 'color' && state.selectedAvatar.color === option.color;
+        optionsHTML += `
+            <div class="avatar-option ${isSelected ? 'selected' : ''}" 
+                 style="background: ${option.color}"
+                 data-index="${index}">
+                ${option.text}
+            </div>
+        `;
+    });
+    
+    elements.avatarOptions.innerHTML = optionsHTML;
+    
+    // Add event listeners to avatar options
+    elements.avatarOptions.querySelectorAll('.avatar-option').forEach(option => {
+        option.addEventListener('click', function() {
+            const index = parseInt(this.getAttribute('data-index'));
+            state.selectedAvatar = {
+                type: 'color',
+                color: state.avatarOptions[index].color,
+                text: state.avatarOptions[index].text
+            };
+            updateSelectedAvatarInModal();
+        });
+    });
+}
+
+function updateSelectedAvatarInModal() {
+    // Update selection in modal
+    elements.avatarOptions.querySelectorAll('.avatar-option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    if (state.selectedAvatar && state.selectedAvatar.type === 'color') {
+        const selectedOption = elements.avatarOptions.querySelector(`[data-index="${state.avatarOptions.findIndex(opt => opt.color === state.selectedAvatar.color)}"]`);
+        if (selectedOption) {
+            selectedOption.classList.add('selected');
+        }
+    }
+}
+
 function updateProfileUI(profile) {
     // User info
     const firstName = profile.first_name || 'Не указано';
@@ -235,7 +365,7 @@ function updateProfileUI(profile) {
     const role = profile.role === 'student' ? 'Студент' : 'Преподаватель';
     
     // Avatar
-    elements.userAvatar.textContent = (firstName[0] || '') + (lastName[0] || '');
+    updateAvatarUI();
     
     // User info
     elements.userName.textContent = `${firstName} ${lastName}`;
@@ -247,6 +377,26 @@ function updateProfileUI(profile) {
     
     // Study info
     updateStudyInfoUI(profile);
+}
+
+function updateAvatarUI() {
+    const profile = state.profile;
+    
+    if (profile.avatar_url) {
+        // If custom avatar image exists
+        elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
+    } else if (profile.avatar_color) {
+        // If color avatar exists
+        elements.userAvatar.innerHTML = profile.avatar_text || 'ИП';
+        elements.userAvatar.style.background = profile.avatar_color;
+    } else {
+        // Default avatar based on name
+        const firstName = profile.first_name || 'И';
+        const lastName = profile.last_name || 'П';
+        const avatarText = (firstName[0] || '') + (lastName[0] || '');
+        elements.userAvatar.innerHTML = avatarText;
+        elements.userAvatar.style.background = '#3b82f6'; // Default blue
+    }
 }
 
 function updateStudyInfoUI(profile) {
