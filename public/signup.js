@@ -43,7 +43,7 @@ const elements = {
     groupError: document.getElementById('groupError'),
     
     // Success message
-    groupSuccess: document.getElementById('groupSuccess'),
+    groupSuccess: document.getElementById('groupSuccess')
 };
 
 // Initialize
@@ -159,7 +159,6 @@ function handleBuildingChange(e) {
     state.selectedGroup = '';
     state.selectedGroupId = null;
     
-    updateDebugInfo();
     updateGroupSuccess();
     
     if (state.selectedBuilding) {
@@ -183,7 +182,6 @@ function handleCourseChange(e) {
     state.selectedGroup = '';
     state.selectedGroupId = null;
     
-    updateDebugInfo();
     updateGroupSuccess();
     
     if (state.selectedCourse) {
@@ -204,7 +202,6 @@ function handleGroupChange(e) {
     state.selectedGroup = e.target.value;
     state.selectedGroupId = e.target.value;
     
-    updateDebugInfo();
     updateGroupSuccess();
     
     sendMessageToParent({
@@ -224,8 +221,6 @@ function populateBuildings(buildings) {
         option.textContent = building.name;
         elements.building.appendChild(option);
     });
-    
-    updateDebugInfo();
 }
 
 function populateCourses(courses) {
@@ -238,8 +233,6 @@ function populateCourses(courses) {
         option.textContent = `Курс ${course.course_number}`;
         elements.course.appendChild(option);
     });
-    
-    updateDebugInfo();
 }
 
 function populateGroups(groups) {
@@ -252,13 +245,10 @@ function populateGroups(groups) {
         option.textContent = `Группа ${group.group_number}`;
         elements.group.appendChild(option);
     });
-    
-    updateDebugInfo();
 }
 
 function setLoadingState(resource, loading) {
     state.loadingStates[resource] = loading;
-    updateDebugInfo();
 }
 
 function showMessage(message, type) {
@@ -305,7 +295,6 @@ function resetForm() {
     elements.group.disabled = true;
     elements.group.innerHTML = '<option value="">Сначала выберите курс</option>';
     
-    updateDebugInfo();
     updateGroupSuccess();
 }
 
@@ -316,14 +305,4 @@ function updateGroupSuccess() {
     } else {
         elements.groupSuccess.style.display = 'none';
     }
-}
-
-function updateDebugInfo() {
-    elements.debugBuilding.textContent = state.selectedBuilding || 'нет';
-    elements.debugCourse.textContent = state.selectedCourse || 'нет';
-    elements.debugGroup.textContent = state.selectedGroup || 'нет';
-    elements.debugBuildingsCount.textContent = state.buildings.length;
-    elements.debugCoursesCount.textContent = state.courses.length;
-    elements.debugGroupsCount.textContent = state.groups.length;
-    elements.debugLoading.textContent = JSON.stringify(state.loadingStates);
 }
