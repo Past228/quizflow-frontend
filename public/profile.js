@@ -368,6 +368,7 @@ function hideAvatarModal() {
     elements.avatarUrlInput.value = '';
 }
 
+// ИСПРАВЛЕННАЯ ФУНКЦИЯ: Правильное отображение аватарок
 function populateAvatarOptions() {
     let optionsHTML = '';
     
@@ -384,9 +385,10 @@ function populateAvatarOptions() {
         } else if (option.type === 'color') {
             optionsHTML += `
                 <div class="avatar-option ${isSelected ? 'selected' : ''}" 
-                     style="background: ${option.color}"
                      data-id="${option.id}">
-                    <span class="avatar-option-initials">${option.text}</span>
+                    <div class="avatar-option-color" style="background: ${option.color}">
+                        <span class="avatar-option-initials">${option.text}</span>
+                    </div>
                 </div>
             `;
         }
@@ -449,29 +451,12 @@ function updateAvatarUI() {
     
     if (profile.avatar_url) {
         // If avatar URL exists
-        if (profile.avatar_url.startsWith('data:image/svg+xml')) {
-            // If it's a generated SVG avatar
+        if (profile.avatar_url.startsWith('data:image/svg+xml') || profile.avatar_url.startsWith('http')) {
+            // For SVG avatars or regular URLs
             elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
         } else {
-            // If it's a regular image URL
-            const img = new Image();
-            img.src = profile.avatar_url;
-            img.className = 'avatar-image';
-            img.onerror = function() {
-                // If image fails to load, show default avatar
-                showDefaultAvatar();
-            };
-            img.onload = function() {
-                elements.userAvatar.innerHTML = '';
-                elements.userAvatar.appendChild(img);
-            };
-            
-            // Set timeout in case image takes too long to load
-            setTimeout(() => {
-                if (elements.userAvatar.children.length === 0) {
-                    showDefaultAvatar();
-                }
-            }, 2000);
+            // For other cases, show default avatar
+            showDefaultAvatar();
         }
     } else {
         showDefaultAvatar();

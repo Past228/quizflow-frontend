@@ -255,7 +255,7 @@
             font-size: 14px;
         }
 
-        /* Avatar Modal */
+        /* Avatar Modal - ИСПРАВЛЕННЫЕ СТИЛИ */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -296,15 +296,14 @@
             width: 80px;
             height: 80px;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: white;
             cursor: pointer;
             transition: transform 0.2s;
             border: 3px solid transparent;
             overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .avatar-option:hover {
@@ -316,15 +315,27 @@
             box-shadow: 0 0 0 2px white, 0 0 0 4px #3b82f6;
         }
 
+        /* ИСПРАВЛЕНИЕ: Правильное центрирование для всех типов аватарок */
         .avatar-option-image {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            display: block;
+        }
+
+        .avatar-option-color {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
         }
 
         .avatar-option-initials {
             font-size: 18px;
             font-weight: bold;
+            color: white;
         }
 
         .url-section {
