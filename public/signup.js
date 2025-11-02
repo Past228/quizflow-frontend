@@ -44,15 +44,6 @@ const elements = {
     
     // Success message
     groupSuccess: document.getElementById('groupSuccess'),
-    
-    // Debug info
-    debugBuilding: document.getElementById('debugBuilding'),
-    debugCourse: document.getElementById('debugCourse'),
-    debugGroup: document.getElementById('debugGroup'),
-    debugBuildingsCount: document.getElementById('debugBuildingsCount'),
-    debugCoursesCount: document.getElementById('debugCoursesCount'),
-    debugGroupsCount: document.getElementById('debugGroupsCount'),
-    debugLoading: document.getElementById('debugLoading')
 };
 
 // Initialize

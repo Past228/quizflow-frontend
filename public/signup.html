@@ -223,22 +223,6 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-
-        /* Debug Info */
-        .debug-info {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            padding: 12px;
-            margin-top: 16px;
-            font-size: 11px;
-            color: #6b7280;
-        }
-
-        .debug-title {
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
     </style>
 </head>
 <body>
@@ -322,14 +306,6 @@
                     
                     <div id="groupSuccess" class="group-success" style="display: none;">
                         Группа успешно выбрана
-                    </div>
-
-                    <!-- Debug Info -->
-                    <div class="debug-info">
-                        <div class="debug-title">Отладочная информация:</div>
-                        <div>Выбрано: Корпус=<span id="debugBuilding">нет</span>, Курс=<span id="debugCourse">нет</span>, Группа=<span id="debugGroup">нет</span></div>
-                        <div>Доступно: Корпусов=<span id="debugBuildingsCount">0</span>, Курсов=<span id="debugCoursesCount">0</span>, Групп=<span id="debugGroupsCount">0</span></div>
-                        <div>Загрузка: <span id="debugLoading">{"buildings":false,"courses":false,"groups":false}</span></div>
                     </div>
                 </div>
 
