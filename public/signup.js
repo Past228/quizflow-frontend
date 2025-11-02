@@ -1,6 +1,5 @@
 // State management
 let state = {
-    isSignUp: true,
     loading: false,
     buildings: [],
     courses: [],
@@ -21,8 +20,6 @@ const elements = {
     formTitle: document.getElementById('formTitle'),
     messageContainer: document.getElementById('messageContainer'),
     authForm: document.getElementById('authForm'),
-    personalInfoSection: document.getElementById('personalInfoSection'),
-    groupSection: document.getElementById('groupSection'),
     submitBtn: document.getElementById('submitBtn'),
     toggleAuthBtn: document.getElementById('toggleAuthBtn'),
     loginBtn: document.getElementById('loginBtn'),
@@ -60,9 +57,8 @@ const elements = {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Auth HTML loaded');
+    console.log('Signup HTML loaded');
     initializeEventListeners();
-    updateUIForAuthMode();
     // Запрашиваем корпуса при загрузке
     sendMessageToParent({ type: 'LOAD_BUILDINGS_REQUEST' });
 });
@@ -71,8 +67,8 @@ function initializeEventListeners() {
     // Form submission
     elements.authForm.addEventListener('submit', handleFormSubmit);
     
-    // Toggle between sign up and sign in
-    elements.toggleAuthBtn.addEventListener('click', handleToggleAuth);
+    // Toggle to login
+    elements.toggleAuthBtn.addEventListener('click', handleToggleToLogin);
     elements.loginBtn.addEventListener('click', handleLoginClick);
     
     // Group selection
@@ -96,11 +92,6 @@ window.addEventListener('message', function(event) {
     const { type, data } = event.data;
     
     switch (type) {
-        case 'SET_AUTH_MODE':
-            state.isSignUp = data.isSignUp;
-            updateUIForAuthMode();
-            break;
-            
         case 'VALIDATION_ERRORS':
             displayValidationErrors(data.errors);
             break;
@@ -140,7 +131,7 @@ window.addEventListener('message', function(event) {
 // Event Handlers
 function handleFormSubmit(e) {
     e.preventDefault();
-    console.log('Form submitted');
+    console.log('Signup form submitted');
     
     const formData = {
         email: elements.email.value,
@@ -148,35 +139,26 @@ function handleFormSubmit(e) {
         firstName: elements.firstName.value,
         lastName: elements.lastName.value,
         selectedGroupId: state.selectedGroupId,
-        isSignUp: state.isSignUp
+        isSignUp: true
     };
     
     console.log('Form data:', formData);
     
     sendMessageToParent({
-        type: 'AUTH_FORM_SUBMIT',
+        type: 'SIGNUP_FORM_SUBMIT',
         data: formData
     });
 }
 
-function handleToggleAuth() {
-    state.isSignUp = !state.isSignUp;
-    updateUIForAuthMode();
-    resetForm();
-    
+function handleToggleToLogin() {
     sendMessageToParent({
-        type: 'TOGGLE_AUTH',
-        data: { isSignUp: state.isSignUp }
+        type: 'SWITCH_TO_LOGIN'
     });
 }
 
 function handleLoginClick() {
-    state.isSignUp = false;
-    updateUIForAuthMode();
-    resetForm();
-    
     sendMessageToParent({
-        type: 'LOGIN_BUTTON_CLICK'
+        type: 'SWITCH_TO_LOGIN'
     });
 }
 
@@ -241,37 +223,6 @@ function handleGroupChange(e) {
 }
 
 // UI Updates
-function updateUIForAuthMode() {
-    if (state.isSignUp) {
-        elements.formTitle.textContent = 'Регистрация';
-        elements.submitBtn.textContent = 'Зарегистрироваться';
-        elements.toggleAuthBtn.textContent = 'Уже есть аккаунт? Войти';
-        elements.personalInfoSection.style.display = 'block';
-        elements.groupSection.style.display = 'block';
-        
-        // Добавляем required для регистрации
-        elements.firstName.setAttribute('required', '');
-        elements.lastName.setAttribute('required', '');
-        elements.building.setAttribute('required', '');
-        elements.course.setAttribute('required', '');
-        elements.group.setAttribute('required', '');
-        
-    } else {
-        elements.formTitle.textContent = 'Вход';
-        elements.submitBtn.textContent = 'Войти';
-        elements.toggleAuthBtn.textContent = 'Нет аккаунта? Зарегистрироваться';
-        elements.personalInfoSection.style.display = 'none';
-        elements.groupSection.style.display = 'none';
-        
-        // Убираем required для входа
-        elements.firstName.removeAttribute('required');
-        elements.lastName.removeAttribute('required');
-        elements.building.removeAttribute('required');
-        elements.course.removeAttribute('required');
-        elements.group.removeAttribute('required');
-    }
-}
-
 function populateBuildings(buildings) {
     state.buildings = buildings;
     elements.building.innerHTML = '<option value="">Выберите корпус</option>';

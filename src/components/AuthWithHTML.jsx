@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 
 export default function AuthWithHTML() {
     const [loading, setLoading] = useState(false);
+    const [isSignUp, setIsSignUp] = useState(true); // true = signup, false = login
     const iframeRef = useRef(null);
 
     useEffect(() => {
@@ -12,16 +13,20 @@ export default function AuthWithHTML() {
             console.log('Received message from iframe:', type, data);
 
             switch (type) {
-                case 'AUTH_FORM_SUBMIT':
-                    await handleAuthSubmit(data);
+                case 'SIGNUP_FORM_SUBMIT':
+                    await handleSignUp(data);
                     break;
                     
-                case 'TOGGLE_AUTH':
-                    handleToggleAuth(data);
+                case 'LOGIN_FORM_SUBMIT':
+                    await handleSignIn(data);
                     break;
                     
-                case 'LOGIN_BUTTON_CLICK':
-                    handleLoginButtonClick();
+                case 'SWITCH_TO_LOGIN':
+                    setIsSignUp(false);
+                    break;
+                    
+                case 'SWITCH_TO_SIGNUP':
+                    setIsSignUp(true);
                     break;
                     
                 case 'LOAD_BUILDINGS_REQUEST':
@@ -49,12 +54,20 @@ export default function AuthWithHTML() {
         return () => window.removeEventListener('message', handleMessage);
     }, []);
 
-    const handleAuthSubmit = async (formData) => {
+    // Обновляем iframe при изменении режима
+    useEffect(() => {
+        if (iframeRef.current) {
+            const src = isSignUp ? '/signup.html' : '/login.html';
+            iframeRef.current.src = src;
+        }
+    }, [isSignUp]);
+
+    const handleSignUp = async (formData) => {
         setLoading(true);
 
         try {
             // Валидация
-            const errors = validateForm(formData);
+            const errors = validateSignUpForm(formData);
             if (Object.keys(errors).length > 0) {
                 sendMessageToIframe({
                     type: 'VALIDATION_ERRORS',
@@ -63,13 +76,58 @@ export default function AuthWithHTML() {
                 return;
             }
 
-            if (formData.isSignUp) {
-                await handleSignUp(formData);
-            } else {
-                await handleSignIn(formData);
+            // Сначала создаем пользователя в auth
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: formData.email,
+                password: formData.password,
+                options: {
+                    data: {
+                        first_name: formData.firstName,
+                        last_name: formData.lastName,
+                        group_id: formData.selectedGroupId
+                    }
+                }
+            });
+
+            if (authError) {
+                if (authError.message.includes('already registered')) {
+                    throw new Error('Пользователь с таким email уже зарегистрирован');
+                }
+                throw authError;
             }
+
+            if (!authData.user) {
+                throw new Error('Не удалось создать пользователя');
+            }
+
+            // Теперь создаем профиль в таблице profiles
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .insert({
+                    id: authData.user.id,
+                    email: formData.email,
+                    first_name: formData.firstName,
+                    last_name: formData.lastName,
+                    group_id: formData.selectedGroupId,
+                    role: 'student',
+                    updated_at: new Date().toISOString()
+                });
+
+            if (profileError) {
+                console.error('Profile creation error:', profileError);
+                // Если ошибка создания профиля, но пользователь создан - все равно считаем успехом
+            }
+
+            // УСПЕШНАЯ РЕГИСТРАЦИЯ
+            sendMessageToIframe({
+                type: 'AUTH_SUCCESS',
+                data: { 
+                    message: 'Регистрация успешна! Пожалуйста, проверьте вашу электронную почту для подтверждения учетной записи перед входом.' 
+                }
+            });
+
         } catch (error) {
-            console.error('Auth error:', error);
+            console.error('Sign up error:', error);
             sendMessageToIframe({
                 type: 'AUTH_ERROR',
                 data: { message: error.message }
@@ -79,128 +137,80 @@ export default function AuthWithHTML() {
         }
     };
 
-    const handleSignUp = async (formData) => {
-        console.log('Sign up with:', formData);
+    const handleSignIn = async (formData) => {
+        setLoading(true);
 
-        // Сначала создаем пользователя в auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: formData.email,
-            password: formData.password,
-            options: {
-                data: {
-                    first_name: formData.firstName,
-                    last_name: formData.lastName,
-                    group_id: formData.selectedGroupId
+        try {
+            // Валидация
+            const errors = validateLoginForm(formData);
+            if (Object.keys(errors).length > 0) {
+                sendMessageToIframe({
+                    type: 'VALIDATION_ERRORS',
+                    data: { errors }
+                });
+                return;
+            }
+
+            const { data, error } = await supabase.auth.signInWithPassword({ 
+                email: formData.email, 
+                password: formData.password 
+            });
+            
+            if (error) {
+                if (error.message.includes('Invalid login credentials')) {
+                    throw new Error('Неверный email или пароль');
+                } else if (error.message.includes('Email not confirmed')) {
+                    throw new Error('Email не подтвержден. Пожалуйста, проверьте вашу почту и подтвердите учетную запись перед входом.');
+                } else if (error.message.includes('Email not verified')) {
+                    throw new Error('Email не подтвержден. Пожалуйста, проверьте вашу почту и подтвердите учетную запись.');
+                }
+                throw error;
+            }
+
+            // После успешного входа проверяем и создаем профиль если нужно
+            if (data.user) {
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+
+                if (profileError && profileError.code === 'PGRST116') {
+                    // Профиль не найден - создаем его
+                    const userMetadata = data.user.user_metadata;
+                    const { error: createError } = await supabase
+                        .from('profiles')
+                        .insert({
+                            id: data.user.id,
+                            email: data.user.email,
+                            first_name: userMetadata.first_name || 'Пользователь',
+                            last_name: userMetadata.last_name || '',
+                            group_id: userMetadata.group_id || null,
+                            role: 'student',
+                            updated_at: new Date().toISOString()
+                        });
+
+                    if (createError) {
+                        console.error('Error creating profile after login:', createError);
+                    }
                 }
             }
-        });
-
-        if (authError) {
-            if (authError.message.includes('already registered')) {
-                throw new Error('Пользователь с таким email уже зарегистрирован');
-            }
-            throw authError;
-        }
-
-        if (!authData.user) {
-            throw new Error('Не удалось создать пользователя');
-        }
-
-        // Теперь создаем профиль в таблице profiles
-        const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-                id: authData.user.id,
-                email: formData.email,
-                first_name: formData.firstName,
-                last_name: formData.lastName,
-                group_id: formData.selectedGroupId,
-                role: 'student',
-                updated_at: new Date().toISOString()
+            
+            // Успешный вход
+            sendMessageToIframe({
+                type: 'AUTH_SUCCESS',
+                data: { message: 'Вход выполнен успешно!' }
             });
 
-        if (profileError) {
-            console.error('Profile creation error:', profileError);
-            // Если ошибка создания профиля, но пользователь создан - все равно считаем успехом
-            // Пользователь сможет войти и профиль создастся позже
+        } catch (error) {
+            console.error('Sign in error:', error);
+            sendMessageToIframe({
+                type: 'AUTH_ERROR',
+                data: { message: error.message }
+            });
+        } finally {
+            setLoading(false);
         }
-
-        // УСПЕШНАЯ РЕГИСТРАЦИЯ
-        sendMessageToIframe({
-            type: 'AUTH_SUCCESS',
-            data: { 
-                message: 'Регистрация успешна! Пожалуйста, проверьте вашу электронную почту для подтверждения учетной записи перед входом.' 
-            }
-        });
-    };
-
-    const handleSignIn = async (formData) => {
-        console.log('Sign in with:', formData);
-
-        const { data, error } = await supabase.auth.signInWithPassword({ 
-            email: formData.email, 
-            password: formData.password 
-        });
-        
-        if (error) {
-            if (error.message.includes('Invalid login credentials')) {
-                throw new Error('Неверный email или пароль');
-            } else if (error.message.includes('Email not confirmed')) {
-                throw new Error('Email не подтвержден. Пожалуйста, проверьте вашу почту и подтвердите учетную запись перед входом.');
-            } else if (error.message.includes('Email not verified')) {
-                throw new Error('Email не подтвержден. Пожалуйста, проверьте вашу почту и подтвердите учетную запись.');
-            }
-            throw error;
-        }
-
-        // После успешного входа проверяем и создаем профиль если нужно
-        if (data.user) {
-            const { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', data.user.id)
-                .single();
-
-            if (profileError && profileError.code === 'PGRST116') {
-                // Профиль не найден - создаем его
-                const userMetadata = data.user.user_metadata;
-                const { error: createError } = await supabase
-                    .from('profiles')
-                    .insert({
-                        id: data.user.id,
-                        email: data.user.email,
-                        first_name: userMetadata.first_name || 'Пользователь',
-                        last_name: userMetadata.last_name || '',
-                        group_id: userMetadata.group_id || null,
-                        role: 'student',
-                        updated_at: new Date().toISOString()
-                    });
-
-                if (createError) {
-                    console.error('Error creating profile after login:', createError);
-                }
-            }
-        }
-        
-        // Успешный вход
-        sendMessageToIframe({
-            type: 'AUTH_SUCCESS',
-            data: { message: 'Вход выполнен успешно!' }
-        });
-    };
-
-    const handleToggleAuth = (data) => {
-        sendMessageToIframe({
-            type: 'SET_AUTH_MODE',
-            data: { isSignUp: data.isSignUp }
-        });
-    };
-
-    const handleLoginButtonClick = () => {
-        sendMessageToIframe({
-            type: 'SET_AUTH_MODE',
-            data: { isSignUp: false }
-        });
     };
 
     const handleLoadBuildingsRequest = async () => {
@@ -305,7 +315,7 @@ export default function AuthWithHTML() {
         console.log('Group selected:', groupId);
     };
 
-    const validateForm = (formData) => {
+    const validateSignUpForm = (formData) => {
         const errors = {};
 
         if (!formData.email) {
@@ -320,10 +330,24 @@ export default function AuthWithHTML() {
             errors.password = 'Пароль должен быть не менее 6 символов';
         }
 
-        if (formData.isSignUp) {
-            if (!formData.firstName) errors.firstName = 'Имя обязательно';
-            if (!formData.lastName) errors.lastName = 'Фамилия обязательна';
-            if (!formData.selectedGroupId) errors.group = 'Выберите учебную группу';
+        if (!formData.firstName) errors.firstName = 'Имя обязательно';
+        if (!formData.lastName) errors.lastName = 'Фамилия обязательна';
+        if (!formData.selectedGroupId) errors.group = 'Выберите учебную группу';
+
+        return errors;
+    };
+
+    const validateLoginForm = (formData) => {
+        const errors = {};
+
+        if (!formData.email) {
+            errors.email = 'Email обязателен';
+        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+            errors.email = 'Некорректный формат email';
+        }
+
+        if (!formData.password) {
+            errors.password = 'Пароль обязателен';
         }
 
         return errors;
@@ -340,7 +364,7 @@ export default function AuthWithHTML() {
         <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
             <iframe 
                 ref={iframeRef}
-                src="/auth.html"
+                src={isSignUp ? "/signup.html" : "/login.html"}
                 width="100%" 
                 height="100%"
                 frameBorder="0"
