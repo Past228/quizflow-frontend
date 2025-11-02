@@ -446,30 +446,44 @@ function updateProfileUI(profile) {
     updateStudyInfoUI(profile);
 }
 
+// ИСПРАВЛЕННАЯ ФУНКЦИЯ: Правильное центрирование аватара
 function updateAvatarUI() {
     const profile = state.profile;
     
-    if (profile.avatar_url) {
-        // If avatar URL exists
-        if (profile.avatar_url.startsWith('data:image/svg+xml') || profile.avatar_url.startsWith('http')) {
-            // For SVG avatars or regular URLs
-            elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
-        } else {
-            // For other cases, show default avatar
-            showDefaultAvatar();
+    if (profile.avatar_url && (profile.avatar_url.startsWith('data:image/svg+xml') || profile.avatar_url.startsWith('http'))) {
+        // For SVG avatars or regular URLs - используем изображение
+        elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
+        
+        // Добавляем обработчик ошибок загрузки изображения
+        const img = elements.userAvatar.querySelector('img');
+        if (img) {
+            img.onerror = function() {
+                showDefaultAvatar();
+            };
         }
     } else {
+        // For other cases, show default avatar
         showDefaultAvatar();
     }
 }
 
+// ИСПРАВЛЕННАЯ ФУНКЦИЯ: Правильное центрирование текстового аватара
 function showDefaultAvatar() {
     const profile = state.profile;
     const firstName = profile.first_name || 'И';
     const lastName = profile.last_name || 'П';
     const avatarText = (firstName[0] || '') + (lastName[0] || '');
-    elements.userAvatar.innerHTML = avatarText;
+    
+    // Полностью очищаем и устанавливаем текстовый аватар
+    elements.userAvatar.innerHTML = '';
+    elements.userAvatar.textContent = avatarText;
     elements.userAvatar.style.background = '#3b82f6';
+    
+    // Принудительное центрирование текста
+    elements.userAvatar.style.display = 'flex';
+    elements.userAvatar.style.alignItems = 'center';
+    elements.userAvatar.style.justifyContent = 'center';
+    elements.userAvatar.style.lineHeight = '1';
 }
 
 function updateStudyInfoUI(profile) {
