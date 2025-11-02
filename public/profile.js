@@ -8,14 +8,50 @@ let state = {
     profileNotFound: false,
     selectedAvatar: null,
     avatarOptions: [
-        { color: '#3b82f6', text: 'ИП' },
-        { color: '#ef4444', text: 'ИП' },
-        { color: '#10b981', text: 'ИП' },
-        { color: '#f59e0b', text: 'ИП' },
-        { color: '#8b5cf6', text: 'ИП' },
-        { color: '#06b6d4', text: 'ИП' },
-        { color: '#84cc16', text: 'ИП' },
-        { color: '#f97316', text: 'ИП' }
+        { 
+            type: 'url', 
+            url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face', 
+            name: 'Мужчина 1' 
+        },
+        { 
+            type: 'url', 
+            url: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face', 
+            name: 'Женщина 1' 
+        },
+        { 
+            type: 'url', 
+            url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face', 
+            name: 'Мужчина 2' 
+        },
+        { 
+            type: 'url', 
+            url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face', 
+            name: 'Женщина 2' 
+        },
+        { 
+            type: 'color', 
+            color: '#3b82f6', 
+            text: 'ИП',
+            url: null 
+        },
+        { 
+            type: 'color', 
+            color: '#ef4444', 
+            text: 'ИП',
+            url: null 
+        },
+        { 
+            type: 'color', 
+            color: '#10b981', 
+            text: 'ИП',
+            url: null 
+        },
+        { 
+            type: 'color', 
+            color: '#f59e0b', 
+            text: 'ИП',
+            url: null 
+        }
     ]
 };
 
@@ -42,8 +78,8 @@ const elements = {
     userAvatar: document.getElementById('userAvatar'),
     avatarModal: document.getElementById('avatarModal'),
     avatarOptions: document.getElementById('avatarOptions'),
-    avatarUpload: document.getElementById('avatarUpload'),
-    uploadTrigger: document.getElementById('uploadTrigger'),
+    avatarUrlInput: document.getElementById('avatarUrlInput'),
+    useUrlBtn: document.getElementById('useUrlBtn'),
     cancelAvatarBtn: document.getElementById('cancelAvatarBtn'),
     saveAvatarBtn: document.getElementById('saveAvatarBtn'),
     
@@ -92,8 +128,7 @@ function initializeEventListeners() {
     elements.avatarContainer.addEventListener('click', handleAvatarClick);
     elements.cancelAvatarBtn.addEventListener('click', handleCancelAvatar);
     elements.saveAvatarBtn.addEventListener('click', handleSaveAvatar);
-    elements.uploadTrigger.addEventListener('click', handleUploadTrigger);
-    elements.avatarUpload.addEventListener('change', handleAvatarUpload);
+    elements.useUrlBtn.addEventListener('click', handleUseUrl);
 }
 
 // Communication with React parent
@@ -166,30 +201,42 @@ function handleCancelAvatar() {
 
 function handleSaveAvatar() {
     if (state.selectedAvatar) {
+        let avatarUrl = '';
+        
+        if (state.selectedAvatar.type === 'url') {
+            avatarUrl = state.selectedAvatar.url;
+        } else if (state.selectedAvatar.type === 'color') {
+            // Для цветных аватарок создаем SVG
+            avatarUrl = generateColorAvatarURL(state.selectedAvatar.color, state.selectedAvatar.text);
+        } else if (state.selectedAvatar.type === 'custom') {
+            // Для кастомных URL используем введенный URL
+            avatarUrl = state.selectedAvatar.url;
+        }
+        
         sendMessageToParent({
             type: 'UPDATE_AVATAR_REQUEST',
-            data: { avatar: state.selectedAvatar }
+            data: { avatarUrl: avatarUrl }
         });
         hideAvatarModal();
+    } else {
+        alert('Пожалуйста, выберите аватар или введите URL');
     }
 }
 
-function handleUploadTrigger() {
-    elements.avatarUpload.click();
-}
-
-function handleAvatarUpload(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
+function handleUseUrl() {
+    const url = elements.avatarUrlInput.value.trim();
+    if (url) {
+        if (isValidUrl(url)) {
             state.selectedAvatar = {
-                type: 'image',
-                data: e.target.result
+                type: 'custom',
+                url: url
             };
             updateSelectedAvatarInModal();
-        };
-        reader.readAsDataURL(file);
+        } else {
+            alert('Пожалуйста, введите корректный URL');
+        }
+    } else {
+        alert('Пожалуйста, введите URL');
     }
 }
 
@@ -310,21 +357,33 @@ function showAvatarModal() {
 function hideAvatarModal() {
     elements.avatarModal.classList.add('hidden');
     state.selectedAvatar = null;
-    elements.avatarUpload.value = '';
+    elements.avatarUrlInput.value = '';
 }
 
 function populateAvatarOptions() {
     let optionsHTML = '';
     
     state.avatarOptions.forEach((option, index) => {
-        const isSelected = state.selectedAvatar && state.selectedAvatar.type === 'color' && state.selectedAvatar.color === option.color;
-        optionsHTML += `
-            <div class="avatar-option ${isSelected ? 'selected' : ''}" 
-                 style="background: ${option.color}"
-                 data-index="${index}">
-                ${option.text}
-            </div>
-        `;
+        const isSelected = state.selectedAvatar && 
+                          state.selectedAvatar.type === option.type && 
+                          state.selectedAvatar.url === option.url;
+        
+        if (option.type === 'url') {
+            optionsHTML += `
+                <div class="avatar-option ${isSelected ? 'selected' : ''}" 
+                     data-index="${index}">
+                    <img src="${option.url}" alt="${option.name}" class="avatar-option-image">
+                </div>
+            `;
+        } else if (option.type === 'color') {
+            optionsHTML += `
+                <div class="avatar-option ${isSelected ? 'selected' : ''}" 
+                     style="background: ${option.color}"
+                     data-index="${index}">
+                    <span class="avatar-option-initials">${option.text}</span>
+                </div>
+            `;
+        }
     });
     
     elements.avatarOptions.innerHTML = optionsHTML;
@@ -333,11 +392,7 @@ function populateAvatarOptions() {
     elements.avatarOptions.querySelectorAll('.avatar-option').forEach(option => {
         option.addEventListener('click', function() {
             const index = parseInt(this.getAttribute('data-index'));
-            state.selectedAvatar = {
-                type: 'color',
-                color: state.avatarOptions[index].color,
-                text: state.avatarOptions[index].text
-            };
+            state.selectedAvatar = { ...state.avatarOptions[index] };
             updateSelectedAvatarInModal();
         });
     });
@@ -349,8 +404,8 @@ function updateSelectedAvatarInModal() {
         option.classList.remove('selected');
     });
     
-    if (state.selectedAvatar && state.selectedAvatar.type === 'color') {
-        const selectedOption = elements.avatarOptions.querySelector(`[data-index="${state.avatarOptions.findIndex(opt => opt.color === state.selectedAvatar.color)}"]`);
+    if (state.selectedAvatar && state.selectedAvatar.type !== 'custom') {
+        const selectedOption = elements.avatarOptions.querySelector(`[data-index="${state.avatarOptions.findIndex(opt => opt.url === state.selectedAvatar.url && opt.type === state.selectedAvatar.type)}"]`);
         if (selectedOption) {
             selectedOption.classList.add('selected');
         }
@@ -383,12 +438,14 @@ function updateAvatarUI() {
     const profile = state.profile;
     
     if (profile.avatar_url) {
-        // If custom avatar image exists
-        elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
-    } else if (profile.avatar_color) {
-        // If color avatar exists
-        elements.userAvatar.innerHTML = profile.avatar_text || 'ИП';
-        elements.userAvatar.style.background = profile.avatar_color;
+        // If avatar URL exists
+        if (profile.avatar_url.startsWith('data:image/svg+xml')) {
+            // If it's a generated SVG avatar
+            elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
+        } else {
+            // If it's a regular image URL
+            elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
+        }
     } else {
         // Default avatar based on name
         const firstName = profile.first_name || 'И';
@@ -502,5 +559,25 @@ function getRussianPlural(number) {
         return 'а';
     } else {
         return 'ов';
+    }
+}
+
+function generateColorAvatarURL(color, text) {
+    // Create SVG avatar
+    const svg = `
+        <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" fill="${color}" rx="50"/>
+            <text x="50" y="55" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="36" font-weight="bold">${text}</text>
+        </svg>
+    `;
+    return 'data:image/svg+xml;base64,' + btoa(svg);
+}
+
+function isValidUrl(string) {
+    try {
+        new URL(string);
+        return true;
+    } catch (_) {
+        return false;
     }
 }

@@ -32,7 +32,7 @@ export default function Profile({ session }) {
                     break;
                     
                 case 'UPDATE_AVATAR_REQUEST':
-                    await handleUpdateAvatar(data.avatar);
+                    await handleUpdateAvatar(data.avatarUrl);
                     break;
                     
                 default:
@@ -170,49 +170,22 @@ export default function Profile({ session }) {
         }
     };
 
-    const handleUpdateAvatar = async (avatarData) => {
+    const handleUpdateAvatar = async (avatarUrl) => {
         try {
-            let updateData = {};
-            
-            if (avatarData.type === 'color') {
-                updateData = {
-                    avatar_color: avatarData.color,
-                    avatar_text: avatarData.text,
-                    avatar_url: null
-                };
-            } else if (avatarData.type === 'image') {
-                // Upload image to Supabase Storage
-                const fileExt = 'jpg';
-                const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage
-                    .from('avatars')
-                    .upload(fileName, dataURLToBlob(avatarData.data));
-
-                if (uploadError) throw uploadError;
-
-                // Get public URL
-                const { data: { publicUrl } } = supabase.storage
-                    .from('avatars')
-                    .getPublicUrl(fileName);
-
-                updateData = {
-                    avatar_url: publicUrl,
-                    avatar_color: null,
-                    avatar_text: null
-                };
-            }
-
-            // Update profile
+            // Update only avatar_url field
             const { error: updateError } = await supabase
                 .from('profiles')
-                .update(updateData)
+                .update({ 
+                    avatar_url: avatarUrl,
+                    updated_at: new Date().toISOString()
+                })
                 .eq('id', session.user.id);
 
             if (updateError) throw updateError;
 
             sendMessageToIframe({
                 type: 'AVATAR_UPDATED',
-                data: { avatarUrl: updateData.avatar_url }
+                data: { avatarUrl: avatarUrl }
             });
 
         } catch (error) {
@@ -232,17 +205,6 @@ export default function Profile({ session }) {
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
-    };
-
-    const dataURLToBlob = (dataURL) => {
-        const byteString = atob(dataURL.split(',')[1]);
-        const mimeString = dataURL.split(',')[0].split(':')[1].split(';')[0];
-        const ab = new ArrayBuffer(byteString.length);
-        const ia = new Uint8Array(ab);
-        for (let i = 0; i < byteString.length; i++) {
-            ia[i] = byteString.charCodeAt(i);
-        }
-        return new Blob([ab], { type: mimeString });
     };
 
     const sendMessageToIframe = (message) => {
