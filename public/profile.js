@@ -9,48 +9,52 @@ let state = {
     selectedAvatar: null,
     avatarOptions: [
         { 
+            id: 'male1',
             type: 'url', 
             url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face', 
             name: 'Мужчина 1' 
         },
         { 
+            id: 'female1',
             type: 'url', 
             url: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face', 
             name: 'Женщина 1' 
         },
         { 
+            id: 'male2',
             type: 'url', 
             url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face', 
             name: 'Мужчина 2' 
         },
         { 
+            id: 'female2',
             type: 'url', 
             url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face', 
             name: 'Женщина 2' 
         },
         { 
+            id: 'blue',
             type: 'color', 
             color: '#3b82f6', 
-            text: 'ИП',
-            url: null 
+            text: 'ИП'
         },
         { 
+            id: 'red',
             type: 'color', 
             color: '#ef4444', 
-            text: 'ИП',
-            url: null 
+            text: 'ИП'
         },
         { 
+            id: 'green',
             type: 'color', 
             color: '#10b981', 
-            text: 'ИП',
-            url: null 
+            text: 'ИП'
         },
         { 
+            id: 'yellow',
             type: 'color', 
             color: '#f59e0b', 
-            text: 'ИП',
-            url: null 
+            text: 'ИП'
         }
     ]
 };
@@ -213,6 +217,8 @@ function handleSaveAvatar() {
             avatarUrl = state.selectedAvatar.url;
         }
         
+        console.log('Saving avatar:', state.selectedAvatar, 'URL:', avatarUrl);
+        
         sendMessageToParent({
             type: 'UPDATE_AVATAR_REQUEST',
             data: { avatarUrl: avatarUrl }
@@ -232,8 +238,9 @@ function handleUseUrl() {
                 url: url
             };
             updateSelectedAvatarInModal();
+            alert('URL установлен! Нажмите "Сохранить" для применения.');
         } else {
-            alert('Пожалуйста, введите корректный URL');
+            alert('Пожалуйста, введите корректный URL (начинается с http:// или https://)');
         }
     } else {
         alert('Пожалуйста, введите URL');
@@ -304,6 +311,7 @@ function handleAvatarUpdated(avatarUrl) {
     if (state.profile) {
         state.profile.avatar_url = avatarUrl;
         updateAvatarUI();
+        alert('Аватар успешно обновлен!');
     }
 }
 
@@ -364,14 +372,12 @@ function populateAvatarOptions() {
     let optionsHTML = '';
     
     state.avatarOptions.forEach((option, index) => {
-        const isSelected = state.selectedAvatar && 
-                          state.selectedAvatar.type === option.type && 
-                          state.selectedAvatar.url === option.url;
+        const isSelected = state.selectedAvatar && state.selectedAvatar.id === option.id;
         
         if (option.type === 'url') {
             optionsHTML += `
                 <div class="avatar-option ${isSelected ? 'selected' : ''}" 
-                     data-index="${index}">
+                     data-id="${option.id}">
                     <img src="${option.url}" alt="${option.name}" class="avatar-option-image">
                 </div>
             `;
@@ -379,7 +385,7 @@ function populateAvatarOptions() {
             optionsHTML += `
                 <div class="avatar-option ${isSelected ? 'selected' : ''}" 
                      style="background: ${option.color}"
-                     data-index="${index}">
+                     data-id="${option.id}">
                     <span class="avatar-option-initials">${option.text}</span>
                 </div>
             `;
@@ -391,9 +397,13 @@ function populateAvatarOptions() {
     // Add event listeners to avatar options
     elements.avatarOptions.querySelectorAll('.avatar-option').forEach(option => {
         option.addEventListener('click', function() {
-            const index = parseInt(this.getAttribute('data-index'));
-            state.selectedAvatar = { ...state.avatarOptions[index] };
-            updateSelectedAvatarInModal();
+            const id = this.getAttribute('data-id');
+            const selectedOption = state.avatarOptions.find(opt => opt.id === id);
+            if (selectedOption) {
+                state.selectedAvatar = { ...selectedOption };
+                updateSelectedAvatarInModal();
+                elements.avatarUrlInput.value = ''; // Clear URL input when selecting predefined avatar
+            }
         });
     });
 }
@@ -404,8 +414,8 @@ function updateSelectedAvatarInModal() {
         option.classList.remove('selected');
     });
     
-    if (state.selectedAvatar && state.selectedAvatar.type !== 'custom') {
-        const selectedOption = elements.avatarOptions.querySelector(`[data-index="${state.avatarOptions.findIndex(opt => opt.url === state.selectedAvatar.url && opt.type === state.selectedAvatar.type)}"]`);
+    if (state.selectedAvatar && state.selectedAvatar.id) {
+        const selectedOption = elements.avatarOptions.querySelector(`[data-id="${state.selectedAvatar.id}"]`);
         if (selectedOption) {
             selectedOption.classList.add('selected');
         }
@@ -444,16 +454,37 @@ function updateAvatarUI() {
             elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
         } else {
             // If it's a regular image URL
-            elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
+            const img = new Image();
+            img.src = profile.avatar_url;
+            img.className = 'avatar-image';
+            img.onerror = function() {
+                // If image fails to load, show default avatar
+                showDefaultAvatar();
+            };
+            img.onload = function() {
+                elements.userAvatar.innerHTML = '';
+                elements.userAvatar.appendChild(img);
+            };
+            
+            // Set timeout in case image takes too long to load
+            setTimeout(() => {
+                if (elements.userAvatar.children.length === 0) {
+                    showDefaultAvatar();
+                }
+            }, 2000);
         }
     } else {
-        // Default avatar based on name
-        const firstName = profile.first_name || 'И';
-        const lastName = profile.last_name || 'П';
-        const avatarText = (firstName[0] || '') + (lastName[0] || '');
-        elements.userAvatar.innerHTML = avatarText;
-        elements.userAvatar.style.background = '#3b82f6'; // Default blue
+        showDefaultAvatar();
     }
+}
+
+function showDefaultAvatar() {
+    const profile = state.profile;
+    const firstName = profile.first_name || 'И';
+    const lastName = profile.last_name || 'П';
+    const avatarText = (firstName[0] || '') + (lastName[0] || '');
+    elements.userAvatar.innerHTML = avatarText;
+    elements.userAvatar.style.background = '#3b82f6';
 }
 
 function updateStudyInfoUI(profile) {
@@ -570,13 +601,13 @@ function generateColorAvatarURL(color, text) {
             <text x="50" y="55" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="36" font-weight="bold">${text}</text>
         </svg>
     `;
-    return 'data:image/svg+xml;base64,' + btoa(svg);
+    return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
 
 function isValidUrl(string) {
     try {
         new URL(string);
-        return true;
+        return string.startsWith('http://') || string.startsWith('https://');
     } catch (_) {
         return false;
     }
