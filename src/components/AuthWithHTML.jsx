@@ -157,7 +157,27 @@ export default function AuthWithHTML() {
         setLoading(true);
 
         try {
-            // ... валидация и проверка кода ...
+            const errors = validateTeacherSignUpForm(formData);
+            if (Object.keys(errors).length > 0) {
+                sendMessageToIframe({
+                    type: 'VALIDATION_ERRORS',
+                    data: { errors }
+                });
+                return;
+            }
+
+            // Проверяем пригласительный код
+            const { data: codeData, error: codeError } = await supabase
+                .from('invite_codes')
+                .select('*')
+                .eq('code', formData.inviteCode.toUpperCase())
+                .eq('is_used', false)
+                .gte('expires_at', new Date().toISOString())
+                .single();
+
+            if (codeError || !codeData) {
+                throw new Error('Неверный или просроченный пригласительный код');
+            }
 
             // Создаем пользователя в auth
             const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -167,20 +187,28 @@ export default function AuthWithHTML() {
                     data: {
                         first_name: formData.firstName,
                         last_name: formData.lastName,
-                        role: 'teacher'  // Указываем роль teacher
+                        role: 'teacher'
                     }
                 }
             });
 
-            if (authError) throw authError;
-            if (!authData.user) throw new Error('Не удалось создать пользователя');
+            if (authError) {
+                if (authError.message.includes('already registered')) {
+                    throw new Error('Пользователь с таким email уже зарегистрирован');
+                }
+                throw authError;
+            }
+
+            if (!authData.user) {
+                throw new Error('Не удалось создать пользователя');
+            }
 
             console.log('Teacher user created:', authData.user.id);
 
             // Ждем немного чтобы пользователь точно создался
             await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // СОЗДАЕМ ЗАПИСЬ ТОЛЬКО В TEACHERS (НЕ В PROFILES!)
+            // СОЗДАЕМ ЗАПИСЬ ТОЛЬКО В TEACHERS
             const { error: teacherError } = await supabase
                 .from('teachers')
                 .insert({
@@ -189,11 +217,14 @@ export default function AuthWithHTML() {
                     first_name: formData.firstName,
                     last_name: formData.lastName,
                     email: formData.email,
+                    role: 'teacher', // Явно указываем роль
+                    avatar_url: null, // Пока аватарка пустая
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 });
 
             if (teacherError) {
+                console.error('Teacher creation error:', teacherError);
                 throw new Error('Не удалось создать запись преподавателя: ' + teacherError.message);
             }
 
@@ -205,7 +236,7 @@ export default function AuthWithHTML() {
                     used_by: authData.user.id,
                     used_at: new Date().toISOString()
                 })
-                .eq('id', validCode.id);
+                .eq('id', codeData.id);
 
             if (updateCodeError) {
                 console.error('Code update error:', updateCodeError);

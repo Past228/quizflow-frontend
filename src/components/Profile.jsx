@@ -64,7 +64,7 @@ export default function Profile({ session }) {
             console.log('User role:', userRole);
 
             if (userRole === 'teacher') {
-                // ДЛЯ ПРЕПОДАВАТЕЛЕЙ - загружаем данные из teachers
+                // ДЛЯ ПРЕПОДАВАТЕЛЕЙ - загружаем данные ИЗ TEACHERS
                 const { data, error } = await supabase
                     .from('teachers')
                     .select(`
@@ -78,7 +78,7 @@ export default function Profile({ session }) {
 
                 if (error) {
                     if (error.code === 'PGRST116') {
-                        sendMessageToIframe({
+                        sendMessageToParent({
                             type: 'PROFILE_NOT_FOUND',
                             data: { error: 'Профиль преподавателя не найден' }
                         });
@@ -87,21 +87,25 @@ export default function Profile({ session }) {
                     throw error;
                 }
 
+                // Формируем объект профиля для преподавателя
+                const teacherProfile = {
+                    id: data.id,
+                    email: data.email,
+                    first_name: data.first_name,
+                    last_name: data.last_name,
+                    role: data.role || 'teacher', // Берем роль из таблицы teachers
+                    avatar_url: data.avatar_url, // Аватарка из teachers
+                    teachers: [{
+                        id: data.id,
+                        building_id: data.building_id,
+                        buildings: data.buildings
+                    }]
+                };
+
                 sendMessageToIframe({
                     type: 'PROFILE_LOADED',
                     data: {
-                        profile: {
-                            id: data.id,
-                            email: data.email,
-                            first_name: data.first_name,
-                            last_name: data.last_name,
-                            role: 'teacher',
-                            teachers: [{
-                                id: data.id,
-                                building_id: data.building_id,
-                                buildings: data.buildings
-                            }]
-                        },
+                        profile: teacherProfile,
                         role: 'teacher'
                     }
                 });
@@ -301,15 +305,31 @@ export default function Profile({ session }) {
 
     const handleUpdateAvatar = async (avatarUrl) => {
         try {
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({
-                    avatar_url: avatarUrl,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', session.user.id);
+            const userRole = session.user.user_metadata?.role;
 
-            if (updateError) throw updateError;
+            if (userRole === 'teacher') {
+                // Для преподавателей обновляем в таблице teachers
+                const { error: updateError } = await supabase
+                    .from('teachers')
+                    .update({
+                        avatar_url: avatarUrl,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', session.user.id);
+
+                if (updateError) throw updateError;
+            } else {
+                // Для студентов обновляем в таблице profiles
+                const { error: updateError } = await supabase
+                    .from('profiles')
+                    .update({
+                        avatar_url: avatarUrl,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', session.user.id);
+
+                if (updateError) throw updateError;
+            }
 
             sendMessageToIframe({
                 type: 'AVATAR_UPDATED',
