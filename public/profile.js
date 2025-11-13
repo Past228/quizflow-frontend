@@ -185,6 +185,10 @@ window.addEventListener('message', function (event) {
         case 'TEST_CREATED':
             handleTestCreated(data.test);
             break;
+
+        case 'TEST_DELETED':
+            handleTestDeleted(data.testId);
+            break;
     }
 });
 
@@ -472,10 +476,10 @@ function updateStudentAvatarUI() {
 
     if (profile.avatar_url) {
         // Проверяем, является ли avatar_url SVG или URL изображением
-        if (profile.avatar_url.startsWith('data:image/svg+xml') || 
-            profile.avatar_url.startsWith('http') || 
+        if (profile.avatar_url.startsWith('data:image/svg+xml') ||
+            profile.avatar_url.startsWith('http') ||
             profile.avatar_url.startsWith('https')) {
-            
+
             elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
 
             const img = elements.userAvatar.querySelector('img');
@@ -621,10 +625,10 @@ function updateTeacherAvatarUI() {
 
     if (profile.avatar_url) {
         // Проверяем, является ли avatar_url SVG или URL изображением
-        if (profile.avatar_url.startsWith('data:image/svg+xml') || 
-            profile.avatar_url.startsWith('http') || 
+        if (profile.avatar_url.startsWith('data:image/svg+xml') ||
+            profile.avatar_url.startsWith('http') ||
             profile.avatar_url.startsWith('https')) {
-            
+
             elements.teacherAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
 
             const img = elements.teacherAvatar.querySelector('img');
@@ -701,12 +705,36 @@ function updateTeacherTestsUI(tests) {
                 <div class="test-actions">
                     <button class="test-action-btn" onclick="handleEditTest('${test.id}')">Редактировать</button>
                     <button class="test-action-btn primary" onclick="handleAssignGroups('${test.id}')">Назначить группам</button>
+                    <button class="test-action-btn danger" onclick="handleDeleteTest('${test.id}')">Удалить</button>
                 </div>
             </div>
         `;
     });
 
     elements.teacherTestsGrid.innerHTML = testsHTML;
+}
+
+function handleDeleteTest(testId) {
+    if (confirm('Вы уверены, что хотите удалить этот тест? Это действие нельзя отменить.')) {
+        sendMessageToParent({
+            type: 'DELETE_TEST_REQUEST',
+            data: { testId }
+        });
+    }
+}
+
+function handleTestDeleted(testId) {
+    // Удаляем тест из состояния
+    state.teacherTests = state.teacherTests.filter(test => test.id !== testId);
+
+    // Обновляем UI
+    updateTeacherTestsUI(state.teacherTests);
+    updateTeacherStatsUI({
+        totalTests: state.teacherTests.length,
+        activeTests: state.teacherTests.filter(test => test.is_active).length
+    });
+
+    alert('Тест успешно удален!');
 }
 
 // Helper functions
