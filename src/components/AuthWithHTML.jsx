@@ -70,7 +70,7 @@ export default function AuthWithHTML() {
         if (iframeRef.current) {
             let src = '';
             if (isTeacherSignUp) {
-                src = '/signup-teacher.html';
+                src = '/signup_teacher.html';
             } else if (isSignUp) {
                 src = '/signup.html';
             } else {
@@ -116,20 +116,31 @@ export default function AuthWithHTML() {
                 throw new Error('Не удалось создать пользователя');
             }
 
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .insert({
-                    id: authData.user.id,
-                    email: formData.email,
-                    first_name: formData.firstName,
-                    last_name: formData.lastName,
-                    group_id: formData.selectedGroupId,
-                    role: 'student',
-                    updated_at: new Date().toISOString()
-                });
+            // Используем функцию для создания профиля студента
+            const { error: profileError } = await supabase.rpc('create_student_profile', {
+                user_id: authData.user.id,
+                user_email: formData.email,
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+                group_id: formData.selectedGroupId
+            });
 
             if (profileError) {
                 console.error('Profile creation error:', profileError);
+                // Если функции нет, создаем стандартным способом
+                const { error: fallbackError } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: authData.user.id,
+                        email: formData.email,
+                        first_name: formData.firstName,
+                        last_name: formData.lastName,
+                        group_id: formData.selectedGroupId,
+                        role: 'student',
+                        updated_at: new Date().toISOString()
+                    });
+                
+                if (fallbackError) throw fallbackError;
             }
 
             sendMessageToIframe({
@@ -189,13 +200,7 @@ export default function AuthWithHTML() {
             // Создаем пользователя в auth
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
-                password: formData.password,
-                options: {
-                    data: {
-                        first_name: formData.firstName,
-                        last_name: formData.lastName,
-                    }
-                }
+                password: formData.password
             });
 
             if (authError) {
@@ -209,31 +214,29 @@ export default function AuthWithHTML() {
                 throw new Error('Не удалось создать пользователя');
             }
 
-            // Создаем профиль преподавателя
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .insert({
-                    id: authData.user.id,
-                    email: formData.email,
-                    first_name: formData.firstName,
-                    last_name: formData.lastName,
-                    role: 'teacher',
-                    updated_at: new Date().toISOString()
-                });
+            // Используем функцию для создания профиля преподавателя (обходит RLS)
+            const { error: profileError } = await supabase.rpc('create_teacher_profile', {
+                user_id: authData.user.id,
+                user_email: formData.email,
+                first_name: formData.firstName,
+                last_name: formData.lastName
+            });
 
-            if (profileError) throw profileError;
+            if (profileError) {
+                console.error('Teacher profile creation error:', profileError);
+                throw new Error('Не удалось создать профиль преподавателя: ' + profileError.message);
+            }
 
-            // Создаем запись в таблице teachers (сразу активен)
-            const { error: teacherError } = await supabase
-                .from('teachers')
-                .insert({
-                    user_id: authData.user.id,
-                    building_id: formData.buildingId || null,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                });
+            // Используем функцию для создания записи преподавателя
+            const { error: teacherError } = await supabase.rpc('create_teacher_record', {
+                p_user_id: authData.user.id,
+                p_building_id: formData.buildingId || null
+            });
 
-            if (teacherError) throw teacherError;
+            if (teacherError) {
+                console.error('Teacher record creation error:', teacherError);
+                throw new Error('Не удалось создать запись преподавателя: ' + teacherError.message);
+            }
 
             // Помечаем код как использованный
             const { error: updateCodeError } = await supabase
@@ -245,7 +248,10 @@ export default function AuthWithHTML() {
                 })
                 .eq('id', validCode.id);
 
-            if (updateCodeError) throw updateCodeError;
+            if (updateCodeError) {
+                console.error('Code update error:', updateCodeError);
+                throw new Error('Не удалось обновить статус кода: ' + updateCodeError.message);
+            }
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
@@ -302,18 +308,15 @@ export default function AuthWithHTML() {
                     .single();
 
                 if (profileError && profileError.code === 'PGRST116') {
+                    // Если профиля нет, создаем его через функцию
                     const userMetadata = data.user.user_metadata;
-                    const { error: createError } = await supabase
-                        .from('profiles')
-                        .insert({
-                            id: data.user.id,
-                            email: data.user.email,
-                            first_name: userMetadata.first_name || 'Пользователь',
-                            last_name: userMetadata.last_name || '',
-                            group_id: userMetadata.group_id || null,
-                            role: 'student',
-                            updated_at: new Date().toISOString()
-                        });
+                    const { error: createError } = await supabase.rpc('create_student_profile', {
+                        user_id: data.user.id,
+                        user_email: data.user.email,
+                        first_name: userMetadata.first_name || 'Пользователь',
+                        last_name: userMetadata.last_name || '',
+                        group_id: userMetadata.group_id || null
+                    });
 
                     if (createError) {
                         console.error('Error creating profile after login:', createError);
@@ -510,7 +513,7 @@ export default function AuthWithHTML() {
         <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
             <iframe 
                 ref={iframeRef}
-                src={isTeacherSignUp ? "/signup-teacher.html" : (isSignUp ? "/signup.html" : "/login.html")}
+                src={isTeacherSignUp ? "/signup_teacher.html" : (isSignUp ? "/signup.html" : "/login.html")}
                 width="100%" 
                 height="100%"
                 frameBorder="0"
