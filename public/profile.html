@@ -1,6 +1,7 @@
 <!-- profile.html (обновленная версия) -->
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,7 +26,7 @@
             align-items: center;
             padding: 20px 24px;
             background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
         .logo {
@@ -79,6 +80,12 @@
         }
 
         .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .right-column {
             display: flex;
             flex-direction: column;
             gap: 24px;
@@ -264,6 +271,140 @@
             font-size: 14px;
         }
 
+        /* Teacher Styles */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e40af;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .action-btn {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .action-btn:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+        }
+
+        .action-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .action-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .teacher-test-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+
+        .teacher-test-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+        }
+
+        .test-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .test-action-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+
+        .test-action-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .test-action-btn.primary {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .test-action-btn.primary:hover {
+            background: #2563eb;
+        }
+
+        .test-status.active {
+            background: #dcfce7;
+            color: #166534;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .test-status.inactive {
+            background: #f3f4f6;
+            color: #6b7280;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* Добавляем отступы между карточками в правой колонке */
+        .right-column .card {
+            margin-bottom: 24px;
+        }
+
+        .right-column .card:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Остальные стили остаются без изменений */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -464,15 +605,6 @@
             margin-bottom: 8px;
         }
 
-        .test-status {
-            background: #dcfce7;
-            color: #166534;
-            padding: 4px 8px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
         .test-description {
             color: #6b7280;
             font-size: 14px;
@@ -558,8 +690,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .error-container {
@@ -628,128 +765,6 @@
             display: none !important;
         }
 
-        /* Teacher Styles */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-            margin-top: 16px;
-        }
-
-        .stat-item {
-            text-align: center;
-            padding: 16px;
-            background: #f8fafc;
-            border-radius: 8px;
-        }
-
-        .stat-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #1e40af;
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: #6b7280;
-        }
-
-        .actions-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-            margin-top: 16px;
-        }
-
-        .action-btn {
-            background: white;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 20px;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-align: center;
-        }
-
-        .action-btn:hover {
-            border-color: #3b82f6;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
-        }
-
-        .action-icon {
-            font-size: 24px;
-            margin-bottom: 8px;
-        }
-
-        .action-text {
-            font-size: 14px;
-            font-weight: 500;
-            color: #374151;
-        }
-
-        .teacher-test-card {
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.2s;
-        }
-
-        .teacher-test-card:hover {
-            border-color: #3b82f6;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
-        }
-
-        .test-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .test-action-btn {
-            flex: 1;
-            padding: 8px 12px;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            background: white;
-            cursor: pointer;
-            font-size: 12px;
-            transition: background-color 0.2s;
-        }
-
-        .test-action-btn:hover {
-            background: #f3f4f6;
-        }
-
-        .test-action-btn.primary {
-            background: #3b82f6;
-            color: white;
-            border-color: #3b82f6;
-        }
-
-        .test-action-btn.primary:hover {
-            background: #2563eb;
-        }
-
-        .test-status.active {
-            background: #dcfce7;
-            color: #166534;
-            padding: 4px 8px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .test-status.inactive {
-            background: #f3f4f6;
-            color: #6b7280;
-            padding: 4px 8px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -790,7 +805,8 @@
             color: #374151;
         }
 
-        .form-group input, .form-group textarea {
+        .form-group input,
+        .form-group textarea {
             width: 100%;
             padding: 12px;
             border: 1px solid #d1d5db;
@@ -798,25 +814,27 @@
             font-size: 14px;
         }
 
-        .form-group input:focus, .form-group textarea:focus {
+        .form-group input:focus,
+        .form-group textarea:focus {
             outline: none;
             border-color: #3b82f6;
         }
     </style>
 </head>
+
 <body>
     <!-- Avatar Modal -->
     <div id="avatarModal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 class="modal-title">Выберите аватар</h3>
-            
+
             <div class="avatar-options" id="avatarOptions"></div>
-            
+
             <div class="url-section">
                 <input type="text" id="avatarUrlInput" class="url-input" placeholder="Введите URL ссылку на аватарку">
                 <button class="btn btn-primary" id="useUrlBtn">Использовать URL</button>
             </div>
-            
+
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="cancelAvatarBtn">Отмена</button>
                 <button class="btn btn-primary" id="saveAvatarBtn">Сохранить</button>
@@ -828,7 +846,7 @@
     <div id="createTestModal" class="modal-overlay hidden">
         <div class="modal-content" style="max-width: 500px;">
             <h3 class="modal-title">Создать новый тест</h3>
-            
+
             <form id="createTestForm">
                 <div class="form-group">
                     <label for="testTitle">Название теста:</label>
@@ -838,7 +856,8 @@
 
                 <div class="form-group">
                     <label for="testDescription">Описание:</label>
-                    <textarea id="testDescription" name="testDescription" rows="3" placeholder="Введите описание теста"></textarea>
+                    <textarea id="testDescription" name="testDescription" rows="3"
+                        placeholder="Введите описание теста"></textarea>
                 </div>
 
                 <div class="form-row">
@@ -846,7 +865,7 @@
                         <label for="timeLimit">Лимит времени (минут):</label>
                         <input type="number" id="timeLimit" name="timeLimit" min="1" placeholder="Не ограничено">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="maxAttempts">Макс. попыток:</label>
                         <input type="number" id="maxAttempts" name="maxAttempts" min="1" value="1">
@@ -869,7 +888,8 @@
         </div>
         <button class="logout-btn" id="logoutBtn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                </path>
             </svg>
             Выйти
         </button>
@@ -901,7 +921,8 @@
             <p class="not-found-message">Ваш аккаунт есть в системе, но профиль не был создан или был удален.</p>
             <div class="not-found-actions">
                 <button class="btn btn-primary btn-full" id="recreateProfileBtn">Создать новый профиль</button>
-                <button class="btn btn-secondary btn-full" id="logoutNotFoundBtn">Выйти и зарегистрироваться заново</button>
+                <button class="btn btn-secondary btn-full" id="logoutNotFoundBtn">Выйти и зарегистрироваться
+                    заново</button>
             </div>
         </div>
 
@@ -976,11 +997,14 @@
                             <!-- Empty Tests -->
                             <div id="emptyTests" class="empty-state" style="display: none;">
                                 <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                    </path>
                                 </svg>
                                 <h4 class="empty-title">Нет доступных тестов</h4>
                                 <p class="empty-description">
-                                    Ожидайте назначения тестов от преподавателя. Как только тесты будут назначены вашей группе, они появятся здесь.
+                                    Ожидайте назначения тестов от преподавателя. Как только тесты будут назначены вашей
+                                    группе, они появятся здесь.
                                 </p>
                             </div>
                         </div>
@@ -1096,7 +1120,9 @@
                             <!-- Empty Tests -->
                             <div id="teacherEmptyTests" class="empty-state" style="display: none;">
                                 <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                    </path>
                                 </svg>
                                 <h4 class="empty-title">Нет созданных тестов</h4>
                                 <p class="empty-description">
@@ -1112,4 +1138,5 @@
 
     <script src="/profile.js"></script>
 </body>
+
 </html>

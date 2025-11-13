@@ -299,7 +299,7 @@ export default function AuthWithHTML() {
                         .single();
 
                     if (teacherError && teacherError.code === 'PGRST116') {
-                        // Если записи преподавателя нет, создаем ее
+                        // Если записи преподавателя нет, создаем ее в teachers
                         console.log('Creating teacher record on login...');
                         const { error: createError } = await supabase
                             .from('teachers')
@@ -308,6 +308,8 @@ export default function AuthWithHTML() {
                                 email: data.user.email,
                                 first_name: data.user.user_metadata?.first_name || 'Преподаватель',
                                 last_name: data.user.user_metadata?.last_name || '',
+                                role: 'teacher',
+                                avatar_url: null,
                                 created_at: new Date().toISOString(),
                                 updated_at: new Date().toISOString()
                             });
@@ -318,7 +320,17 @@ export default function AuthWithHTML() {
                     }
 
                     // ВАЖНО: ПРЕПОДАВАТЕЛЯМ НЕ СОЗДАЕМ ПРОФИЛЬ В PROFILES!
-                    console.log('Teacher login successful - no profile created');
+                    // Удаляем запись в profiles если она случайно создалась
+                    const { error: deleteProfileError } = await supabase
+                        .from('profiles')
+                        .delete()
+                        .eq('id', data.user.id);
+
+                    if (deleteProfileError && deleteProfileError.code !== 'PGRST116') {
+                        console.error('Error deleting teacher profile:', deleteProfileError);
+                    }
+
+                    console.log('Teacher login successful - profile removed if existed');
 
                 } else {
                     // ДЛЯ СТУДЕНТОВ - создаем запись в profiles если ее нет

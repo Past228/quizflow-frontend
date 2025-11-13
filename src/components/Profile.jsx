@@ -78,7 +78,7 @@ export default function Profile({ session }) {
 
                 if (error) {
                     if (error.code === 'PGRST116') {
-                        sendMessageToParent({
+                        sendMessageToIframe({
                             type: 'PROFILE_NOT_FOUND',
                             data: { error: 'Профиль преподавателя не найден' }
                         });
@@ -93,8 +93,8 @@ export default function Profile({ session }) {
                     email: data.email,
                     first_name: data.first_name,
                     last_name: data.last_name,
-                    role: data.role || 'teacher', // Берем роль из таблицы teachers
-                    avatar_url: data.avatar_url, // Аватарка из teachers
+                    role: data.role || 'teacher',
+                    avatar_url: data.avatar_url,
                     teachers: [{
                         id: data.id,
                         building_id: data.building_id,
