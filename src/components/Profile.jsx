@@ -19,6 +19,14 @@ export default function Profile({ session }) {
                     await handleLoadTests(data.groupId);
                     break;
                     
+                case 'LOAD_TEACHER_DATA_REQUEST':
+                    await handleLoadTeacherData(data.teacherId);
+                    break;
+                    
+                case 'CREATE_TEST_REQUEST':
+                    await handleCreateTest(data.testData);
+                    break;
+                    
                 case 'LOGOUT_REQUEST':
                     await handleSignOut();
                     break;
@@ -64,6 +72,13 @@ export default function Profile({ session }) {
                                 name
                             )
                         )
+                    ),
+                    teachers (
+                        id,
+                        building_id,
+                        buildings (
+                            name
+                        )
                     )
                 `)
                 .eq('id', session.user.id)
@@ -82,7 +97,10 @@ export default function Profile({ session }) {
 
             sendMessageToIframe({
                 type: 'PROFILE_LOADED',
-                data: { profile: data }
+                data: { 
+                    profile: data,
+                    role: data.role
+                }
             });
 
         } catch (error) {
@@ -135,6 +153,74 @@ export default function Profile({ session }) {
         }
     };
 
+    const handleLoadTeacherData = async (teacherId) => {
+        try {
+            // Загружаем тесты преподавателя
+            const { data: testsData, error: testsError } = await supabase
+                .from('tests')
+                .select('*')
+                .eq('created_by', session.user.id)
+                .order('created_at', { ascending: false });
+
+            if (testsError) throw testsError;
+
+            sendMessageToIframe({
+                type: 'TEACHER_DATA_LOADED',
+                data: {
+                    tests: testsData || [],
+                    stats: {
+                        totalTests: testsData?.length || 0,
+                        activeTests: testsData?.filter(test => test.is_active).length || 0
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Teacher data loading error:', error);
+            sendMessageToIframe({
+                type: 'TEACHER_DATA_LOADED',
+                data: {
+                    tests: [],
+                    stats: { totalTests: 0, activeTests: 0 }
+                }
+            });
+        }
+    };
+
+    const handleCreateTest = async (testData) => {
+        try {
+            const { data, error } = await supabase
+                .from('tests')
+                .insert({
+                    title: testData.title,
+                    description: testData.description,
+                    time_limit: testData.timeLimit,
+                    max_attempts: testData.maxAttempts,
+                    questions_count: 0,
+                    created_by: session.user.id,
+                    is_active: true,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            sendMessageToIframe({
+                type: 'TEST_CREATED',
+                data: { test: data }
+            });
+
+        } catch (error) {
+            console.error('Test creation error:', error);
+            sendMessageToIframe({
+                type: 'ERROR_STATE',
+                data: { error: 'Не удалось создать тест: ' + error.message }
+            });
+        }
+    };
+
     const handleRecreateProfile = async () => {
         sendMessageToIframe({
             type: 'LOADING_STATE',
@@ -172,7 +258,6 @@ export default function Profile({ session }) {
 
     const handleUpdateAvatar = async (avatarUrl) => {
         try {
-            // Update only avatar_url field
             const { error: updateError } = await supabase
                 .from('profiles')
                 .update({ 
@@ -198,7 +283,6 @@ export default function Profile({ session }) {
     };
 
     const handleStartTest = async (testId) => {
-        // Здесь будет логика начала теста
         console.log('Starting test:', testId);
         alert(`Начинаем тест с ID: ${testId}`);
     };

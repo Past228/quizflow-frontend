@@ -22,6 +22,7 @@ const elements = {
     authForm: document.getElementById('authForm'),
     submitBtn: document.getElementById('submitBtn'),
     toggleAuthBtn: document.getElementById('toggleAuthBtn'),
+    toggleToTeacherBtn: document.getElementById('toggleToTeacherBtn'),
     loginBtn: document.getElementById('loginBtn'),
     
     // Input fields
@@ -61,6 +62,9 @@ function initializeEventListeners() {
     // Toggle to login
     elements.toggleAuthBtn.addEventListener('click', handleToggleToLogin);
     elements.loginBtn.addEventListener('click', handleLoginClick);
+    
+    // Toggle to teacher registration
+    elements.toggleToTeacherBtn.addEventListener('click', handleToggleToTeacher);
     
     // Group selection
     elements.building.addEventListener('change', handleBuildingChange);
@@ -150,6 +154,12 @@ function handleToggleToLogin() {
 function handleLoginClick() {
     sendMessageToParent({
         type: 'SWITCH_TO_LOGIN'
+    });
+}
+
+function handleToggleToTeacher() {
+    sendMessageToParent({
+        type: 'SWITCH_TO_TEACHER_SIGNUP'
     });
 }
 

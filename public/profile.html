@@ -1,9 +1,10 @@
+<!-- profile.html (обновленная версия) -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>СтудТест - Личный кабинет</title>
+    <title>QuizFlow - Личный кабинет</title>
     <style>
         * {
             margin: 0;
@@ -18,7 +19,6 @@
             min-height: 100vh;
         }
 
-        /* Header */
         .header {
             display: flex;
             justify-content: space-between;
@@ -59,7 +59,6 @@
             background: #dc2626;
         }
 
-        /* Main Layout */
         .main-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -79,14 +78,12 @@
             }
         }
 
-        /* Left Column */
         .left-column {
             display: flex;
             flex-direction: column;
             gap: 24px;
         }
 
-        /* Cards */
         .card {
             background: white;
             border-radius: 16px;
@@ -100,7 +97,6 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
 
-        /* User Info */
         .user-header {
             display: flex;
             align-items: center;
@@ -113,7 +109,6 @@
             cursor: pointer;
         }
 
-        /* ИСПРАВЛЕННЫЙ АВАТАР - правильное центрирование */
         .user-avatar {
             width: 80px;
             height: 80px;
@@ -158,7 +153,6 @@
             padding: 8px;
         }
 
-        /* ИСПРАВЛЕНИЕ: Абсолютное центрирование для изображений */
         .avatar-image {
             width: 100%;
             height: 100%;
@@ -221,7 +215,11 @@
             text-transform: capitalize;
         }
 
-        /* Study Info */
+        .teacher-badge {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
         .study-section h3 {
             font-size: 18px;
             font-weight: bold;
@@ -266,7 +264,6 @@
             font-size: 14px;
         }
 
-        /* Avatar Modal - ИСПРАВЛЕННЫЕ СТИЛИ */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -326,7 +323,6 @@
             box-shadow: 0 0 0 2px white, 0 0 0 4px #3b82f6;
         }
 
-        /* ИСПРАВЛЕНИЕ: Правильное центрирование для всех типов аватарок */
         .avatar-option-image {
             width: 100%;
             height: 100%;
@@ -408,7 +404,6 @@
             background: #4b5563;
         }
 
-        /* Tests Section */
         .tests-header {
             display: flex;
             justify-content: space-between;
@@ -514,7 +509,6 @@
             background: #059669;
         }
 
-        /* Empty State */
         .empty-state {
             text-align: center;
             padding: 48px 24px;
@@ -541,7 +535,6 @@
             margin: 0 auto;
         }
 
-        /* Loading State */
         .loading-container {
             display: flex;
             align-items: center;
@@ -569,7 +562,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Error State */
         .error-container {
             text-align: center;
             padding: 60px 20px;
@@ -598,7 +590,6 @@
             justify-content: center;
         }
 
-        /* Profile Not Found */
         .profile-not-found {
             text-align: center;
             padding: 60px 20px;
@@ -633,9 +624,183 @@
             width: 100%;
         }
 
-        /* Hidden */
         .hidden {
             display: none !important;
+        }
+
+        /* Teacher Styles */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e40af;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .action-btn {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .action-btn:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+        }
+
+        .action-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .action-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .teacher-test-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s;
+        }
+
+        .teacher-test-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+        }
+
+        .test-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .test-action-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+
+        .test-action-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .test-action-btn.primary {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .test-action-btn.primary:hover {
+            background: #2563eb;
+        }
+
+        .test-status.active {
+            background: #dcfce7;
+            color: #166534;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .test-status.inactive {
+            background: #f3f4f6;
+            color: #6b7280;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .spinner-small {
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
         }
     </style>
 </head>
@@ -645,9 +810,7 @@
         <div class="modal-content">
             <h3 class="modal-title">Выберите аватар</h3>
             
-            <div class="avatar-options" id="avatarOptions">
-                <!-- Avatar options will be populated here -->
-            </div>
+            <div class="avatar-options" id="avatarOptions"></div>
             
             <div class="url-section">
                 <input type="text" id="avatarUrlInput" class="url-input" placeholder="Введите URL ссылку на аватарку">
@@ -661,10 +824,47 @@
         </div>
     </div>
 
+    <!-- Create Test Modal -->
+    <div id="createTestModal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <h3 class="modal-title">Создать новый тест</h3>
+            
+            <form id="createTestForm">
+                <div class="form-group">
+                    <label for="testTitle">Название теста:</label>
+                    <input type="text" id="testTitle" name="testTitle" required placeholder="Введите название теста">
+                    <div class="error-text" id="testTitleError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="testDescription">Описание:</label>
+                    <textarea id="testDescription" name="testDescription" rows="3" placeholder="Введите описание теста"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="timeLimit">Лимит времени (минут):</label>
+                        <input type="number" id="timeLimit" name="timeLimit" min="1" placeholder="Не ограничено">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="maxAttempts">Макс. попыток:</label>
+                        <input type="number" id="maxAttempts" name="maxAttempts" min="1" value="1">
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelCreateTestBtn">Отмена</button>
+                    <button type="submit" class="btn btn-primary" id="submitCreateTestBtn">Создать тест</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="header">
         <div>
-            <div class="logo">СтудТест</div>
+            <div class="logo">QuizFlow</div>
             <div class="logo-subtitle">Личный кабинет</div>
         </div>
         <button class="logout-btn" id="logoutBtn">
@@ -707,84 +907,202 @@
 
         <!-- Main Content -->
         <div id="mainContent" style="display: none;">
-            <div class="grid-layout">
-                <!-- Left Column - User Info -->
-                <div class="left-column">
-                    <!-- User Card -->
-                    <div class="card">
-                        <div class="user-header">
-                            <div class="avatar-container" id="avatarContainer">
-                                <div class="user-avatar" id="userAvatar">
-                                    <!-- Avatar content will be here -->
+
+            <!-- Student Interface -->
+            <div id="studentInterface" style="display: none;">
+                <div class="grid-layout">
+                    <!-- Left Column - User Info -->
+                    <div class="left-column">
+                        <!-- User Card -->
+                        <div class="card">
+                            <div class="user-header">
+                                <div class="avatar-container" id="avatarContainer">
+                                    <div class="user-avatar" id="userAvatar"></div>
+                                    <div class="avatar-overlay">
+                                        <div class="avatar-overlay-text">Сменить аватар</div>
+                                    </div>
                                 </div>
-                                <div class="avatar-overlay">
-                                    <div class="avatar-overlay-text">Сменить аватар</div>
+                                <div class="user-info">
+                                    <h2 id="userName">Иван Попов</h2>
+                                    <p id="userEmail">user@example.com</p>
                                 </div>
                             </div>
-                            <div class="user-info">
-                                <h2 id="userName">Иван Попов</h2>
-                                <p id="userEmail">user@example.com</p>
+                            <div class="info-list">
+                                <div class="info-item">
+                                    <span class="info-label">Фамилия:</span>
+                                    <span class="info-value" id="userLastName">Попов</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Имя:</span>
+                                    <span class="info-value" id="userFirstName">Иван</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Почта:</span>
+                                    <span class="info-value" id="userEmailValue">user@example.com</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Роль:</span>
+                                    <span class="role-badge" id="userRole">Студент</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="info-list">
-                            <div class="info-item">
-                                <span class="info-label">Фамилия:</span>
-                                <span class="info-value" id="userLastName">Попов</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Имя:</span>
-                                <span class="info-value" id="userFirstName">Иван</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Почта:</span>
-                                <span class="info-value" id="userEmailValue">user@example.com</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Роль:</span>
-                                <span class="role-badge" id="userRole">Студент</span>
+
+                        <!-- Study Info -->
+                        <div class="card">
+                            <div class="study-section">
+                                <h3>Учебная информация</h3>
+                                <div id="studyInfoContent"></div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Study Info -->
-                    <div class="card">
-                        <div class="study-section">
-                            <h3>Учебная информация</h3>
-                            <div id="studyInfoContent">
-                                <!-- Study info will be populated here -->
+                    <!-- Right Column - Tests -->
+                    <div class="right-column">
+                        <div class="card">
+                            <div class="tests-header">
+                                <h3 class="tests-title">Доступные тесты</h3>
+                                <span class="tests-count" id="testsCount">0 тестов</span>
+                            </div>
+
+                            <!-- Tests Loading -->
+                            <div id="testsLoading" class="loading-container" style="display: none;">
+                                <div class="spinner"></div>
+                                <div class="loading-text">Загрузка тестов...</div>
+                            </div>
+
+                            <!-- Tests Grid -->
+                            <div id="testsGrid" class="tests-grid" style="display: none;"></div>
+
+                            <!-- Empty Tests -->
+                            <div id="emptyTests" class="empty-state" style="display: none;">
+                                <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                <h4 class="empty-title">Нет доступных тестов</h4>
+                                <p class="empty-description">
+                                    Ожидайте назначения тестов от преподавателя. Как только тесты будут назначены вашей группе, они появятся здесь.
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Right Column - Tests -->
-                <div class="right-column">
-                    <div class="card">
-                        <div class="tests-header">
-                            <h3 class="tests-title">Доступные тесты</h3>
-                            <span class="tests-count" id="testsCount">0 тестов</span>
+            <!-- Teacher Interface -->
+            <div id="teacherInterface" style="display: none;">
+                <div class="grid-layout">
+                    <!-- Left Column - User Info -->
+                    <div class="left-column">
+                        <!-- User Card -->
+                        <div class="card">
+                            <div class="user-header">
+                                <div class="avatar-container" id="teacherAvatarContainer">
+                                    <div class="user-avatar" id="teacherAvatar"></div>
+                                    <div class="avatar-overlay">
+                                        <div class="avatar-overlay-text">Сменить аватар</div>
+                                    </div>
+                                </div>
+                                <div class="user-info">
+                                    <h2 id="teacherName">Иван Попов</h2>
+                                    <p id="teacherEmail">teacher@example.com</p>
+                                    <span class="role-badge teacher-badge">Преподаватель</span>
+                                </div>
+                            </div>
+                            <div class="info-list">
+                                <div class="info-item">
+                                    <span class="info-label">Фамилия:</span>
+                                    <span class="info-value" id="teacherLastName">Попов</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Имя:</span>
+                                    <span class="info-value" id="teacherFirstName">Иван</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Почта:</span>
+                                    <span class="info-value" id="teacherEmailValue">teacher@example.com</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Роль:</span>
+                                    <span class="role-badge teacher-role">Преподаватель</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Корпус:</span>
+                                    <span class="info-value" id="teacherBuilding">Не указан</span>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- Tests Loading -->
-                        <div id="testsLoading" class="loading-container" style="display: none;">
-                            <div class="spinner"></div>
-                            <div class="loading-text">Загрузка тестов...</div>
+                        <!-- Teacher Stats -->
+                        <div class="card">
+                            <div class="study-section">
+                                <h3>Статистика</h3>
+                                <div class="stats-grid">
+                                    <div class="stat-item">
+                                        <div class="stat-number" id="totalTestsCount">0</div>
+                                        <div class="stat-label">Всего тестов</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number" id="activeTestsCount">0</div>
+                                        <div class="stat-label">Активных тестов</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column - Teacher Dashboard -->
+                    <div class="right-column">
+                        <!-- Quick Actions -->
+                        <div class="card">
+                            <div class="tests-header">
+                                <h3 class="tests-title">Панель управления</h3>
+                            </div>
+                            <div class="actions-grid">
+                                <button class="action-btn" id="createTestBtn">
+                                    <div class="action-icon">📝</div>
+                                    <div class="action-text">Создать тест</div>
+                                </button>
+                                <button class="action-btn" id="manageTestsBtn">
+                                    <div class="action-icon">📋</div>
+                                    <div class="action-text">Мои тесты</div>
+                                </button>
+                                <button class="action-btn" id="manageGroupsBtn">
+                                    <div class="action-icon">👥</div>
+                                    <div class="action-text">Назначить группам</div>
+                                </button>
+                                <button class="action-btn" id="viewResultsBtn">
+                                    <div class="action-icon">📊</div>
+                                    <div class="action-text">Результаты</div>
+                                </button>
+                            </div>
                         </div>
 
-                        <!-- Tests Grid -->
-                        <div id="testsGrid" class="tests-grid" style="display: none;">
-                            <!-- Test cards will be populated here -->
-                        </div>
+                        <!-- Recent Tests -->
+                        <div class="card">
+                            <div class="tests-header">
+                                <h3 class="tests-title">Мои тесты</h3>
+                                <span class="tests-count" id="teacherTestsCount">0 тестов</span>
+                            </div>
 
-                        <!-- Empty Tests -->
-                        <div id="emptyTests" class="empty-state" style="display: none;">
-                            <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            <h4 class="empty-title">Нет доступных тестов</h4>
-                            <p class="empty-description">
-                                Ожидайте назначения тестов от преподавателя. Как только тесты будут назначены вашей группе, они появятся здесь.
-                            </p>
+                            <!-- Tests Loading -->
+                            <div id="teacherTestsLoading" class="loading-container" style="display: none;">
+                                <div class="spinner"></div>
+                                <div class="loading-text">Загрузка тестов...</div>
+                            </div>
+
+                            <!-- Tests Grid -->
+                            <div id="teacherTestsGrid" class="tests-grid" style="display: none;"></div>
+
+                            <!-- Empty Tests -->
+                            <div id="teacherEmptyTests" class="empty-state" style="display: none;">
+                                <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                <h4 class="empty-title">Нет созданных тестов</h4>
+                                <p class="empty-description">
+                                    Создайте свой первый тест, чтобы начать работу со студентами.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -792,7 +1110,6 @@
         </div>
     </main>
 
-    <!-- Подключаем profile.js -->
     <script src="/profile.js"></script>
 </body>
 </html>

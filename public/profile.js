@@ -1,7 +1,9 @@
+// profile.js (упрощенная версия без ожидания подтверждения)
 // State management
 let state = {
     profile: null,
     availableTests: [],
+    teacherTests: [],
     loading: true,
     testsLoading: false,
     error: null,
@@ -104,6 +106,23 @@ const elements = {
     testsGrid: document.getElementById('testsGrid'),
     emptyTests: document.getElementById('emptyTests'),
     
+    // Teacher elements
+    teacherInterface: document.getElementById('teacherInterface'),
+    studentInterface: document.getElementById('studentInterface'),
+    teacherAvatar: document.getElementById('teacherAvatar'),
+    teacherName: document.getElementById('teacherName'),
+    teacherEmail: document.getElementById('teacherEmail'),
+    teacherEmailValue: document.getElementById('teacherEmailValue'),
+    teacherFirstName: document.getElementById('teacherFirstName'),
+    teacherLastName: document.getElementById('teacherLastName'),
+    teacherBuilding: document.getElementById('teacherBuilding'),
+    totalTestsCount: document.getElementById('totalTestsCount'),
+    activeTestsCount: document.getElementById('activeTestsCount'),
+    teacherTestsCount: document.getElementById('teacherTestsCount'),
+    teacherTestsGrid: document.getElementById('teacherTestsGrid'),
+    teacherEmptyTests: document.getElementById('teacherEmptyTests'),
+    createTestBtn: document.getElementById('createTestBtn'),
+    
     // Buttons
     logoutBtn: document.getElementById('logoutBtn')
 };
@@ -133,6 +152,11 @@ function initializeEventListeners() {
     elements.cancelAvatarBtn.addEventListener('click', handleCancelAvatar);
     elements.saveAvatarBtn.addEventListener('click', handleSaveAvatar);
     elements.useUrlBtn.addEventListener('click', handleUseUrl);
+    
+    // Teacher functionality
+    if (elements.createTestBtn) {
+        elements.createTestBtn.addEventListener('click', handleCreateTestClick);
+    }
 }
 
 // Communication with React parent
@@ -151,11 +175,15 @@ window.addEventListener('message', function(event) {
     
     switch (type) {
         case 'PROFILE_LOADED':
-            handleProfileLoaded(data.profile);
+            handleProfileLoaded(data.profile, data.role);
             break;
             
         case 'TESTS_LOADED':
             handleTestsLoaded(data.tests);
+            break;
+            
+        case 'TEACHER_DATA_LOADED':
+            handleTeacherDataLoaded(data.tests, data.stats);
             break;
             
         case 'PROFILE_NOT_FOUND':
@@ -176,6 +204,10 @@ window.addEventListener('message', function(event) {
             
         case 'AVATAR_UPDATED':
             handleAvatarUpdated(data.avatarUrl);
+            break;
+            
+        case 'TEST_CREATED':
+            handleTestCreated(data.test);
             break;
     }
 });
@@ -247,20 +279,32 @@ function handleUseUrl() {
     }
 }
 
+function handleCreateTestClick() {
+    showCreateTestModal();
+}
+
 // Data Handlers
-function handleProfileLoaded(profile) {
+function handleProfileLoaded(profile, role) {
     state.profile = profile;
     state.loading = false;
     
     hideAllStates();
     showMainContent();
-    updateProfileUI(profile);
     
-    // Запрашиваем тесты после загрузки профиля
-    if (profile.group_id) {
-        sendMessageToParent({ type: 'LOAD_TESTS_REQUEST', data: { groupId: profile.group_id } });
+    if (role === 'teacher') {
+        showTeacherInterface();
+        updateTeacherProfileUI(profile);
+        // Загружаем данные преподавателя
+        sendMessageToParent({ type: 'LOAD_TEACHER_DATA_REQUEST', data: { teacherId: profile.id } });
     } else {
-        showEmptyTests();
+        showStudentInterface();
+        updateStudentProfileUI(profile);
+        // Запрашиваем тесты для студента
+        if (profile.group_id) {
+            sendMessageToParent({ type: 'LOAD_TESTS_REQUEST', data: { groupId: profile.group_id } });
+        } else {
+            showEmptyTests();
+        }
     }
 }
 
@@ -268,7 +312,14 @@ function handleTestsLoaded(tests) {
     state.availableTests = tests;
     state.testsLoading = false;
     
-    updateTestsUI(tests);
+    updateStudentTestsUI(tests);
+}
+
+function handleTeacherDataLoaded(tests, stats) {
+    state.teacherTests = tests;
+    
+    updateTeacherTestsUI(tests);
+    updateTeacherStatsUI(stats);
 }
 
 function handleProfileNotFound(error) {
@@ -310,9 +361,20 @@ function handleProfileRecreated() {
 function handleAvatarUpdated(avatarUrl) {
     if (state.profile) {
         state.profile.avatar_url = avatarUrl;
-        updateAvatarUI();
+        if (state.profile.role === 'teacher') {
+            updateTeacherAvatarUI();
+        } else {
+            updateStudentAvatarUI();
+        }
         alert('Аватар успешно обновлен!');
     }
+}
+
+function handleTestCreated(test) {
+    // Обновляем список тестов преподавателя
+    sendMessageToParent({ type: 'LOAD_TEACHER_DATA_REQUEST', data: { teacherId: state.profile.id } });
+    hideCreateTestModal();
+    alert('Тест успешно создан!');
 }
 
 // UI Updates
@@ -345,6 +407,16 @@ function showMainContent() {
     elements.mainContent.style.display = 'block';
 }
 
+function showStudentInterface() {
+    elements.studentInterface.style.display = 'block';
+    elements.teacherInterface.style.display = 'none';
+}
+
+function showTeacherInterface() {
+    elements.studentInterface.style.display = 'none';
+    elements.teacherInterface.style.display = 'block';
+}
+
 function showTestsLoading() {
     elements.testsGrid.style.display = 'none';
     elements.emptyTests.style.display = 'none';
@@ -368,71 +440,23 @@ function hideAvatarModal() {
     elements.avatarUrlInput.value = '';
 }
 
-// ИСПРАВЛЕННАЯ ФУНКЦИЯ: Правильное отображение аватарок
-function populateAvatarOptions() {
-    let optionsHTML = '';
-    
-    state.avatarOptions.forEach((option, index) => {
-        const isSelected = state.selectedAvatar && state.selectedAvatar.id === option.id;
-        
-        if (option.type === 'url') {
-            optionsHTML += `
-                <div class="avatar-option ${isSelected ? 'selected' : ''}" 
-                     data-id="${option.id}">
-                    <img src="${option.url}" alt="${option.name}" class="avatar-option-image">
-                </div>
-            `;
-        } else if (option.type === 'color') {
-            optionsHTML += `
-                <div class="avatar-option ${isSelected ? 'selected' : ''}" 
-                     data-id="${option.id}">
-                    <div class="avatar-option-color" style="background: ${option.color}">
-                        <span class="avatar-option-initials">${option.text}</span>
-                    </div>
-                </div>
-            `;
-        }
-    });
-    
-    elements.avatarOptions.innerHTML = optionsHTML;
-    
-    // Add event listeners to avatar options
-    elements.avatarOptions.querySelectorAll('.avatar-option').forEach(option => {
-        option.addEventListener('click', function() {
-            const id = this.getAttribute('data-id');
-            const selectedOption = state.avatarOptions.find(opt => opt.id === id);
-            if (selectedOption) {
-                state.selectedAvatar = { ...selectedOption };
-                updateSelectedAvatarInModal();
-                elements.avatarUrlInput.value = ''; // Clear URL input when selecting predefined avatar
-            }
-        });
-    });
+function showCreateTestModal() {
+    document.getElementById('createTestModal').classList.remove('hidden');
 }
 
-function updateSelectedAvatarInModal() {
-    // Update selection in modal
-    elements.avatarOptions.querySelectorAll('.avatar-option').forEach(option => {
-        option.classList.remove('selected');
-    });
-    
-    if (state.selectedAvatar && state.selectedAvatar.id) {
-        const selectedOption = elements.avatarOptions.querySelector(`[data-id="${state.selectedAvatar.id}"]`);
-        if (selectedOption) {
-            selectedOption.classList.add('selected');
-        }
-    }
+function hideCreateTestModal() {
+    document.getElementById('createTestModal').classList.add('hidden');
+    document.getElementById('createTestForm').reset();
 }
 
-function updateProfileUI(profile) {
-    // User info
+// Student UI Updates
+function updateStudentProfileUI(profile) {
     const firstName = profile.first_name || 'Не указано';
     const lastName = profile.last_name || 'Не указано';
     const email = profile.email || 'Не указано';
-    const role = profile.role === 'student' ? 'Студент' : 'Преподаватель';
     
     // Avatar
-    updateAvatarUI();
+    updateStudentAvatarUI();
     
     // User info
     elements.userName.textContent = `${firstName} ${lastName}`;
@@ -440,46 +464,38 @@ function updateProfileUI(profile) {
     elements.userEmailValue.textContent = email;
     elements.userFirstName.textContent = firstName;
     elements.userLastName.textContent = lastName;
-    elements.userRole.textContent = role;
+    elements.userRole.textContent = 'Студент';
     
     // Study info
     updateStudyInfoUI(profile);
 }
 
-// ИСПРАВЛЕННАЯ ФУНКЦИЯ: Правильное центрирование аватара
-function updateAvatarUI() {
+function updateStudentAvatarUI() {
     const profile = state.profile;
     
     if (profile.avatar_url && (profile.avatar_url.startsWith('data:image/svg+xml') || profile.avatar_url.startsWith('http'))) {
-        // For SVG avatars or regular URLs - используем изображение
         elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
         
-        // Добавляем обработчик ошибок загрузки изображения
         const img = elements.userAvatar.querySelector('img');
         if (img) {
             img.onerror = function() {
-                showDefaultAvatar();
+                showDefaultStudentAvatar();
             };
         }
     } else {
-        // For other cases, show default avatar
-        showDefaultAvatar();
+        showDefaultStudentAvatar();
     }
 }
 
-// ИСПРАВЛЕННАЯ ФУНКЦИЯ: Правильное центрирование текстового аватара
-function showDefaultAvatar() {
+function showDefaultStudentAvatar() {
     const profile = state.profile;
     const firstName = profile.first_name || 'И';
     const lastName = profile.last_name || 'П';
     const avatarText = (firstName[0] || '') + (lastName[0] || '');
     
-    // Полностью очищаем и устанавливаем текстовый аватар
     elements.userAvatar.innerHTML = '';
     elements.userAvatar.textContent = avatarText;
     elements.userAvatar.style.background = '#3b82f6';
-    
-    // Принудительное центрирование текста
     elements.userAvatar.style.display = 'flex';
     elements.userAvatar.style.alignItems = 'center';
     elements.userAvatar.style.justifyContent = 'center';
@@ -526,7 +542,7 @@ function updateStudyInfoUI(profile) {
     elements.studyInfoContent.innerHTML = studyInfoHTML;
 }
 
-function updateTestsUI(tests) {
+function updateStudentTestsUI(tests) {
     elements.testsCount.textContent = `${tests.length} тест${getRussianPlural(tests.length)}`;
     
     if (tests.length === 0) {
@@ -534,11 +550,9 @@ function updateTestsUI(tests) {
         return;
     }
     
-    // Hide loading and empty states
     elements.testsLoading.style.display = 'none';
     elements.emptyTests.style.display = 'none';
     
-    // Create test cards
     let testsHTML = '';
     
     tests.forEach(test => {
@@ -574,11 +588,106 @@ function updateTestsUI(tests) {
     elements.testsGrid.style.display = 'grid';
 }
 
-function handleStartTest(testId) {
-    sendMessageToParent({
-        type: 'START_TEST_REQUEST',
-        data: { testId }
+// Teacher UI Updates
+function updateTeacherProfileUI(profile) {
+    const firstName = profile.first_name || 'Не указано';
+    const lastName = profile.last_name || 'Не указано';
+    const email = profile.email || 'Не указано';
+    const building = profile.teachers && profile.teachers[0] && profile.teachers[0].buildings ? 
+                    profile.teachers[0].buildings.name : 'Не указан';
+    
+    // Avatar
+    updateTeacherAvatarUI();
+    
+    // User info
+    elements.teacherName.textContent = `${firstName} ${lastName}`;
+    elements.teacherEmail.textContent = email;
+    elements.teacherEmailValue.textContent = email;
+    elements.teacherFirstName.textContent = firstName;
+    elements.teacherLastName.textContent = lastName;
+    elements.teacherBuilding.textContent = building;
+}
+
+function updateTeacherAvatarUI() {
+    const profile = state.profile;
+    
+    if (profile.avatar_url && (profile.avatar_url.startsWith('data:image/svg+xml') || profile.avatar_url.startsWith('http'))) {
+        elements.teacherAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
+        
+        const img = elements.teacherAvatar.querySelector('img');
+        if (img) {
+            img.onerror = function() {
+                showDefaultTeacherAvatar();
+            };
+        }
+    } else {
+        showDefaultTeacherAvatar();
+    }
+}
+
+function showDefaultTeacherAvatar() {
+    const profile = state.profile;
+    const firstName = profile.first_name || 'И';
+    const lastName = profile.last_name || 'П';
+    const avatarText = (firstName[0] || '') + (lastName[0] || '');
+    
+    elements.teacherAvatar.innerHTML = '';
+    elements.teacherAvatar.textContent = avatarText;
+    elements.teacherAvatar.style.background = '#f59e0b';
+    elements.teacherAvatar.style.display = 'flex';
+    elements.teacherAvatar.style.alignItems = 'center';
+    elements.teacherAvatar.style.justifyContent = 'center';
+    elements.teacherAvatar.style.lineHeight = '1';
+}
+
+function updateTeacherStatsUI(stats) {
+    elements.totalTestsCount.textContent = stats.totalTests;
+    elements.activeTestsCount.textContent = stats.activeTests;
+}
+
+function updateTeacherTestsUI(tests) {
+    elements.teacherTestsCount.textContent = `${tests.length} тест${getRussianPlural(tests.length)}`;
+    
+    if (tests.length === 0) {
+        elements.teacherTestsGrid.style.display = 'none';
+        elements.teacherEmptyTests.style.display = 'block';
+        return;
+    }
+    
+    elements.teacherTestsGrid.style.display = 'grid';
+    elements.teacherEmptyTests.style.display = 'none';
+    
+    let testsHTML = '';
+    
+    tests.forEach(test => {
+        const questionsCount = test.questions_count || '0';
+        const timeLimit = test.time_limit ? `${test.time_limit} мин` : 'Не ограничено';
+        const status = test.is_active ? 'active' : 'inactive';
+        const statusText = test.is_active ? 'Активен' : 'Неактивен';
+        
+        testsHTML += `
+            <div class="teacher-test-card">
+                <div class="test-header">
+                    <div>
+                        <h4 class="test-title">${test.title}</h4>
+                        <p class="test-description">${test.description || 'Описание отсутствует'}</p>
+                    </div>
+                    <span class="test-status ${status}">${statusText}</span>
+                </div>
+                <div class="test-meta">
+                    <span>Вопросов: ${questionsCount}</span>
+                    <span>Лимит: ${timeLimit}</span>
+                    <span>Попыток: ${test.max_attempts || 1}</span>
+                </div>
+                <div class="test-actions">
+                    <button class="test-action-btn">Редактировать</button>
+                    <button class="test-action-btn primary">Назначить группам</button>
+                </div>
+            </div>
+        `;
     });
+    
+    elements.teacherTestsGrid.innerHTML = testsHTML;
 }
 
 // Helper functions
@@ -593,7 +702,6 @@ function getRussianPlural(number) {
 }
 
 function generateColorAvatarURL(color, text) {
-    // Create SVG avatar
     const svg = `
         <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
             <rect width="100" height="100" fill="${color}" rx="50"/>
@@ -611,3 +719,92 @@ function isValidUrl(string) {
         return false;
     }
 }
+
+function handleStartTest(testId) {
+    sendMessageToParent({
+        type: 'START_TEST_REQUEST',
+        data: { testId }
+    });
+}
+
+// Avatar modal functions
+function populateAvatarOptions() {
+    let optionsHTML = '';
+    
+    state.avatarOptions.forEach((option, index) => {
+        const isSelected = state.selectedAvatar && state.selectedAvatar.id === option.id;
+        
+        if (option.type === 'url') {
+            optionsHTML += `
+                <div class="avatar-option ${isSelected ? 'selected' : ''}" 
+                     data-id="${option.id}">
+                    <img src="${option.url}" alt="${option.name}" class="avatar-option-image">
+                </div>
+            `;
+        } else if (option.type === 'color') {
+            optionsHTML += `
+                <div class="avatar-option ${isSelected ? 'selected' : ''}" 
+                     data-id="${option.id}">
+                    <div class="avatar-option-color" style="background: ${option.color}">
+                        <span class="avatar-option-initials">${option.text}</span>
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    elements.avatarOptions.innerHTML = optionsHTML;
+    
+    // Add event listeners to avatar options
+    elements.avatarOptions.querySelectorAll('.avatar-option').forEach(option => {
+        option.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const selectedOption = state.avatarOptions.find(opt => opt.id === id);
+            if (selectedOption) {
+                state.selectedAvatar = { ...selectedOption };
+                updateSelectedAvatarInModal();
+                elements.avatarUrlInput.value = ''; // Clear URL input when selecting predefined avatar
+            }
+        });
+    });
+}
+
+function updateSelectedAvatarInModal() {
+    elements.avatarOptions.querySelectorAll('.avatar-option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    if (state.selectedAvatar && state.selectedAvatar.id) {
+        const selectedOption = elements.avatarOptions.querySelector(`[data-id="${state.selectedAvatar.id}"]`);
+        if (selectedOption) {
+            selectedOption.classList.add('selected');
+        }
+    }
+}
+
+// Create test form handling
+document.addEventListener('DOMContentLoaded', function() {
+    const createTestForm = document.getElementById('createTestForm');
+    if (createTestForm) {
+        createTestForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const testData = {
+                title: document.getElementById('testTitle').value,
+                description: document.getElementById('testDescription').value,
+                timeLimit: document.getElementById('timeLimit').value || null,
+                maxAttempts: document.getElementById('maxAttempts').value || 1
+            };
+            
+            sendMessageToParent({
+                type: 'CREATE_TEST_REQUEST',
+                data: { testData }
+            });
+        });
+    }
+    
+    const cancelCreateTestBtn = document.getElementById('cancelCreateTestBtn');
+    if (cancelCreateTestBtn) {
+        cancelCreateTestBtn.addEventListener('click', hideCreateTestModal);
+    }
+});
