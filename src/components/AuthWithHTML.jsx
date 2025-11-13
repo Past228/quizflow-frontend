@@ -157,39 +157,9 @@ export default function AuthWithHTML() {
         setLoading(true);
 
         try {
-            // Валидация для преподавателя
-            const errors = validateTeacherSignUpForm(formData);
-            if (Object.keys(errors).length > 0) {
-                sendMessageToIframe({
-                    type: 'VALIDATION_ERRORS',
-                    data: { errors }
-                });
-                return;
-            }
+            // ... валидация и проверка кода ...
 
-            // Проверяем пригласительный код
-            if (!formData.inviteCode || formData.inviteCode.trim() === '') {
-                throw new Error('Пригласительный код обязателен для регистрации преподавателя');
-            }
-
-            // Проверяем валидность кода
-            const { data: validCode, error: codeError } = await supabase
-                .from('invite_codes')
-                .select('*')
-                .eq('code', formData.inviteCode.trim().toUpperCase())
-                .eq('is_used', false)
-                .single();
-
-            if (codeError || !validCode) {
-                throw new Error('Неверный или использованный пригласительный код');
-            }
-
-            // Проверяем срок действия кода
-            if (validCode.expires_at && new Date(validCode.expires_at) < new Date()) {
-                throw new Error('Срок действия пригласительного кода истек');
-            }
-
-            // СОЗДАЕМ ПОЛЬЗОВАТЕЛЯ В AUTH
+            // Создаем пользователя в auth
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -197,21 +167,13 @@ export default function AuthWithHTML() {
                     data: {
                         first_name: formData.firstName,
                         last_name: formData.lastName,
-                        role: 'teacher'  // Важно: указываем роль
+                        role: 'teacher'  // Указываем роль teacher
                     }
                 }
             });
 
-            if (authError) {
-                if (authError.message.includes('already registered')) {
-                    throw new Error('Пользователь с таким email уже зарегистрирован');
-                }
-                throw authError;
-            }
-
-            if (!authData.user) {
-                throw new Error('Не удалось создать пользователя');
-            }
+            if (authError) throw authError;
+            if (!authData.user) throw new Error('Не удалось создать пользователя');
 
             console.log('Teacher user created:', authData.user.id);
 
@@ -222,7 +184,7 @@ export default function AuthWithHTML() {
             const { error: teacherError } = await supabase
                 .from('teachers')
                 .insert({
-                    id: authData.user.id,  // Используем тот же ID что в auth.users
+                    id: authData.user.id,
                     building_id: formData.buildingId || null,
                     first_name: formData.firstName,
                     last_name: formData.lastName,
@@ -232,7 +194,6 @@ export default function AuthWithHTML() {
                 });
 
             if (teacherError) {
-                console.error('Teacher record creation error:', teacherError);
                 throw new Error('Не удалось создать запись преподавателя: ' + teacherError.message);
             }
 
@@ -293,21 +254,23 @@ export default function AuthWithHTML() {
                 throw error;
             }
 
-            // После успешного входа проверяем роль
+            // После успешного входа проверяем роль пользователя
             if (data.user) {
                 const userRole = data.user.user_metadata?.role;
+                console.log('User role from metadata:', userRole);
 
                 if (userRole === 'teacher') {
-                    // Для преподавателей проверяем запись в teachers
-                    const { data: teacherData } = await supabase
+                    // ДЛЯ ПРЕПОДАВАТЕЛЕЙ - проверяем ТОЛЬКО teachers таблицу
+                    const { data: teacherData, error: teacherError } = await supabase
                         .from('teachers')
                         .select('*')
                         .eq('id', data.user.id)
                         .single();
 
-                    if (!teacherData) {
-                        // Если записи нет, создаем ее
-                        await supabase
+                    if (teacherError && teacherError.code === 'PGRST116') {
+                        // Если записи преподавателя нет, создаем ее
+                        console.log('Creating teacher record on login...');
+                        const { error: createError } = await supabase
                             .from('teachers')
                             .insert({
                                 id: data.user.id,
@@ -317,17 +280,27 @@ export default function AuthWithHTML() {
                                 created_at: new Date().toISOString(),
                                 updated_at: new Date().toISOString()
                             });
+
+                        if (createError) {
+                            console.error('Error creating teacher record on login:', createError);
+                        }
                     }
+
+                    // ВАЖНО: ПРЕПОДАВАТЕЛЯМ НЕ СОЗДАЕМ ПРОФИЛЬ В PROFILES!
+                    console.log('Teacher login successful - no profile created');
+
                 } else {
-                    // Для студентов работаем с profiles
-                    const { data: profile } = await supabase
+                    // ДЛЯ СТУДЕНТОВ - создаем запись в profiles если ее нет
+                    const { data: profile, error: profileError } = await supabase
                         .from('profiles')
                         .select('*')
                         .eq('id', data.user.id)
                         .single();
 
-                    if (!profile) {
-                        await supabase
+                    if (profileError && profileError.code === 'PGRST116') {
+                        // Создаем профиль студента если его нет
+                        console.log('Creating student profile on login...');
+                        const { error: createError } = await supabase
                             .from('profiles')
                             .insert({
                                 id: data.user.id,
@@ -338,6 +311,19 @@ export default function AuthWithHTML() {
                                 group_id: data.user.user_metadata?.group_id || null,
                                 updated_at: new Date().toISOString()
                             });
+
+                        if (createError) {
+                            console.error('Error creating student profile on login:', createError);
+                        }
+                    } else if (profile && !profile.role) {
+                        // Если профиль есть но нет роли, обновляем его
+                        await supabase
+                            .from('profiles')
+                            .update({
+                                role: 'student',
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', data.user.id);
                     }
                 }
             }

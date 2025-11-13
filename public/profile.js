@@ -10,52 +10,52 @@ let state = {
     profileNotFound: false,
     selectedAvatar: null,
     avatarOptions: [
-        { 
+        {
             id: 'male1',
-            type: 'url', 
-            url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face', 
-            name: 'Мужчина 1' 
+            type: 'url',
+            url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+            name: 'Мужчина 1'
         },
-        { 
+        {
             id: 'female1',
-            type: 'url', 
-            url: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face', 
-            name: 'Женщина 1' 
+            type: 'url',
+            url: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
+            name: 'Женщина 1'
         },
-        { 
+        {
             id: 'male2',
-            type: 'url', 
-            url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face', 
-            name: 'Мужчина 2' 
+            type: 'url',
+            url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+            name: 'Мужчина 2'
         },
-        { 
+        {
             id: 'female2',
-            type: 'url', 
-            url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face', 
-            name: 'Женщина 2' 
+            type: 'url',
+            url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
+            name: 'Женщина 2'
         },
-        { 
+        {
             id: 'blue',
-            type: 'color', 
-            color: '#3b82f6', 
+            type: 'color',
+            color: '#3b82f6',
             text: 'ИП'
         },
-        { 
+        {
             id: 'red',
-            type: 'color', 
-            color: '#ef4444', 
+            type: 'color',
+            color: '#ef4444',
             text: 'ИП'
         },
-        { 
+        {
             id: 'green',
-            type: 'color', 
-            color: '#10b981', 
+            type: 'color',
+            color: '#10b981',
             text: 'ИП'
         },
-        { 
+        {
             id: 'yellow',
-            type: 'color', 
-            color: '#f59e0b', 
+            type: 'color',
+            color: '#f59e0b',
             text: 'ИП'
         }
     ]
@@ -68,17 +68,17 @@ const elements = {
     errorState: document.getElementById('errorState'),
     profileNotFound: document.getElementById('profileNotFound'),
     mainContent: document.getElementById('mainContent'),
-    
+
     // Error elements
     errorTitle: document.getElementById('errorTitle'),
     errorMessage: document.getElementById('errorMessage'),
     retryBtn: document.getElementById('retryBtn'),
     logoutErrorBtn: document.getElementById('logoutErrorBtn'),
-    
+
     // Profile not found elements
     recreateProfileBtn: document.getElementById('recreateProfileBtn'),
     logoutNotFoundBtn: document.getElementById('logoutNotFoundBtn'),
-    
+
     // Avatar elements
     avatarContainer: document.getElementById('avatarContainer'),
     userAvatar: document.getElementById('userAvatar'),
@@ -88,7 +88,7 @@ const elements = {
     useUrlBtn: document.getElementById('useUrlBtn'),
     cancelAvatarBtn: document.getElementById('cancelAvatarBtn'),
     saveAvatarBtn: document.getElementById('saveAvatarBtn'),
-    
+
     // Main content elements
     userName: document.getElementById('userName'),
     userEmail: document.getElementById('userEmail'),
@@ -96,16 +96,16 @@ const elements = {
     userFirstName: document.getElementById('userFirstName'),
     userLastName: document.getElementById('userLastName'),
     userRole: document.getElementById('userRole'),
-    
+
     // Study info
     studyInfoContent: document.getElementById('studyInfoContent'),
-    
+
     // Tests elements
     testsCount: document.getElementById('testsCount'),
     testsLoading: document.getElementById('testsLoading'),
     testsGrid: document.getElementById('testsGrid'),
     emptyTests: document.getElementById('emptyTests'),
-    
+
     // Teacher elements
     teacherInterface: document.getElementById('teacherInterface'),
     studentInterface: document.getElementById('studentInterface'),
@@ -122,13 +122,13 @@ const elements = {
     teacherTestsGrid: document.getElementById('teacherTestsGrid'),
     teacherEmptyTests: document.getElementById('teacherEmptyTests'),
     createTestBtn: document.getElementById('createTestBtn'),
-    
+
     // Buttons
     logoutBtn: document.getElementById('logoutBtn')
 };
 
 // Initialize
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     console.log('Profile HTML loaded');
     initializeEventListeners();
     // Запрашиваем данные профиля при загрузке
@@ -140,19 +140,19 @@ function initializeEventListeners() {
     elements.logoutBtn.addEventListener('click', handleLogout);
     elements.logoutErrorBtn.addEventListener('click', handleLogout);
     elements.logoutNotFoundBtn.addEventListener('click', handleLogout);
-    
+
     // Retry button
     elements.retryBtn.addEventListener('click', handleRetry);
-    
+
     // Recreate profile button
     elements.recreateProfileBtn.addEventListener('click', handleRecreateProfile);
-    
+
     // Avatar functionality
     elements.avatarContainer.addEventListener('click', handleAvatarClick);
     elements.cancelAvatarBtn.addEventListener('click', handleCancelAvatar);
     elements.saveAvatarBtn.addEventListener('click', handleSaveAvatar);
     elements.useUrlBtn.addEventListener('click', handleUseUrl);
-    
+
     // Teacher functionality
     if (elements.createTestBtn) {
         elements.createTestBtn.addEventListener('click', handleCreateTestClick);
@@ -168,44 +168,44 @@ function sendMessageToParent(message) {
 }
 
 // Message handlers from React
-window.addEventListener('message', function(event) {
+window.addEventListener('message', function (event) {
     console.log('Received message from parent:', event.data);
-    
+
     const { type, data } = event.data;
-    
+
     switch (type) {
         case 'PROFILE_LOADED':
             handleProfileLoaded(data.profile, data.role);
             break;
-            
+
         case 'TESTS_LOADED':
             handleTestsLoaded(data.tests);
             break;
-            
+
         case 'TEACHER_DATA_LOADED':
             handleTeacherDataLoaded(data.tests, data.stats);
             break;
-            
+
         case 'PROFILE_NOT_FOUND':
             handleProfileNotFound(data.error);
             break;
-            
+
         case 'LOADING_STATE':
             handleLoadingState(data.loading, data.resource);
             break;
-            
+
         case 'ERROR_STATE':
             handleErrorState(data.error);
             break;
-            
+
         case 'PROFILE_RECREATED':
             handleProfileRecreated();
             break;
-            
+
         case 'AVATAR_UPDATED':
             handleAvatarUpdated(data.avatarUrl);
             break;
-            
+
         case 'TEST_CREATED':
             handleTestCreated(data.test);
             break;
@@ -238,7 +238,7 @@ function handleCancelAvatar() {
 function handleSaveAvatar() {
     if (state.selectedAvatar) {
         let avatarUrl = '';
-        
+
         if (state.selectedAvatar.type === 'url') {
             avatarUrl = state.selectedAvatar.url;
         } else if (state.selectedAvatar.type === 'color') {
@@ -248,9 +248,9 @@ function handleSaveAvatar() {
             // Для кастомных URL используем введенный URL
             avatarUrl = state.selectedAvatar.url;
         }
-        
+
         console.log('Saving avatar:', state.selectedAvatar, 'URL:', avatarUrl);
-        
+
         sendMessageToParent({
             type: 'UPDATE_AVATAR_REQUEST',
             data: { avatarUrl: avatarUrl }
@@ -283,14 +283,13 @@ function handleCreateTestClick() {
     showCreateTestModal();
 }
 
-// Data Handlers
 function handleProfileLoaded(profile, role) {
     state.profile = profile;
     state.loading = false;
-    
+
     hideAllStates();
     showMainContent();
-    
+
     if (role === 'teacher') {
         showTeacherInterface();
         updateTeacherProfileUI(profile);
@@ -308,16 +307,36 @@ function handleProfileLoaded(profile, role) {
     }
 }
 
+// Обновите функцию для преподавателей
+function updateTeacherProfileUI(profile) {
+    const firstName = profile.first_name || 'Не указано';
+    const lastName = profile.last_name || 'Не указано';
+    const email = profile.email || 'Не указано';
+    const building = profile.teachers && profile.teachers[0] && profile.teachers[0].buildings ?
+        profile.teachers[0].buildings.name : 'Не указан';
+
+    // Avatar
+    updateTeacherAvatarUI();
+
+    // User info
+    elements.teacherName.textContent = `${firstName} ${lastName}`;
+    elements.teacherEmail.textContent = email;
+    elements.teacherEmailValue.textContent = email;
+    elements.teacherFirstName.textContent = firstName;
+    elements.teacherLastName.textContent = lastName;
+    elements.teacherBuilding.textContent = building;
+}
+
 function handleTestsLoaded(tests) {
     state.availableTests = tests;
     state.testsLoading = false;
-    
+
     updateStudentTestsUI(tests);
 }
 
 function handleTeacherDataLoaded(tests, stats) {
     state.teacherTests = tests;
-    
+
     updateTeacherTestsUI(tests);
     updateTeacherStatsUI(stats);
 }
@@ -326,7 +345,7 @@ function handleProfileNotFound(error) {
     state.profileNotFound = true;
     state.error = error;
     state.loading = false;
-    
+
     hideAllStates();
     showProfileNotFound();
 }
@@ -348,7 +367,7 @@ function handleLoadingState(loading, resource) {
 function handleErrorState(error) {
     state.error = error;
     state.loading = false;
-    
+
     hideAllStates();
     showErrorState(error);
 }
@@ -454,10 +473,10 @@ function updateStudentProfileUI(profile) {
     const firstName = profile.first_name || 'Не указано';
     const lastName = profile.last_name || 'Не указано';
     const email = profile.email || 'Не указано';
-    
+
     // Avatar
     updateStudentAvatarUI();
-    
+
     // User info
     elements.userName.textContent = `${firstName} ${lastName}`;
     elements.userEmail.textContent = email;
@@ -465,20 +484,20 @@ function updateStudentProfileUI(profile) {
     elements.userFirstName.textContent = firstName;
     elements.userLastName.textContent = lastName;
     elements.userRole.textContent = 'Студент';
-    
+
     // Study info
     updateStudyInfoUI(profile);
 }
 
 function updateStudentAvatarUI() {
     const profile = state.profile;
-    
+
     if (profile.avatar_url && (profile.avatar_url.startsWith('data:image/svg+xml') || profile.avatar_url.startsWith('http'))) {
         elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
-        
+
         const img = elements.userAvatar.querySelector('img');
         if (img) {
-            img.onerror = function() {
+            img.onerror = function () {
                 showDefaultStudentAvatar();
             };
         }
@@ -492,7 +511,7 @@ function showDefaultStudentAvatar() {
     const firstName = profile.first_name || 'И';
     const lastName = profile.last_name || 'П';
     const avatarText = (firstName[0] || '') + (lastName[0] || '');
-    
+
     elements.userAvatar.innerHTML = '';
     elements.userAvatar.textContent = avatarText;
     elements.userAvatar.style.background = '#3b82f6';
@@ -503,17 +522,17 @@ function showDefaultStudentAvatar() {
 }
 
 function updateStudyInfoUI(profile) {
-    const hasGroupInfo = profile.student_groups && 
-                        profile.student_groups.courses && 
-                        profile.student_groups.courses.buildings;
-    
+    const hasGroupInfo = profile.student_groups &&
+        profile.student_groups.courses &&
+        profile.student_groups.courses.buildings;
+
     let studyInfoHTML = '';
-    
+
     if (hasGroupInfo) {
         const building = profile.student_groups.courses.buildings.name;
         const course = profile.student_groups.courses.course_number;
         const group = profile.student_groups.group_number;
-        
+
         studyInfoHTML = `
             <div class="study-item study-building">
                 <span class="study-label">Корпус:</span>
@@ -538,28 +557,28 @@ function updateStudyInfoUI(profile) {
             </div>
         `;
     }
-    
+
     elements.studyInfoContent.innerHTML = studyInfoHTML;
 }
 
 function updateStudentTestsUI(tests) {
     elements.testsCount.textContent = `${tests.length} тест${getRussianPlural(tests.length)}`;
-    
+
     if (tests.length === 0) {
         showEmptyTests();
         return;
     }
-    
+
     elements.testsLoading.style.display = 'none';
     elements.emptyTests.style.display = 'none';
-    
+
     let testsHTML = '';
-    
+
     tests.forEach(test => {
         const questionsCount = test.questions_count || 'Не указано';
         const timeLimit = test.time_limit ? `${test.time_limit} мин` : 'Не ограничено';
         const createdDate = test.created_at ? new Date(test.created_at).toLocaleDateString('ru-RU') : '';
-        
+
         testsHTML += `
             <div class="test-card">
                 <div class="test-header">
@@ -583,7 +602,7 @@ function updateStudentTestsUI(tests) {
             </div>
         `;
     });
-    
+
     elements.testsGrid.innerHTML = testsHTML;
     elements.testsGrid.style.display = 'grid';
 }
@@ -593,12 +612,12 @@ function updateTeacherProfileUI(profile) {
     const firstName = profile.first_name || 'Не указано';
     const lastName = profile.last_name || 'Не указано';
     const email = profile.email || 'Не указано';
-    const building = profile.teachers && profile.teachers[0] && profile.teachers[0].buildings ? 
-                    profile.teachers[0].buildings.name : 'Не указан';
-    
+    const building = profile.teachers && profile.teachers[0] && profile.teachers[0].buildings ?
+        profile.teachers[0].buildings.name : 'Не указан';
+
     // Avatar
     updateTeacherAvatarUI();
-    
+
     // User info
     elements.teacherName.textContent = `${firstName} ${lastName}`;
     elements.teacherEmail.textContent = email;
@@ -610,13 +629,13 @@ function updateTeacherProfileUI(profile) {
 
 function updateTeacherAvatarUI() {
     const profile = state.profile;
-    
+
     if (profile.avatar_url && (profile.avatar_url.startsWith('data:image/svg+xml') || profile.avatar_url.startsWith('http'))) {
         elements.teacherAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
-        
+
         const img = elements.teacherAvatar.querySelector('img');
         if (img) {
-            img.onerror = function() {
+            img.onerror = function () {
                 showDefaultTeacherAvatar();
             };
         }
@@ -630,7 +649,7 @@ function showDefaultTeacherAvatar() {
     const firstName = profile.first_name || 'И';
     const lastName = profile.last_name || 'П';
     const avatarText = (firstName[0] || '') + (lastName[0] || '');
-    
+
     elements.teacherAvatar.innerHTML = '';
     elements.teacherAvatar.textContent = avatarText;
     elements.teacherAvatar.style.background = '#f59e0b';
@@ -647,24 +666,24 @@ function updateTeacherStatsUI(stats) {
 
 function updateTeacherTestsUI(tests) {
     elements.teacherTestsCount.textContent = `${tests.length} тест${getRussianPlural(tests.length)}`;
-    
+
     if (tests.length === 0) {
         elements.teacherTestsGrid.style.display = 'none';
         elements.teacherEmptyTests.style.display = 'block';
         return;
     }
-    
+
     elements.teacherTestsGrid.style.display = 'grid';
     elements.teacherEmptyTests.style.display = 'none';
-    
+
     let testsHTML = '';
-    
+
     tests.forEach(test => {
         const questionsCount = test.questions_count || '0';
         const timeLimit = test.time_limit ? `${test.time_limit} мин` : 'Не ограничено';
         const status = test.is_active ? 'active' : 'inactive';
         const statusText = test.is_active ? 'Активен' : 'Неактивен';
-        
+
         testsHTML += `
             <div class="teacher-test-card">
                 <div class="test-header">
@@ -686,7 +705,7 @@ function updateTeacherTestsUI(tests) {
             </div>
         `;
     });
-    
+
     elements.teacherTestsGrid.innerHTML = testsHTML;
 }
 
@@ -730,10 +749,10 @@ function handleStartTest(testId) {
 // Avatar modal functions
 function populateAvatarOptions() {
     let optionsHTML = '';
-    
+
     state.avatarOptions.forEach((option, index) => {
         const isSelected = state.selectedAvatar && state.selectedAvatar.id === option.id;
-        
+
         if (option.type === 'url') {
             optionsHTML += `
                 <div class="avatar-option ${isSelected ? 'selected' : ''}" 
@@ -752,12 +771,12 @@ function populateAvatarOptions() {
             `;
         }
     });
-    
+
     elements.avatarOptions.innerHTML = optionsHTML;
-    
+
     // Add event listeners to avatar options
     elements.avatarOptions.querySelectorAll('.avatar-option').forEach(option => {
-        option.addEventListener('click', function() {
+        option.addEventListener('click', function () {
             const id = this.getAttribute('data-id');
             const selectedOption = state.avatarOptions.find(opt => opt.id === id);
             if (selectedOption) {
@@ -773,7 +792,7 @@ function updateSelectedAvatarInModal() {
     elements.avatarOptions.querySelectorAll('.avatar-option').forEach(option => {
         option.classList.remove('selected');
     });
-    
+
     if (state.selectedAvatar && state.selectedAvatar.id) {
         const selectedOption = elements.avatarOptions.querySelector(`[data-id="${state.selectedAvatar.id}"]`);
         if (selectedOption) {
@@ -783,26 +802,26 @@ function updateSelectedAvatarInModal() {
 }
 
 // Create test form handling
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const createTestForm = document.getElementById('createTestForm');
     if (createTestForm) {
-        createTestForm.addEventListener('submit', function(e) {
+        createTestForm.addEventListener('submit', function (e) {
             e.preventDefault();
-            
+
             const testData = {
                 title: document.getElementById('testTitle').value,
                 description: document.getElementById('testDescription').value,
                 timeLimit: document.getElementById('timeLimit').value || null,
                 maxAttempts: document.getElementById('maxAttempts').value || 1
             };
-            
+
             sendMessageToParent({
                 type: 'CREATE_TEST_REQUEST',
                 data: { testData }
             });
         });
     }
-    
+
     const cancelCreateTestBtn = document.getElementById('cancelCreateTestBtn');
     if (cancelCreateTestBtn) {
         cancelCreateTestBtn.addEventListener('click', hideCreateTestModal);

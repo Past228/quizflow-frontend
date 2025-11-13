@@ -14,35 +14,35 @@ export default function Profile({ session }) {
                 case 'LOAD_PROFILE_REQUEST':
                     await handleLoadProfile();
                     break;
-                    
+
                 case 'LOAD_TESTS_REQUEST':
                     await handleLoadTests(data.groupId);
                     break;
-                    
+
                 case 'LOAD_TEACHER_DATA_REQUEST':
                     await handleLoadTeacherData(data.teacherId);
                     break;
-                    
+
                 case 'CREATE_TEST_REQUEST':
                     await handleCreateTest(data.testData);
                     break;
-                    
+
                 case 'LOGOUT_REQUEST':
                     await handleSignOut();
                     break;
-                    
+
                 case 'RECREATE_PROFILE_REQUEST':
                     await handleRecreateProfile();
                     break;
-                    
+
                 case 'START_TEST_REQUEST':
                     await handleStartTest(data.testId);
                     break;
-                    
+
                 case 'UPDATE_AVATAR_REQUEST':
                     await handleUpdateAvatar(data.avatarUrl);
                     break;
-                    
+
                 default:
                     console.log('Unknown message type:', type);
             }
@@ -59,9 +59,58 @@ export default function Profile({ session }) {
         });
 
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select(`
+            // Сначала проверяем роль пользователя из metadata
+            const userRole = session.user.user_metadata?.role;
+            console.log('User role:', userRole);
+
+            if (userRole === 'teacher') {
+                // ДЛЯ ПРЕПОДАВАТЕЛЕЙ - загружаем данные из teachers
+                const { data, error } = await supabase
+                    .from('teachers')
+                    .select(`
+                    *,
+                    buildings (
+                        name
+                    )
+                `)
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        sendMessageToIframe({
+                            type: 'PROFILE_NOT_FOUND',
+                            data: { error: 'Профиль преподавателя не найден' }
+                        });
+                        return;
+                    }
+                    throw error;
+                }
+
+                sendMessageToIframe({
+                    type: 'PROFILE_LOADED',
+                    data: {
+                        profile: {
+                            id: data.id,
+                            email: data.email,
+                            first_name: data.first_name,
+                            last_name: data.last_name,
+                            role: 'teacher',
+                            teachers: [{
+                                id: data.id,
+                                building_id: data.building_id,
+                                buildings: data.buildings
+                            }]
+                        },
+                        role: 'teacher'
+                    }
+                });
+
+            } else {
+                // ДЛЯ СТУДЕНТОВ - загружаем данные из profiles
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select(`
                     *,
                     student_groups (
                         id,
@@ -72,36 +121,30 @@ export default function Profile({ session }) {
                                 name
                             )
                         )
-                    ),
-                    teachers (
-                        id,
-                        building_id,
-                        buildings (
-                            name
-                        )
                     )
                 `)
-                .eq('id', session.user.id)
-                .single();
+                    .eq('id', session.user.id)
+                    .single();
 
-            if (error) {
-                if (error.code === 'PGRST116' || error.message.includes('No rows found')) {
-                    sendMessageToIframe({
-                        type: 'PROFILE_NOT_FOUND',
-                        data: { error: 'Профиль не найден в базе данных' }
-                    });
-                    return;
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        sendMessageToIframe({
+                            type: 'PROFILE_NOT_FOUND',
+                            data: { error: 'Профиль студента не найден' }
+                        });
+                        return;
+                    }
+                    throw error;
                 }
-                throw error;
+
+                sendMessageToIframe({
+                    type: 'PROFILE_LOADED',
+                    data: {
+                        profile: data,
+                        role: data.role || 'student'
+                    }
+                });
             }
-
-            sendMessageToIframe({
-                type: 'PROFILE_LOADED',
-                data: { 
-                    profile: data,
-                    role: data.role
-                }
-            });
 
         } catch (error) {
             console.error('Profile loading error:', error);
@@ -260,7 +303,7 @@ export default function Profile({ session }) {
         try {
             const { error: updateError } = await supabase
                 .from('profiles')
-                .update({ 
+                .update({
                     avatar_url: avatarUrl,
                     updated_at: new Date().toISOString()
                 })
@@ -300,10 +343,10 @@ export default function Profile({ session }) {
 
     return (
         <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
-            <iframe 
+            <iframe
                 ref={iframeRef}
                 src="/profile.html"
-                width="100%" 
+                width="100%"
                 height="100%"
                 frameBorder="0"
                 title="Profile"
