@@ -70,7 +70,7 @@ export default function AuthWithHTML() {
         if (iframeRef.current) {
             let src = '';
             if (isTeacherSignUp) {
-                src = '/signup_teacher.html';
+                src = '/signup-teacher.html';
             } else if (isSignUp) {
                 src = '/signup.html';
             } else {
@@ -558,7 +558,7 @@ export default function AuthWithHTML() {
         <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
             <iframe 
                 ref={iframeRef}
-                src={isTeacherSignUp ? "/signup_teacher.html" : (isSignUp ? "/signup.html" : "/login.html")}
+                src={isTeacherSignUp ? "/signup-teacher.html" : (isSignUp ? "/signup.html" : "/login.html")}
                 width="100%" 
                 height="100%"
                 frameBorder="0"
