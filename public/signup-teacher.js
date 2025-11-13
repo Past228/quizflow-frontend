@@ -84,9 +84,9 @@ function handleFormSubmit(e) {
         password: elements.password.value,
         firstName: elements.firstName.value,
         lastName: elements.lastName.value,
-        buildingId: elements.building.value,
+        buildingId: elements.building.value, // ТОЛЬКО buildingId, НЕ group_id
         inviteCode: elements.inviteCode.value,
-        role: 'teacher'
+        // НЕ отправляем role и другие лишние поля
     };
     
     console.log('Teacher form data:', formData);

@@ -17,46 +17,46 @@ export default function AuthWithHTML() {
                 case 'SIGNUP_FORM_SUBMIT':
                     await handleStudentSignUp(data);
                     break;
-                    
+
                 case 'TEACHER_SIGNUP_FORM_SUBMIT':
                     await handleTeacherSignUp(data);
                     break;
-                    
+
                 case 'LOGIN_FORM_SUBMIT':
                     await handleSignIn(data);
                     break;
-                    
+
                 case 'SWITCH_TO_LOGIN':
                     setIsSignUp(false);
                     setIsTeacherSignUp(false);
                     break;
-                    
+
                 case 'SWITCH_TO_SIGNUP':
                     setIsSignUp(true);
                     setIsTeacherSignUp(false);
                     break;
-                    
+
                 case 'SWITCH_TO_TEACHER_SIGNUP':
                     setIsTeacherSignUp(true);
                     setIsSignUp(false);
                     break;
-                    
+
                 case 'LOAD_BUILDINGS_REQUEST':
                     await handleLoadBuildingsRequest();
                     break;
-                    
+
                 case 'BUILDING_SELECTED':
                     await handleBuildingSelected(data);
                     break;
-                    
+
                 case 'COURSE_SELECTED':
                     await handleCourseSelected(data);
                     break;
-                    
+
                 case 'GROUP_SELECTED':
                     handleGroupSelected(data);
                     break;
-                    
+
                 default:
                     console.log('Unknown message type:', type);
             }
@@ -137,8 +137,8 @@ export default function AuthWithHTML() {
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
-                data: { 
-                    message: 'Регистрация успешна! Пожалуйста, проверьте вашу электронную почту для подтверждения учетной записи перед входом.' 
+                data: {
+                    message: 'Регистрация успешна! Пожалуйста, проверьте вашу электронную почту для подтверждения учетной записи перед входом.'
                 }
             });
 
@@ -189,7 +189,7 @@ export default function AuthWithHTML() {
                 throw new Error('Срок действия пригласительного кода истек');
             }
 
-            // Создаем пользователя в auth
+            // СОЗДАЕМ ПОЛЬЗОВАТЕЛЯ В AUTH
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -197,7 +197,7 @@ export default function AuthWithHTML() {
                     data: {
                         first_name: formData.firstName,
                         last_name: formData.lastName,
-                        role: 'teacher'
+                        role: 'teacher'  // Важно: указываем роль
                     }
                 }
             });
@@ -215,12 +215,14 @@ export default function AuthWithHTML() {
 
             console.log('Teacher user created:', authData.user.id);
 
-            // Создаем запись преподавателя в таблице teachers
-            // Используем тот же ID что и в auth.users
+            // Ждем немного чтобы пользователь точно создался
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // СОЗДАЕМ ЗАПИСЬ ТОЛЬКО В TEACHERS (НЕ В PROFILES!)
             const { error: teacherError } = await supabase
                 .from('teachers')
                 .insert({
-                    id: authData.user.id,  // Используем тот же UUID
+                    id: authData.user.id,  // Используем тот же ID что в auth.users
                     building_id: formData.buildingId || null,
                     first_name: formData.firstName,
                     last_name: formData.lastName,
@@ -237,7 +239,7 @@ export default function AuthWithHTML() {
             // Помечаем код как использованный
             const { error: updateCodeError } = await supabase
                 .from('invite_codes')
-                .update({ 
+                .update({
                     is_used: true,
                     used_by: authData.user.id,
                     used_at: new Date().toISOString()
@@ -246,13 +248,12 @@ export default function AuthWithHTML() {
 
             if (updateCodeError) {
                 console.error('Code update error:', updateCodeError);
-                // Не прерываем регистрацию если не удалось обновить код
             }
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
-                data: { 
-                    message: 'Регистрация преподавателя успешна! Проверьте вашу электронную почту для подтверждения учетной записи.' 
+                data: {
+                    message: 'Регистрация преподавателя успешна! Проверьте вашу электронную почту для подтверждения учетной записи.'
                 }
             });
 
@@ -280,32 +281,28 @@ export default function AuthWithHTML() {
                 return;
             }
 
-            const { data, error } = await supabase.auth.signInWithPassword({ 
-                email: formData.email, 
-                password: formData.password 
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: formData.email,
+                password: formData.password
             });
-            
+
             if (error) {
                 if (error.message.includes('Invalid login credentials')) {
                     throw new Error('Неверный email или пароль');
-                } else if (error.message.includes('Email not confirmed')) {
-                    throw new Error('Email не подтвержден. Пожалуйста, проверьте вашу почту и подтвердите учетную запись перед входом.');
-                } else if (error.message.includes('Email not verified')) {
-                    throw new Error('Email не подтвержден. Пожалуйста, проверьте вашу почту и подтвердите учетную запись.');
                 }
                 throw error;
             }
 
-            // Проверяем роль пользователя
+            // После успешного входа проверяем роль
             if (data.user) {
                 const userRole = data.user.user_metadata?.role;
-                
+
                 if (userRole === 'teacher') {
-                    // Проверяем существует ли запись преподавателя
+                    // Для преподавателей проверяем запись в teachers
                     const { data: teacherData } = await supabase
                         .from('teachers')
                         .select('*')
-                        .eq('id', data.user.id)  // Теперь ищем по id, а не user_id
+                        .eq('id', data.user.id)
                         .single();
 
                     if (!teacherData) {
@@ -313,7 +310,7 @@ export default function AuthWithHTML() {
                         await supabase
                             .from('teachers')
                             .insert({
-                                id: data.user.id,  // Используем тот же ID
+                                id: data.user.id,
                                 email: data.user.email,
                                 first_name: data.user.user_metadata?.first_name || 'Преподаватель',
                                 last_name: data.user.user_metadata?.last_name || '',
@@ -322,15 +319,14 @@ export default function AuthWithHTML() {
                             });
                     }
                 } else {
-                    // Для студентов проверяем профиль
-                    const { data: profile, error: profileError } = await supabase
+                    // Для студентов работаем с profiles
+                    const { data: profile } = await supabase
                         .from('profiles')
                         .select('*')
                         .eq('id', data.user.id)
                         .single();
 
-                    if (profileError && profileError.code === 'PGRST116') {
-                        // Создаем профиль студента если его нет
+                    if (!profile) {
                         await supabase
                             .from('profiles')
                             .insert({
@@ -345,7 +341,7 @@ export default function AuthWithHTML() {
                     }
                 }
             }
-            
+
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
                 data: { message: 'Вход выполнен успешно!' }
@@ -534,17 +530,17 @@ export default function AuthWithHTML() {
 
     return (
         <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
-            <iframe 
+            <iframe
                 ref={iframeRef}
                 src={isTeacherSignUp ? "/signup-teacher.html" : (isSignUp ? "/signup.html" : "/login.html")}
-                width="100%" 
+                width="100%"
                 height="100%"
                 frameBorder="0"
                 title="Auth Form"
                 style={{ display: 'block' }}
                 onLoad={() => console.log('Iframe loaded')}
             />
-            
+
             {loading && (
                 <div style={{
                     position: 'fixed',
