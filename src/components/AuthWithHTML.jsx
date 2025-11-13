@@ -166,7 +166,18 @@ export default function AuthWithHTML() {
                 return;
             }
 
-            // Проверяем пригласительный код
+            // Улучшенная проверка: проверяем, не зарегистрирован ли уже пользователь с таким email
+            const { data: existingUserWithCode, error: checkError } = await supabase
+                .from('teachers')
+                .select('id')
+                .eq('email', formData.email)
+                .single();
+
+            if (!checkError && existingUserWithCode) {
+                throw new Error('Пользователь с таким email уже зарегистрирован');
+            }
+
+            // Проверяем пригласительный код с БЛОКИРОВКОЙ для предотвращения race condition
             const { data: codeData, error: codeError } = await supabase
                 .from('invite_codes')
                 .select('*')
@@ -177,6 +188,22 @@ export default function AuthWithHTML() {
 
             if (codeError || !codeData) {
                 throw new Error('Неверный или просроченный пригласительный код');
+            }
+
+            // НЕМЕДЛЕННО помечаем код как использованный, чтобы другие не могли его использовать
+            const { error: updateCodeError } = await supabase
+                .from('invite_codes')
+                .update({
+                    is_used: true,
+                    used_by: null, // Пока ставим null, т.к. пользователь еще не создан
+                    used_at: new Date().toISOString()
+                })
+                .eq('id', codeData.id)
+                .eq('is_used', false); // Важно: обновляем только если еще не использован
+
+            if (updateCodeError) {
+                console.error('Code update error:', updateCodeError);
+                throw new Error('Этот код уже был использован. Попробуйте другой код.');
             }
 
             // Создаем пользователя в auth
@@ -193,13 +220,32 @@ export default function AuthWithHTML() {
             });
 
             if (authError) {
+                // Если регистрация не удалась, возвращаем код
+                await supabase
+                    .from('invite_codes')
+                    .update({
+                        is_used: false,
+                        used_by: null,
+                        used_at: null
+                    })
+                    .eq('id', codeData.id);
+
                 if (authError.message.includes('already registered')) {
-                    throw new Error('Пользователь с таким email уже зарегистрирован');
+                    throw new Error('Пользователь с таким email уже зарегистрирован в системе аутентификации');
                 }
                 throw authError;
             }
 
             if (!authData.user) {
+                // Если пользователь не создан, возвращаем код
+                await supabase
+                    .from('invite_codes')
+                    .update({
+                        is_used: false,
+                        used_by: null,
+                        used_at: null
+                    })
+                    .eq('id', codeData.id);
                 throw new Error('Не удалось создать пользователя');
             }
 
@@ -208,7 +254,27 @@ export default function AuthWithHTML() {
             // Ждем немного чтобы пользователь точно создался
             await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // СОЗДАЕМ ЗАПИСЬ ТОЛЬКО В TEACHERS
+            // Дополнительная проверка: убеждаемся, что пользователь с таким email не появился в teachers
+            const { data: doubleCheckUser, error: doubleCheckError } = await supabase
+                .from('teachers')
+                .select('id')
+                .eq('email', formData.email)
+                .single();
+
+            if (!doubleCheckError && doubleCheckUser) {
+                // Если пользователь уже существует (редкий случай race condition), возвращаем код
+                await supabase
+                    .from('invite_codes')
+                    .update({
+                        is_used: false,
+                        used_by: null,
+                        used_at: null
+                    })
+                    .eq('id', codeData.id);
+                throw new Error('Пользователь с таким email уже был зарегистрирован в процессе регистрации');
+            }
+
+            // СОЗДАЕМ ЗАПИСЬ В TEACHERS
             const { error: teacherError } = await supabase
                 .from('teachers')
                 .insert({
@@ -217,29 +283,38 @@ export default function AuthWithHTML() {
                     first_name: formData.firstName,
                     last_name: formData.lastName,
                     email: formData.email,
-                    role: 'teacher', // Явно указываем роль
-                    avatar_url: null, // Пока аватарка пустая
+                    role: 'teacher',
+                    avatar_url: null,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 });
 
             if (teacherError) {
                 console.error('Teacher creation error:', teacherError);
+
+                // Если создание преподавателя не удалось, возвращаем код
+                await supabase
+                    .from('invite_codes')
+                    .update({
+                        is_used: false,
+                        used_by: null,
+                        used_at: null
+                    })
+                    .eq('id', codeData.id);
+
                 throw new Error('Не удалось создать запись преподавателя: ' + teacherError.message);
             }
 
-            // Помечаем код как использованный
-            const { error: updateCodeError } = await supabase
+            // Теперь окончательно прикрепляем код к преподавателю
+            const { error: finalUpdateError } = await supabase
                 .from('invite_codes')
                 .update({
-                    is_used: true,
-                    used_by: authData.user.id,
-                    used_at: new Date().toISOString()
+                    used_by: authData.user.id
                 })
                 .eq('id', codeData.id);
 
-            if (updateCodeError) {
-                console.error('Code update error:', updateCodeError);
+            if (finalUpdateError) {
+                console.error('Final code update error:', finalUpdateError);
             }
 
             sendMessageToIframe({
@@ -519,17 +594,35 @@ export default function AuthWithHTML() {
             errors.email = 'Email обязателен';
         } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
             errors.email = 'Некорректный формат email';
+        } else if (formData.email.length > 255) {
+            errors.email = 'Email слишком длинный';
         }
 
         if (!formData.password) {
             errors.password = 'Пароль обязателен';
         } else if (formData.password.length < 6) {
             errors.password = 'Пароль должен быть не менее 6 символов';
+        } else if (formData.password.length > 100) {
+            errors.password = 'Пароль слишком длинный';
         }
 
-        if (!formData.firstName) errors.firstName = 'Имя обязательно';
-        if (!formData.lastName) errors.lastName = 'Фамилия обязательна';
-        if (!formData.inviteCode) errors.inviteCode = 'Пригласительный код обязателен';
+        if (!formData.firstName) {
+            errors.firstName = 'Имя обязательно';
+        } else if (formData.firstName.length > 100) {
+            errors.firstName = 'Имя слишком длинное';
+        }
+
+        if (!formData.lastName) {
+            errors.lastName = 'Фамилия обязательна';
+        } else if (formData.lastName.length > 100) {
+            errors.lastName = 'Фамилия слишком длинная';
+        }
+
+        if (!formData.inviteCode) {
+            errors.inviteCode = 'Пригласительный код обязателен';
+        } else if (formData.inviteCode.length > 50) {
+            errors.inviteCode = 'Код слишком длинный';
+        }
 
         return errors;
     };
