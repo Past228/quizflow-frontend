@@ -1,4 +1,4 @@
-// profile.js (упрощенная версия без ожидания подтверждения)
+// profile.js (исправленная версия)
 // State management
 let state = {
     profile: null,
@@ -10,30 +10,6 @@ let state = {
     profileNotFound: false,
     selectedAvatar: null,
     avatarOptions: [
-        {
-            id: 'male1',
-            type: 'url',
-            url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-            name: 'Мужчина 1'
-        },
-        {
-            id: 'female1',
-            type: 'url',
-            url: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-            name: 'Женщина 1'
-        },
-        {
-            id: 'male2',
-            type: 'url',
-            url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-            name: 'Мужчина 2'
-        },
-        {
-            id: 'female2',
-            type: 'url',
-            url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-            name: 'Женщина 2'
-        },
         {
             id: 'blue',
             type: 'color',
@@ -239,11 +215,13 @@ function handleSaveAvatar() {
     if (state.selectedAvatar) {
         let avatarUrl = '';
 
-        if (state.selectedAvatar.type === 'url') {
-            avatarUrl = state.selectedAvatar.url;
-        } else if (state.selectedAvatar.type === 'color') {
-            // Для цветных аватарок создаем SVG
-            avatarUrl = generateColorAvatarURL(state.selectedAvatar.color, state.selectedAvatar.text);
+        if (state.selectedAvatar.type === 'color') {
+            // Для цветных аватарок создаем SVG с инициалами пользователя
+            const profile = state.profile;
+            const firstName = profile.first_name || 'И';
+            const lastName = profile.last_name || 'П';
+            const avatarText = (firstName[0] || '') + (lastName[0] || '');
+            avatarUrl = generateColorAvatarURL(state.selectedAvatar.color, avatarText);
         } else if (state.selectedAvatar.type === 'custom') {
             // Для кастомных URL используем введенный URL
             avatarUrl = state.selectedAvatar.url;
@@ -492,14 +470,25 @@ function updateStudentProfileUI(profile) {
 function updateStudentAvatarUI() {
     const profile = state.profile;
 
-    if (profile.avatar_url && (profile.avatar_url.startsWith('data:image/svg+xml') || profile.avatar_url.startsWith('http'))) {
-        elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
+    if (profile.avatar_url) {
+        // Проверяем, является ли avatar_url SVG или URL изображением
+        if (profile.avatar_url.startsWith('data:image/svg+xml') || 
+            profile.avatar_url.startsWith('http') || 
+            profile.avatar_url.startsWith('https')) {
+            
+            elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
 
-        const img = elements.userAvatar.querySelector('img');
-        if (img) {
-            img.onerror = function () {
-                showDefaultStudentAvatar();
-            };
+            const img = elements.userAvatar.querySelector('img');
+            if (img) {
+                img.onerror = function () {
+                    showDefaultStudentAvatar();
+                };
+                img.onload = function () {
+                    console.log('Avatar image loaded successfully');
+                };
+            }
+        } else {
+            showDefaultStudentAvatar();
         }
     } else {
         showDefaultStudentAvatar();
@@ -630,14 +619,25 @@ function updateTeacherProfileUI(profile) {
 function updateTeacherAvatarUI() {
     const profile = state.profile;
 
-    if (profile.avatar_url && (profile.avatar_url.startsWith('data:image/svg+xml') || profile.avatar_url.startsWith('http'))) {
-        elements.teacherAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
+    if (profile.avatar_url) {
+        // Проверяем, является ли avatar_url SVG или URL изображением
+        if (profile.avatar_url.startsWith('data:image/svg+xml') || 
+            profile.avatar_url.startsWith('http') || 
+            profile.avatar_url.startsWith('https')) {
+            
+            elements.teacherAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
 
-        const img = elements.teacherAvatar.querySelector('img');
-        if (img) {
-            img.onerror = function () {
-                showDefaultTeacherAvatar();
-            };
+            const img = elements.teacherAvatar.querySelector('img');
+            if (img) {
+                img.onerror = function () {
+                    showDefaultTeacherAvatar();
+                };
+                img.onload = function () {
+                    console.log('Teacher avatar image loaded successfully');
+                };
+            }
+        } else {
+            showDefaultTeacherAvatar();
         }
     } else {
         showDefaultTeacherAvatar();
@@ -699,8 +699,8 @@ function updateTeacherTestsUI(tests) {
                     <span>Попыток: ${test.max_attempts || 1}</span>
                 </div>
                 <div class="test-actions">
-                    <button class="test-action-btn">Редактировать</button>
-                    <button class="test-action-btn primary">Назначить группам</button>
+                    <button class="test-action-btn" onclick="handleEditTest('${test.id}')">Редактировать</button>
+                    <button class="test-action-btn primary" onclick="handleAssignGroups('${test.id}')">Назначить группам</button>
                 </div>
             </div>
         `;
@@ -746,6 +746,20 @@ function handleStartTest(testId) {
     });
 }
 
+function handleEditTest(testId) {
+    sendMessageToParent({
+        type: 'EDIT_TEST_REQUEST',
+        data: { testId }
+    });
+}
+
+function handleAssignGroups(testId) {
+    sendMessageToParent({
+        type: 'ASSIGN_GROUPS_REQUEST',
+        data: { testId }
+    });
+}
+
 // Avatar modal functions
 function populateAvatarOptions() {
     let optionsHTML = '';
@@ -753,14 +767,7 @@ function populateAvatarOptions() {
     state.avatarOptions.forEach((option, index) => {
         const isSelected = state.selectedAvatar && state.selectedAvatar.id === option.id;
 
-        if (option.type === 'url') {
-            optionsHTML += `
-                <div class="avatar-option ${isSelected ? 'selected' : ''}" 
-                     data-id="${option.id}">
-                    <img src="${option.url}" alt="${option.name}" class="avatar-option-image">
-                </div>
-            `;
-        } else if (option.type === 'color') {
+        if (option.type === 'color') {
             optionsHTML += `
                 <div class="avatar-option ${isSelected ? 'selected' : ''}" 
                      data-id="${option.id}">
@@ -812,7 +819,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 title: document.getElementById('testTitle').value,
                 description: document.getElementById('testDescription').value,
                 timeLimit: document.getElementById('timeLimit').value || null,
-                maxAttempts: document.getElementById('maxAttempts').value || 1
+                maxAttempts: document.getElementById('maxAttempts').value || 1,
+                questionsCount: document.getElementById('questionsCount').value || 0
             };
 
             sendMessageToParent({

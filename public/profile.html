@@ -18,7 +18,8 @@
             line-height: 1.6;
             min-height: 100vh;
             width: 100%;
-            overflow-x: hidden; /* Предотвращает горизонтальную прокрутку */
+            overflow-x: hidden;
+            /* Предотвращает горизонтальную прокрутку */
         }
 
         .header {
@@ -64,7 +65,8 @@
 
         .main-container {
             width: 100%;
-            padding: 32px 0; /* Убрали боковые отступы */
+            padding: 32px 0;
+            /* Убрали боковые отступы */
         }
 
         .grid-layout {
@@ -74,7 +76,8 @@
             width: 100%;
             max-width: 1200px;
             margin: 0 auto;
-            padding: 0 20px; /* Добавили внутренние отступы вместо внешних */
+            padding: 0 20px;
+            /* Добавили внутренние отступы вместо внешних */
         }
 
         @media (min-width: 1024px) {
@@ -863,6 +866,11 @@
                     <label for="testDescription">Описание:</label>
                     <textarea id="testDescription" name="testDescription" rows="3"
                         placeholder="Введите описание теста"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="questionsCount">Количество вопросов:</label>
+                    <input type="number" id="questionsCount" name="questionsCount" min="1" value="10" required>
                 </div>
 
                 <div class="form-row">
