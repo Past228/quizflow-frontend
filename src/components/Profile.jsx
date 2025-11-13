@@ -39,6 +39,10 @@ export default function Profile({ session }) {
                     await handleStartTest(data.testId);
                     break;
 
+                case 'DELETE_TEST_REQUEST':
+                    await handleDeleteTest(data.testId);
+                    break;
+
                 case 'UPDATE_AVATAR_REQUEST':
                     await handleUpdateAvatar(data.avatarUrl);
                     break;
@@ -264,6 +268,30 @@ export default function Profile({ session }) {
             sendMessageToIframe({
                 type: 'ERROR_STATE',
                 data: { error: 'Не удалось создать тест: ' + error.message }
+            });
+        }
+    };
+
+    const handleDeleteTest = async (testId) => {
+        try {
+            const { error } = await supabase
+                .from('tests')
+                .delete()
+                .eq('id', testId)
+                .eq('created_by', session.user.id); // Защита от удаления чужих тестов
+
+            if (error) throw error;
+
+            sendMessageToIframe({
+                type: 'TEST_DELETED',
+                data: { testId }
+            });
+
+        } catch (error) {
+            console.error('Test deletion error:', error);
+            sendMessageToIframe({
+                type: 'ERROR_STATE',
+                data: { error: 'Не удалось удалить тест: ' + error.message }
             });
         }
     };
