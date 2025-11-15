@@ -22,7 +22,7 @@ const elements = {
     inviteCodeError: document.getElementById('inviteCodeError')
 };
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     console.log('Teacher signup HTML loaded');
     initializeEventListeners();
     initializeCodeValidation();
@@ -33,9 +33,9 @@ function initializeEventListeners() {
     elements.authForm.addEventListener('submit', handleFormSubmit);
     elements.toggleToStudentBtn.addEventListener('click', handleToggleToStudent);
     elements.loginBtn.addEventListener('click', handleLoginClick);
-    
+
     // Автоматическое приведение кода к верхнему регистру
-    elements.inviteCode.addEventListener('input', function() {
+    elements.inviteCode.addEventListener('input', function () {
         this.value = this.value.toUpperCase();
     });
 }
@@ -44,19 +44,19 @@ function initializeEventListeners() {
 function initializeCodeValidation() {
     const inviteCodeInput = elements.inviteCode;
     const inviteCodeError = elements.inviteCodeError;
-    
+
     let validationTimeout;
-    
-    inviteCodeInput.addEventListener('input', function() {
+
+    inviteCodeInput.addEventListener('input', function () {
         this.value = this.value.toUpperCase();
-        
+
         // Очищаем предыдущий таймаут
         clearTimeout(validationTimeout);
-        
+
         // Очищаем сообщение об ошибке при новом вводе
         inviteCodeError.textContent = '';
         inviteCodeError.style.color = '';
-        
+
         // Ждем завершения ввода (минимум 3 символа)
         if (this.value.length >= 3) {
             validationTimeout = setTimeout(() => {
@@ -64,9 +64,9 @@ function initializeCodeValidation() {
             }, 800);
         }
     });
-    
+
     // Проверка при потере фокуса
-    inviteCodeInput.addEventListener('blur', function() {
+    inviteCodeInput.addEventListener('blur', function () {
         if (this.value.length >= 3) {
             validateInviteCode(this.value);
         }
@@ -77,9 +77,9 @@ function validateInviteCode(code) {
     if (!code || code.length < 3) {
         return;
     }
-    
+
     console.log('Validating invite code:', code);
-    
+
     sendMessageToParent({
         type: 'VALIDATE_INVITE_CODE',
         data: { code: code.toUpperCase() }
@@ -93,37 +93,37 @@ function sendMessageToParent(message) {
     }
 }
 
-window.addEventListener('message', function(event) {
+window.addEventListener('message', function (event) {
     console.log('Received message from parent:', event.data);
-    
+
     const { type, data } = event.data;
-    
+
     switch (type) {
         case 'VALIDATION_ERRORS':
             displayValidationErrors(data.errors);
             break;
-            
+
         case 'AUTH_SUCCESS':
             showMessage(data.message, 'success');
             resetForm();
             break;
-            
+
         case 'AUTH_ERROR':
             showMessage(data.message, 'error');
             break;
-            
+
         case 'BUILDINGS_LOADED':
             populateBuildings(data.buildings);
             break;
-            
+
         case 'LOAD_ERROR':
             showMessage(`Ошибка загрузки корпусов: ${data.message}`, 'error');
             break;
-            
+
         case 'INVITE_CODE_VALIDATION_RESULT':
             handleInviteCodeValidationResult(data);
             break;
-            
+
         case 'LOADING_STATE':
             handleLoadingState(data.loading, data.resource);
             break;
@@ -132,7 +132,7 @@ window.addEventListener('message', function(event) {
 
 function handleInviteCodeValidationResult(result) {
     const errorElement = elements.inviteCodeError;
-    
+
     if (result.valid) {
         errorElement.textContent = result.message || '✅ Код действителен';
         errorElement.style.color = '#10b981';
@@ -157,11 +157,11 @@ function handleLoadingState(loading, resource) {
 function handleFormSubmit(e) {
     e.preventDefault();
     console.log('Teacher signup form submitted');
-    
+
     // Очищаем предыдущие сообщения
     elements.messageContainer.innerHTML = '';
     displayValidationErrors({});
-    
+
     const formData = {
         email: elements.email.value,
         password: elements.password.value,
@@ -170,16 +170,16 @@ function handleFormSubmit(e) {
         buildingId: elements.building.value,
         inviteCode: elements.inviteCode.value,
     };
-    
+
     console.log('Teacher form data:', formData);
-    
+
     // Валидация на клиенте
     const errors = validateFormClient(formData);
     if (Object.keys(errors).length > 0) {
         displayValidationErrors(errors);
         return;
     }
-    
+
     sendMessageToParent({
         type: 'TEACHER_SIGNUP_FORM_SUBMIT',
         data: formData
@@ -188,31 +188,31 @@ function handleFormSubmit(e) {
 
 function validateFormClient(formData) {
     const errors = {};
-    
+
     if (!formData.email) {
         errors.email = 'Email обязателен';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
         errors.email = 'Некорректный формат email';
     }
-    
+
     if (!formData.password) {
         errors.password = 'Пароль обязателен';
     } else if (formData.password.length < 6) {
         errors.password = 'Пароль должен быть не менее 6 символов';
     }
-    
+
     if (!formData.firstName) {
         errors.firstName = 'Имя обязательно';
     }
-    
+
     if (!formData.lastName) {
         errors.lastName = 'Фамилия обязательна';
     }
-    
+
     if (!formData.inviteCode) {
         errors.inviteCode = 'Пригласительный код обязателен';
     }
-    
+
     return errors;
 }
 
@@ -229,17 +229,25 @@ function handleLoginClick() {
 }
 
 function populateBuildings(buildings) {
+    console.log('Populating buildings:', buildings);
     state.buildings = buildings;
-    
+
     // Очищаем select
     elements.building.innerHTML = '<option value="">Выберите корпус (опционально)</option>';
-    
+
+    if (!buildings || buildings.length === 0) {
+        console.log('No buildings to populate');
+        return;
+    }
+
     buildings.forEach(building => {
         const option = document.createElement('option');
         option.value = building.id;
         option.textContent = building.name;
         elements.building.appendChild(option);
     });
+
+    console.log('Buildings populated successfully');
 }
 
 function showMessage(message, type) {
@@ -248,7 +256,7 @@ function showMessage(message, type) {
             ${message}
         </div>
     `;
-    
+
     // Прокрутка к сообщению
     elements.messageContainer.scrollIntoView({ behavior: 'smooth' });
 }
@@ -261,7 +269,7 @@ function displayValidationErrors(errors) {
             element.style.color = '';
         }
     });
-    
+
     // Устанавливаем новые ошибки
     Object.entries(errors).forEach(([field, error]) => {
         const errorElement = elements[`${field}Error`];
@@ -276,7 +284,7 @@ function resetForm() {
     elements.authForm.reset();
     elements.messageContainer.innerHTML = '';
     displayValidationErrors({});
-    
+
     // Очищаем сообщение о проверке кода
     elements.inviteCodeError.textContent = '';
     elements.inviteCodeError.style.color = '';
@@ -297,11 +305,11 @@ async function getInviteCodesStats() {
                 'Content-Type': 'application/json',
             }
         });
-        
+
         if (!response.ok) {
             throw new Error('Ошибка при получении статистики кодов');
         }
-        
+
         const data = await response.json();
         return data;
     } catch (error) {
@@ -326,11 +334,11 @@ async function createInviteCode(expiresInDays = 30) {
                 expiresInDays: expiresInDays
             })
         });
-        
+
         if (!response.ok) {
             throw new Error('Ошибка при создании кода');
         }
-        
+
         const data = await response.json();
         return data;
     } catch (error) {
@@ -352,11 +360,11 @@ async function getInviteCodeDetails(code) {
                 'Content-Type': 'application/json',
             }
         });
-        
+
         if (!response.ok) {
             throw new Error('Ошибка при получении информации о коде');
         }
-        
+
         const data = await response.json();
         return data;
     } catch (error) {

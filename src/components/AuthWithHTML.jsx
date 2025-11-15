@@ -456,9 +456,10 @@ export default function AuthWithHTML() {
         }
     };
 
-    // Остальные функции остаются без изменений
     const handleLoadBuildingsRequest = async () => {
         try {
+            console.log('Loading buildings request received');
+
             sendMessageToIframe({
                 type: 'LOADING_STATE',
                 data: {
@@ -472,13 +473,20 @@ export default function AuthWithHTML() {
                 .select('*')
                 .order('name');
 
-            if (error) throw error;
+            if (error) {
+                console.error('Error loading buildings:', error);
+                throw error;
+            }
+
+            console.log('Buildings loaded from database:', data);
 
             sendMessageToIframe({
                 type: 'BUILDINGS_LOADED',
                 data: { buildings: data || [] }
             });
+
         } catch (error) {
+            console.error('Error in handleLoadBuildingsRequest:', error);
             sendMessageToIframe({
                 type: 'LOAD_ERROR',
                 data: {
