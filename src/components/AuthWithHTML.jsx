@@ -166,44 +166,44 @@ export default function AuthWithHTML() {
                 return;
             }
 
-            // Улучшенная проверка: проверяем, не зарегистрирован ли уже пользователь с таким email
-            const { data: existingUserWithCode, error: checkError } = await supabase
+            // Проверяем, не зарегистрирован ли уже пользователь с таким email
+            const { data: existingTeacher, error: checkError } = await supabase
                 .from('teachers')
                 .select('id')
                 .eq('email', formData.email)
                 .single();
 
-            if (!checkError && existingUserWithCode) {
+            if (!checkError && existingTeacher) {
                 throw new Error('Пользователь с таким email уже зарегистрирован');
             }
 
-            // Проверяем пригласительный код с БЛОКИРОВКОЙ для предотвращения race condition
+            // ПРОВЕРЯЕМ КОД: существует ли он и не занят ли
             const { data: codeData, error: codeError } = await supabase
                 .from('invite_codes')
                 .select('*')
                 .eq('code', formData.inviteCode.toUpperCase())
-                .eq('is_used', false)
-                .gte('expires_at', new Date().toISOString())
+                .eq('is_used', false) // Проверяем что код не использован
+                .gte('expires_at', new Date().toISOString()) // Проверяем что не просрочен
                 .single();
 
             if (codeError || !codeData) {
-                throw new Error('Неверный или просроченный пригласительный код');
+                throw new Error('Неверный, просроченный или уже использованный пригласительный код');
             }
 
-            // НЕМЕДЛЕННО помечаем код как использованный, чтобы другие не могли его использовать
-            const { error: updateCodeError } = await supabase
+            // НЕМЕДЛЕННО резервируем код за этим преподавателем
+            const { error: reserveCodeError } = await supabase
                 .from('invite_codes')
                 .update({
                     is_used: true,
-                    used_by: null, // Пока ставим null, т.к. пользователь еще не создан
+                    used_by: 'reserving_' + Date.now(), // Временно резервируем
                     used_at: new Date().toISOString()
                 })
                 .eq('id', codeData.id)
                 .eq('is_used', false); // Важно: обновляем только если еще не использован
 
-            if (updateCodeError) {
-                console.error('Code update error:', updateCodeError);
-                throw new Error('Этот код уже был использован. Попробуйте другой код.');
+            if (reserveCodeError) {
+                console.error('Code reservation error:', reserveCodeError);
+                throw new Error('Этот код уже был использован другим преподавателем');
             }
 
             // Создаем пользователя в auth
@@ -214,13 +214,14 @@ export default function AuthWithHTML() {
                     data: {
                         first_name: formData.firstName,
                         last_name: formData.lastName,
-                        role: 'teacher'
+                        role: 'teacher',
+                        invite_code: formData.inviteCode.toUpperCase()
                     }
                 }
             });
 
             if (authError) {
-                // Если регистрация не удалась, возвращаем код
+                // Если регистрация не удалась, ОСВОБОЖДАЕМ код
                 await supabase
                     .from('invite_codes')
                     .update({
@@ -231,13 +232,13 @@ export default function AuthWithHTML() {
                     .eq('id', codeData.id);
 
                 if (authError.message.includes('already registered')) {
-                    throw new Error('Пользователь с таким email уже зарегистрирован в системе аутентификации');
+                    throw new Error('Пользователь с таким email уже зарегистрирован в системе');
                 }
                 throw authError;
             }
 
             if (!authData.user) {
-                // Если пользователь не создан, возвращаем код
+                // Если пользователь не создан, ОСВОБОЖДАЕМ код
                 await supabase
                     .from('invite_codes')
                     .update({
@@ -254,27 +255,7 @@ export default function AuthWithHTML() {
             // Ждем немного чтобы пользователь точно создался
             await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // Дополнительная проверка: убеждаемся, что пользователь с таким email не появился в teachers
-            const { data: doubleCheckUser, error: doubleCheckError } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', formData.email)
-                .single();
-
-            if (!doubleCheckError && doubleCheckUser) {
-                // Если пользователь уже существует (редкий случай race condition), возвращаем код
-                await supabase
-                    .from('invite_codes')
-                    .update({
-                        is_used: false,
-                        used_by: null,
-                        used_at: null
-                    })
-                    .eq('id', codeData.id);
-                throw new Error('Пользователь с таким email уже был зарегистрирован в процессе регистрации');
-            }
-
-            // СОЗДАЕМ ЗАПИСЬ В TEACHERS
+            // СОЗДАЕМ ЗАПИСЬ В TEACHERS с ПРИВЯЗКОЙ К КОДУ
             const { error: teacherError } = await supabase
                 .from('teachers')
                 .insert({
@@ -285,6 +266,7 @@ export default function AuthWithHTML() {
                     email: formData.email,
                     role: 'teacher',
                     avatar_url: null,
+                    invite_code_id: codeData.id, // ПРИВЯЗЫВАЕМ ID КОДА К ПРЕПОДАВАТЕЛЮ
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 });
@@ -292,7 +274,7 @@ export default function AuthWithHTML() {
             if (teacherError) {
                 console.error('Teacher creation error:', teacherError);
 
-                // Если создание преподавателя не удалось, возвращаем код
+                // Если создание преподавателя не удалось, ОСВОБОЖДАЕМ код
                 await supabase
                     .from('invite_codes')
                     .update({
@@ -305,22 +287,34 @@ export default function AuthWithHTML() {
                 throw new Error('Не удалось создать запись преподавателя: ' + teacherError.message);
             }
 
-            // Теперь окончательно прикрепляем код к преподавателю
+            // ТЕПЕРЬ ОКОНЧАТЕЛЬНО ПРИВЯЗЫВАЕМ КОД К ПРЕПОДАВАТЕЛЮ
             const { error: finalUpdateError } = await supabase
                 .from('invite_codes')
                 .update({
-                    used_by: authData.user.id
+                    used_by: authData.user.id // ОКОНЧАТЕЛЬНО ПРИВЯЗЫВАЕМ К ПРЕПОДАВАТЕЛЮ
                 })
                 .eq('id', codeData.id);
 
             if (finalUpdateError) {
                 console.error('Final code update error:', finalUpdateError);
+                // Даже если ошибка, код уже помечен как использованный и привязан к преподавателю через invite_code_id
+            }
+
+            // ПРОВЕРЯЕМ ЧТО ВСЕ ПРОШЛО УСПЕШНО
+            const { data: finalCheck, error: finalCheckError } = await supabase
+                .from('teachers')
+                .select('id, invite_code_id')
+                .eq('id', authData.user.id)
+                .single();
+
+            if (!finalCheckError && finalCheck.invite_code_id === codeData.id) {
+                console.log('✅ Код успешно привязан к преподавателю:', authData.user.id);
             }
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
                 data: {
-                    message: 'Регистрация преподавателя успешна! Проверьте вашу электронную почту для подтверждения учетной записи.'
+                    message: 'Регистрация преподавателя успешна! Код привязан к вашему аккаунту. Проверьте email для подтверждения.'
                 }
             });
 
