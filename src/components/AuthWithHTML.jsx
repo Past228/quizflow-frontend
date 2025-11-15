@@ -86,9 +86,10 @@ export default function AuthWithHTML() {
 
     const handleValidateInviteCode = async (code) => {
         try {
+            // Этот запрос будет работать благодаря политике "Anyone can read invite codes"
             const { data: codeData, error } = await supabase
                 .from('invite_codes')
-                .select('id, code, is_used')
+                .select('id, is_used, expires_at')
                 .eq('code', code.toUpperCase())
                 .single();
 
@@ -103,6 +104,14 @@ export default function AuthWithHTML() {
                 return sendMessageToIframe({
                     type: 'INVITE_CODE_VALIDATION_RESULT',
                     data: { valid: false, message: 'Код уже использован' }
+                });
+            }
+
+            // Проверка срока действия
+            if (codeData.expires_at && new Date(codeData.expires_at) < new Date()) {
+                return sendMessageToIframe({
+                    type: 'INVITE_CODE_VALIDATION_RESULT',
+                    data: { valid: false, message: 'Код просрочен' }
                 });
             }
 
@@ -195,13 +204,11 @@ export default function AuthWithHTML() {
 
     const handleTeacherSignUp = async (formData) => {
         setLoading(true);
-        const startTime = Date.now();
 
         try {
             console.log('🚀 Starting teacher registration...');
 
             // 1. СОЗДАЕМ ПОЛЬЗОВАТЕЛЯ
-            console.log('📧 Step 1: Creating auth user...');
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -220,10 +227,7 @@ export default function AuthWithHTML() {
             const userId = authData.user.id;
             console.log('✅ User created:', userId);
 
-            // 2. ПРОВЕРЯЕМ И ОБНОВЛЯЕМ КОД
-            console.log('🔑 Step 2: Validating and updating invite code...');
-
-            // Сначала проверяем код
+            // 2. ПРОВЕРЯЕМ КОД (анонимный доступ разрешен)
             const { data: codeData, error: codeError } = await supabase
                 .from('invite_codes')
                 .select('id')
@@ -235,7 +239,7 @@ export default function AuthWithHTML() {
                 throw new Error('Неверный или уже использованный код');
             }
 
-            // Затем обновляем код
+            // 3. ОБНОВЛЯЕМ КОД (требуется аутентификация)
             const { error: updateError } = await supabase
                 .from('invite_codes')
                 .update({
@@ -246,15 +250,10 @@ export default function AuthWithHTML() {
                 .eq('id', codeData.id);
 
             if (updateError) {
-                console.error('❌ Code update failed:', updateError);
                 throw new Error('Ошибка обновления кода: ' + updateError.message);
             }
 
-            console.log('✅ Code updated successfully');
-
-            // 3. СОЗДАЕМ ПРЕПОДАВАТЕЛЯ
-            console.log('👨‍🏫 Step 3: Creating teacher record...');
-
+            // 4. СОЗДАЕМ ПРЕПОДАВАТЕЛЯ (требуется аутентификация)
             const { error: teacherError } = await supabase
                 .from('teachers')
                 .insert({
@@ -270,12 +269,10 @@ export default function AuthWithHTML() {
                 });
 
             if (teacherError) {
-                console.error('❌ Teacher creation failed:', teacherError);
                 throw new Error('Ошибка создания преподавателя: ' + teacherError.message);
             }
 
-            console.log('✅ Teacher record created');
-            console.log('🎉 REGISTRATION COMPLETE! Time:', Date.now() - startTime + 'ms');
+            console.log('🎉 Registration successful with RLS!');
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
@@ -283,9 +280,7 @@ export default function AuthWithHTML() {
             });
 
         } catch (error) {
-            console.error('💥 REGISTRATION FAILED:', error);
-            console.log('⏱️ Failed after:', Date.now() - startTime + 'ms');
-
+            console.error('💥 Registration failed:', error);
             sendMessageToIframe({
                 type: 'AUTH_ERROR',
                 data: { message: error.message }
