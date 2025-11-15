@@ -216,40 +216,40 @@ export default function AuthWithHTML() {
         setLoading(true);
 
         try {
-            const errors = validateTeacherSignUpForm(formData);
-            if (Object.keys(errors).length > 0) {
-                sendMessageToIframe({
-                    type: 'VALIDATION_ERRORS',
-                    data: { errors }
-                });
-                return;
-            }
+            console.log('🚀 START TEACHER REGISTRATION');
+            console.log('📧 Email:', formData.email);
+            console.log('🔑 Code:', formData.inviteCode);
 
-            // Проверяем, не зарегистрирован ли уже пользователь с таким email
-            const { data: existingTeacher, error: checkError } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', formData.email)
-                .single();
-
-            if (!checkError && existingTeacher) {
-                throw new Error('Пользователь с таким email уже зарегистрирован');
-            }
-
-            // ПРОВЕРЯЕМ КОД: существует ли он и не занят ли
+            // 1. ПРОВЕРКА КОДА
+            console.log('🔍 1. Checking invite code...');
             const { data: codeData, error: codeError } = await supabase
                 .from('invite_codes')
                 .select('*')
                 .eq('code', formData.inviteCode.toUpperCase())
-                .eq('is_used', false)
-                .gte('expires_at', new Date().toISOString())
                 .single();
 
-            if (codeError || !codeData) {
-                throw new Error('Неверный, просроченный или уже использованный пригласительный код');
+            if (codeError) {
+                console.error('❌ Code check error:', codeError);
+                throw new Error('Ошибка проверки кода: ' + codeError.message);
             }
 
-            // Создаем пользователя в auth
+            if (!codeData) {
+                throw new Error('Код не найден');
+            }
+
+            console.log('✅ Code found:', {
+                id: codeData.id,
+                code: codeData.code,
+                is_used: codeData.is_used,
+                used_by: codeData.used_by
+            });
+
+            if (codeData.is_used) {
+                throw new Error('Код уже использован');
+            }
+
+            // 2. СОЗДАНИЕ ПОЛЬЗОВАТЕЛЯ AUTH
+            console.log('🔍 2. Creating auth user...');
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -257,109 +257,125 @@ export default function AuthWithHTML() {
                     data: {
                         first_name: formData.firstName,
                         last_name: formData.lastName,
-                        role: 'teacher',
-                        invite_code: formData.inviteCode.toUpperCase()
+                        role: 'teacher'
                     }
                 }
             });
 
             if (authError) {
-                if (authError.message.includes('already registered')) {
-                    throw new Error('Пользователь с таким email уже зарегистрирован в системе');
-                }
-                throw authError;
+                console.error('❌ Auth error:', authError);
+                throw new Error('Ошибка регистрации: ' + authError.message);
             }
 
             if (!authData.user) {
                 throw new Error('Не удалось создать пользователя');
             }
 
-            console.log('Teacher user created:', authData.user.id);
+            const userId = authData.user.id;
+            console.log('✅ Auth user created. ID:', userId);
 
-            // Ждем немного чтобы пользователь точно создался
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // 3. ОБНОВЛЕНИЕ КОДА - С ДЕТАЛЬНОЙ ДИАГНОСТИКОЙ
+            console.log('🔍 3. Updating invite code...');
+            console.log('Code ID to update:', codeData.id);
+            console.log('User ID to set:', userId);
 
-            // ОБНОВЛЯЕМ КОД - помечаем как использованный и привязываем к преподавателю
-            const { error: updateCodeError } = await supabase
+            const updateData = {
+                is_used: true,
+                used_by: userId,
+                used_at: new Date().toISOString()
+            };
+
+            console.log('Update data:', updateData);
+
+            const { data: updateResult, error: updateError } = await supabase
                 .from('invite_codes')
-                .update({
-                    is_used: true,
-                    used_by: authData.user.id,
-                    used_at: new Date().toISOString()
-                })
+                .update(updateData)
                 .eq('id', codeData.id)
-                .eq('is_used', false);
+                .select(); // ДОБАВЛЯЕМ SELECT ДЛЯ ВОЗВРАТА РЕЗУЛЬТАТА
 
-            if (updateCodeError) {
-                console.error('Code update error:', updateCodeError);
-                throw new Error('Не удалось зарегистрировать пригласительный код');
+            console.log('🔍 Update result:', {
+                data: updateResult,
+                error: updateError,
+                status: updateResult ? 'success' : 'no data'
+            });
+
+            if (updateError) {
+                console.error('❌ Code update failed:', updateError);
+                throw new Error('Ошибка обновления кода: ' + updateError.message);
             }
 
-            // СОЗДАЕМ ЗАПИСЬ В TEACHERS с ПРИВЯЗКОЙ К КОДУ
-            console.log('Inserting teacher with data:', {
-                id: authData.user.id,
-                building_id: formData.buildingId,
+            console.log('✅ Code update completed');
+
+            // 4. НЕМЕДЛЕННАЯ ПРОВЕРКА ОБНОВЛЕНИЯ
+            console.log('🔍 4. Immediate code verification...');
+            const { data: verifyCode, error: verifyError } = await supabase
+                .from('invite_codes')
+                .select('*')
+                .eq('id', codeData.id)
+                .single();
+
+            if (verifyError) {
+                console.error('❌ Verification error:', verifyError);
+            } else {
+                console.log('✅ Code after update:', {
+                    is_used: verifyCode.is_used,
+                    used_by: verifyCode.used_by,
+                    used_at: verifyCode.used_at
+                });
+
+                if (!verifyCode.used_by) {
+                    console.error('❌ CRITICAL: used_by is still NULL!');
+                }
+            }
+
+            // 5. СОЗДАНИЕ ПРЕПОДАВАТЕЛЯ
+            console.log('🔍 5. Creating teacher record...');
+
+            const teacherData = {
+                id: userId,
+                building_id: formData.buildingId || null,
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+                email: formData.email,
+                role: 'teacher',
                 invite_code_id: codeData.id,
-                email: formData.email
-            });
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            console.log('Teacher data:', teacherData);
 
             const { error: teacherError } = await supabase
                 .from('teachers')
-                .insert({
-                    id: authData.user.id,
-                    building_id: formData.buildingId || null,
-                    first_name: formData.firstName,
-                    last_name: formData.lastName,
-                    email: formData.email,
-                    role: 'teacher',
-                    avatar_url: null,
-                    invite_code_id: codeData.id,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                });
+                .insert(teacherData);
 
             if (teacherError) {
-                console.error('Teacher creation error:', teacherError);
-                
-                // Если создание преподавателя не удалось, ОСВОБОЖДАЕМ код
-                await supabase
-                    .from('invite_codes')
-                    .update({
-                        is_used: false,
-                        used_by: null,
-                        used_at: null
-                    })
-                    .eq('id', codeData.id);
-
-                throw new Error('Не удалось создать запись преподавателя: ' + teacherError.message);
+                console.error('❌ Teacher creation error:', teacherError);
+                throw new Error('Ошибка создания преподавателя: ' + teacherError.message);
             }
 
-            // ФИНАЛЬНАЯ ПРОВЕРКА
-            const { data: finalCodeCheck, error: finalCodeError } = await supabase
-                .from('invite_codes')
-                .select('id, code, used_by, is_used')
-                .eq('id', codeData.id)
-                .single();
+            console.log('✅ Teacher record created');
 
-            console.log('✅ Final code status:', finalCodeCheck);
-
-            const { data: finalTeacherCheck, error: finalTeacherError } = await supabase
-                .from('teachers')
-                .select('id, invite_code_id')
-                .eq('id', authData.user.id)
-                .single();
-
-            console.log('✅ Final teacher status:', finalTeacherCheck);
+            // 6. ФИНАЛЬНАЯ ПРОВЕРКА
+            console.log('🔍 6. Final verification...');
+            setTimeout(async () => {
+                const { data: finalCode } = await supabase
+                    .from('invite_codes')
+                    .select('*')
+                    .eq('id', codeData.id)
+                    .single();
+                console.log('🎉 FINAL CODE STATUS:', finalCode);
+            }, 2000);
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
                 data: {
-                    message: 'Регистрация преподавателя успешна! Код привязан к вашему аккаунту. Проверьте email для подтверждения.'
+                    message: 'Регистрация успешна! Проверьте email для подтверждения.'
                 }
             });
 
         } catch (error) {
-            console.error('Teacher sign up error:', error);
+            console.error('💥 TEACHER REGISTRATION FAILED:', error);
             sendMessageToIframe({
                 type: 'AUTH_ERROR',
                 data: { message: error.message }
