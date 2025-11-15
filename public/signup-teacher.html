@@ -178,6 +178,12 @@
             border: 1px solid #fecaca;
         }
 
+        .message.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+
         .error-text {
             color: #dc2626;
             font-size: 12px;
@@ -235,6 +241,26 @@
             font-size: 12px;
             line-height: 1.4;
         }
+
+        .email-confirmation-box {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .email-confirmation-box h4 {
+            color: #166534;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .email-confirmation-box p {
+            color: #166534;
+            font-size: 12px;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -250,6 +276,13 @@
             <h2 class="form-title">Регистрация преподавателя</h2>
             <p class="form-subtitle">Создайте аккаунт преподавателя</p>
 
+            <!-- Email Confirmation Info -->
+            <div class="email-confirmation-box">
+                <h4>📧 Подтверждение email</h4>
+                <p>После регистрации вам будет отправлено письмо с ссылкой для подтверждения email. Вы сможете войти в систему только после подтверждения.</p>
+            </div>
+
+            <!-- Requirements Info -->
             <div class="info-box">
                 <h4>📋 Требования к регистрации</h4>
                 <p>Для регистрации в качестве преподавателя необходим пригласительный код, который выдается администрацией учебного заведения.</p>

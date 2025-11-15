@@ -175,6 +175,12 @@
             border: 1px solid #fecaca;
         }
 
+        .message.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+
         .error-text {
             color: #dc2626;
             font-size: 12px;
@@ -219,6 +225,26 @@
             animation: spin 1s linear infinite;
         }
 
+        .info-box {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .info-box h4 {
+            color: #0369a1;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .info-box p {
+            color: #0c4a6e;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -238,6 +264,12 @@
     <main class="main">
         <div class="form-container">
             <h2 class="form-title">Регистрация</h2>
+
+            <!-- Info Box -->
+            <div class="info-box">
+                <h4>📧 Подтверждение email</h4>
+                <p>После регистрации вам будет отправлено письмо с ссылкой для подтверждения email. Вы сможете войти в систему только после подтверждения.</p>
+            </div>
 
             <!-- Messages -->
             <div id="messageContainer"></div>

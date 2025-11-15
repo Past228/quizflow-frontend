@@ -354,7 +354,7 @@ function displayValidationErrors(errors) {
         const errorElement = elements[`${field}Error`];
         if (errorElement) {
             errorElement.textContent = error;
-            errorElement.style.color = '#dc2626';
+            element.style.color = '#dc2626';
         }
     });
 }
