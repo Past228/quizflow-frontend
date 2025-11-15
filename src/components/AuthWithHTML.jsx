@@ -86,29 +86,24 @@ export default function AuthWithHTML() {
 
     const handleValidateInviteCode = async (code) => {
         try {
-            console.log('Validating code:', code);
-
-            // Упрощенная проверка без RLS ограничений
             const { data: codeData, error } = await supabase
                 .from('invite_codes')
-                .select('*')
+                .select('id, code, is_used')
                 .eq('code', code.toUpperCase())
                 .single();
 
             if (error || !codeData) {
-                sendMessageToIframe({
+                return sendMessageToIframe({
                     type: 'INVITE_CODE_VALIDATION_RESULT',
                     data: { valid: false, message: 'Код не найден' }
                 });
-                return;
             }
 
             if (codeData.is_used) {
-                sendMessageToIframe({
+                return sendMessageToIframe({
                     type: 'INVITE_CODE_VALIDATION_RESULT',
                     data: { valid: false, message: 'Код уже использован' }
                 });
-                return;
             }
 
             sendMessageToIframe({
@@ -200,12 +195,13 @@ export default function AuthWithHTML() {
 
     const handleTeacherSignUp = async (formData) => {
         setLoading(true);
+        const startTime = Date.now();
 
         try {
-            console.log('🚀 START TEACHER REGISTRATION');
+            console.log('🚀 Starting teacher registration...');
 
-            // 1. СОЗДАНИЕ ПОЛЬЗОВАТЕЛЯ AUTH (это работает)
-            console.log('🔍 1. Creating auth user...');
+            // 1. СОЗДАЕМ ПОЛЬЗОВАТЕЛЯ
+            console.log('📧 Step 1: Creating auth user...');
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -218,28 +214,28 @@ export default function AuthWithHTML() {
                 }
             });
 
-            if (authError) throw authError;
-            if (!authData.user) throw new Error('No user created');
+            if (authError) throw new Error(authError.message);
+            if (!authData.user) throw new Error('Не удалось создать пользователя');
 
             const userId = authData.user.id;
-            console.log('✅ Auth user created:', userId);
+            console.log('✅ User created:', userId);
 
-            // 2. ПРОВЕРКА КОДА БЕЗ RLS ПРОВЕРОК
-            console.log('🔍 2. Checking invite code...');
+            // 2. ПРОВЕРЯЕМ И ОБНОВЛЯЕМ КОД
+            console.log('🔑 Step 2: Validating and updating invite code...');
+
+            // Сначала проверяем код
             const { data: codeData, error: codeError } = await supabase
                 .from('invite_codes')
-                .select('*')
+                .select('id')
                 .eq('code', formData.inviteCode.toUpperCase())
+                .eq('is_used', false)
                 .single();
 
-            if (codeError) throw new Error('Code check failed: ' + codeError.message);
-            if (!codeData) throw new Error('Code not found');
-            if (codeData.is_used) throw new Error('Code already used');
+            if (codeError || !codeData) {
+                throw new Error('Неверный или уже использованный код');
+            }
 
-            console.log('✅ Code found:', codeData.id);
-
-            // 3. ОБНОВЛЕНИЕ КОДА - ПРОСТАЯ ВЕРСИЯ
-            console.log('🔍 3. Updating invite code...');
+            // Затем обновляем код
             const { error: updateError } = await supabase
                 .from('invite_codes')
                 .update({
@@ -251,12 +247,14 @@ export default function AuthWithHTML() {
 
             if (updateError) {
                 console.error('❌ Code update failed:', updateError);
-                throw new Error('Code update error: ' + updateError.message);
+                throw new Error('Ошибка обновления кода: ' + updateError.message);
             }
-            console.log('✅ Code updated');
 
-            // 4. СОЗДАНИЕ ПРЕПОДАВАТЕЛЯ - ПРОСТАЯ ВЕРСИЯ
-            console.log('🔍 4. Creating teacher...');
+            console.log('✅ Code updated successfully');
+
+            // 3. СОЗДАЕМ ПРЕПОДАВАТЕЛЯ
+            console.log('👨‍🏫 Step 3: Creating teacher record...');
+
             const { error: teacherError } = await supabase
                 .from('teachers')
                 .insert({
@@ -273,17 +271,21 @@ export default function AuthWithHTML() {
 
             if (teacherError) {
                 console.error('❌ Teacher creation failed:', teacherError);
-                throw new Error('Teacher creation error: ' + teacherError.message);
+                throw new Error('Ошибка создания преподавателя: ' + teacherError.message);
             }
-            console.log('✅ Teacher created');
+
+            console.log('✅ Teacher record created');
+            console.log('🎉 REGISTRATION COMPLETE! Time:', Date.now() - startTime + 'ms');
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
-                data: { message: 'Регистрация успешна!' }
+                data: { message: 'Регистрация успешна! Проверьте email для подтверждения.' }
             });
 
         } catch (error) {
             console.error('💥 REGISTRATION FAILED:', error);
+            console.log('⏱️ Failed after:', Date.now() - startTime + 'ms');
+
             sendMessageToIframe({
                 type: 'AUTH_ERROR',
                 data: { message: error.message }
