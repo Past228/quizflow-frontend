@@ -182,8 +182,8 @@ export default function AuthWithHTML() {
                 .from('invite_codes')
                 .select('*')
                 .eq('code', formData.inviteCode.toUpperCase())
-                .eq('is_used', false) // Проверяем что код не использован
-                .gte('expires_at', new Date().toISOString()) // Проверяем что не просрочен
+                .eq('is_used', false)
+                .gte('expires_at', new Date().toISOString())
                 .single();
 
             if (codeError || !codeData) {
@@ -195,11 +195,11 @@ export default function AuthWithHTML() {
                 .from('invite_codes')
                 .update({
                     is_used: true,
-                    used_by: 'reserving_' + Date.now(), // Временно резервируем
+                    used_by: authData.user?.id || 'reserving_' + Date.now(), // Сразу используем ID пользователя если есть
                     used_at: new Date().toISOString()
                 })
                 .eq('id', codeData.id)
-                .eq('is_used', false); // Важно: обновляем только если еще не использован
+                .eq('is_used', false);
 
             if (reserveCodeError) {
                 console.error('Code reservation error:', reserveCodeError);
@@ -252,8 +252,20 @@ export default function AuthWithHTML() {
 
             console.log('Teacher user created:', authData.user.id);
 
-            // Ждем немного чтобы пользователь точно создался
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // ЕСЛИ В ПЕРВОМ ОБНОВЛЕНИИ БЫЛО ВРЕМЕННОЕ ЗНАЧЕНИЕ - ОБНОВЛЯЕМ НА ФИНАЛЬНОЕ
+            if (!codeData.used_by || codeData.used_by.startsWith('reserving_')) {
+                const { error: finalUpdateError } = await supabase
+                    .from('invite_codes')
+                    .update({
+                        used_by: authData.user.id
+                    })
+                    .eq('id', codeData.id)
+                    .eq('is_used', true);
+
+                if (finalUpdateError) {
+                    console.error('Final code update error:', finalUpdateError);
+                }
+            }
 
             // СОЗДАЕМ ЗАПИСЬ В TEACHERS с ПРИВЯЗКОЙ К КОДУ
             const { error: teacherError } = await supabase
@@ -266,7 +278,7 @@ export default function AuthWithHTML() {
                     email: formData.email,
                     role: 'teacher',
                     avatar_url: null,
-                    invite_code_id: codeData.id, // ПРИВЯЗЫВАЕМ ID КОДА К ПРЕПОДАВАТЕЛЮ
+                    invite_code_id: codeData.id,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 });
@@ -287,29 +299,14 @@ export default function AuthWithHTML() {
                 throw new Error('Не удалось создать запись преподавателя: ' + teacherError.message);
             }
 
-            // ТЕПЕРЬ ОКОНЧАТЕЛЬНО ПРИВЯЗЫВАЕМ КОД К ПРЕПОДАВАТЕЛЮ
-            const { error: finalUpdateError } = await supabase
-                .from('invite_codes')
-                .update({
-                    used_by: authData.user.id // ОКОНЧАТЕЛЬНО ПРИВЯЗЫВАЕМ К ПРЕПОДАВАТЕЛЮ
-                })
-                .eq('id', codeData.id);
-
-            if (finalUpdateError) {
-                console.error('Final code update error:', finalUpdateError);
-                // Даже если ошибка, код уже помечен как использованный и привязан к преподавателю через invite_code_id
-            }
-
-            // ПРОВЕРЯЕМ ЧТО ВСЕ ПРОШЛО УСПЕШНО
+            // ФИНАЛЬНАЯ ПРОВЕРКА
             const { data: finalCheck, error: finalCheckError } = await supabase
-                .from('teachers')
-                .select('id, invite_code_id')
-                .eq('id', authData.user.id)
+                .from('invite_codes')
+                .select('id, code, used_by, is_used')
+                .eq('id', codeData.id)
                 .single();
 
-            if (!finalCheckError && finalCheck.invite_code_id === codeData.id) {
-                console.log('✅ Код успешно привязан к преподавателю:', authData.user.id);
-            }
+            console.log('✅ Final code status:', finalCheck);
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
