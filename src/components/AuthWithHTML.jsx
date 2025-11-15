@@ -478,7 +478,7 @@ export default function AuthWithHTML() {
                 throw error;
             }
 
-            console.log('Buildings loaded from database:', data);
+            console.log(`Loaded ${data?.length || 0} buildings:`, data);
 
             sendMessageToIframe({
                 type: 'BUILDINGS_LOADED',

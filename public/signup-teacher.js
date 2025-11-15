@@ -1,6 +1,7 @@
 let state = {
     loading: false,
-    buildings: []
+    buildings: [],
+    buildingsLoaded: false
 };
 
 const elements = {
@@ -22,20 +23,30 @@ const elements = {
     inviteCodeError: document.getElementById('inviteCodeError')
 };
 
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function() {
     console.log('Teacher signup HTML loaded');
     initializeEventListeners();
     initializeCodeValidation();
+    
+    // Загружаем корпуса при загрузке страницы
     sendMessageToParent({ type: 'LOAD_BUILDINGS_REQUEST' });
+    
+    // Принудительно включаем select через 3 секунды на всякий случай
+    setTimeout(() => {
+        if (elements.building && elements.building.disabled) {
+            console.log('Force enabling building select after timeout');
+            elements.building.disabled = false;
+        }
+    }, 3000);
 });
 
 function initializeEventListeners() {
     elements.authForm.addEventListener('submit', handleFormSubmit);
     elements.toggleToStudentBtn.addEventListener('click', handleToggleToStudent);
     elements.loginBtn.addEventListener('click', handleLoginClick);
-
+    
     // Автоматическое приведение кода к верхнему регистру
-    elements.inviteCode.addEventListener('input', function () {
+    elements.inviteCode.addEventListener('input', function() {
         this.value = this.value.toUpperCase();
     });
 }
@@ -44,31 +55,24 @@ function initializeEventListeners() {
 function initializeCodeValidation() {
     const inviteCodeInput = elements.inviteCode;
     const inviteCodeError = elements.inviteCodeError;
-
+    
     let validationTimeout;
-
-    inviteCodeInput.addEventListener('input', function () {
+    
+    inviteCodeInput.addEventListener('input', function() {
         this.value = this.value.toUpperCase();
-
+        
         // Очищаем предыдущий таймаут
         clearTimeout(validationTimeout);
-
+        
         // Очищаем сообщение об ошибке при новом вводе
         inviteCodeError.textContent = '';
         inviteCodeError.style.color = '';
-
+        
         // Ждем завершения ввода (минимум 3 символа)
         if (this.value.length >= 3) {
             validationTimeout = setTimeout(() => {
                 validateInviteCode(this.value);
             }, 800);
-        }
-    });
-
-    // Проверка при потере фокуса
-    inviteCodeInput.addEventListener('blur', function () {
-        if (this.value.length >= 3) {
-            validateInviteCode(this.value);
         }
     });
 }
@@ -77,9 +81,9 @@ function validateInviteCode(code) {
     if (!code || code.length < 3) {
         return;
     }
-
+    
     console.log('Validating invite code:', code);
-
+    
     sendMessageToParent({
         type: 'VALIDATE_INVITE_CODE',
         data: { code: code.toUpperCase() }
@@ -93,46 +97,135 @@ function sendMessageToParent(message) {
     }
 }
 
-window.addEventListener('message', function (event) {
+window.addEventListener('message', function(event) {
     console.log('Received message from parent:', event.data);
-
+    
     const { type, data } = event.data;
-
+    
     switch (type) {
         case 'VALIDATION_ERRORS':
             displayValidationErrors(data.errors);
             break;
-
+            
         case 'AUTH_SUCCESS':
             showMessage(data.message, 'success');
             resetForm();
             break;
-
+            
         case 'AUTH_ERROR':
             showMessage(data.message, 'error');
             break;
-
+            
         case 'BUILDINGS_LOADED':
-            populateBuildings(data.buildings);
+            console.log('BUILDINGS_LOADED received with data:', data);
+            handleBuildingsLoaded(data.buildings);
             break;
-
+            
         case 'LOAD_ERROR':
-            showMessage(`Ошибка загрузки корпусов: ${data.message}`, 'error');
+            console.error('LOAD_ERROR:', data);
+            handleLoadError(data);
             break;
-
+            
         case 'INVITE_CODE_VALIDATION_RESULT':
             handleInviteCodeValidationResult(data);
             break;
-
+            
         case 'LOADING_STATE':
+            console.log('LOADING_STATE:', data);
             handleLoadingState(data.loading, data.resource);
             break;
+            
+        default:
+            console.log('Unknown message type:', type);
     }
 });
 
+function handleBuildingsLoaded(buildings) {
+    console.log('Handling buildings loaded:', buildings);
+    state.buildings = buildings || [];
+    state.buildingsLoaded = true;
+    
+    populateBuildings(buildings);
+}
+
+function handleLoadError(data) {
+    console.error('Load error:', data);
+    
+    if (data.resource === 'buildings') {
+        // Показываем статический список корпусов при ошибке
+        const staticBuildings = [
+            { id: 1, name: 'Главный корпус' },
+            { id: 2, name: 'Корпус А' },
+            { id: 3, name: 'Корпус Б' },
+            { id: 4, name: 'Корпус В' },
+            { id: 5, name: 'Корпус Г' }
+        ];
+        
+        console.log('Using static buildings due to error');
+        populateBuildings(staticBuildings);
+        
+        showMessage('Корпуса загружены в ограниченном режиме', 'error');
+    }
+}
+
+function populateBuildings(buildings) {
+    console.log('Populating buildings with:', buildings);
+    
+    if (!elements.building) {
+        console.error('Building select element not found!');
+        return;
+    }
+    
+    // Сохраняем текущее значение
+    const currentValue = elements.building.value;
+    
+    // Очищаем select
+    elements.building.innerHTML = '';
+    
+    // Добавляем опцию по умолчанию
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Выберите корпус (опционально)';
+    elements.building.appendChild(defaultOption);
+    
+    // Добавляем корпуса
+    if (buildings && buildings.length > 0) {
+        buildings.forEach(building => {
+            const option = document.createElement('option');
+            option.value = building.id;
+            option.textContent = building.name;
+            elements.building.appendChild(option);
+        });
+        
+        // Восстанавливаем предыдущее значение если нужно
+        if (currentValue) {
+            elements.building.value = currentValue;
+        }
+        
+        console.log(`Successfully populated ${buildings.length} buildings`);
+    } else {
+        console.log('No buildings to populate');
+        const emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = 'Корпуса не найдены';
+        elements.building.appendChild(emptyOption);
+    }
+    
+    // ВАЖНО: Разблокируем select
+    elements.building.disabled = false;
+    elements.building.style.pointerEvents = 'auto';
+    elements.building.style.opacity = '1';
+    
+    console.log('Building select after population:', {
+        disabled: elements.building.disabled,
+        optionsLength: elements.building.options.length,
+        value: elements.building.value
+    });
+}
+
 function handleInviteCodeValidationResult(result) {
     const errorElement = elements.inviteCodeError;
-
+    
     if (result.valid) {
         errorElement.textContent = result.message || '✅ Код действителен';
         errorElement.style.color = '#10b981';
@@ -143,13 +236,21 @@ function handleInviteCodeValidationResult(result) {
 }
 
 function handleLoadingState(loading, resource) {
+    console.log(`Loading state: ${resource}, loading: ${loading}`);
+    
     if (resource === 'buildings') {
-        const buildingSelect = elements.building;
         if (loading) {
-            buildingSelect.innerHTML = '<option value="">Загрузка корпусов...</option>';
-            buildingSelect.disabled = true;
+            // Показываем загрузку
+            elements.building.innerHTML = '<option value="">Загрузка корпусов...</option>';
+            elements.building.disabled = true;
         } else {
-            buildingSelect.disabled = false;
+            // Когда загрузка завершена, разблокируем
+            elements.building.disabled = false;
+            
+            // Если здания еще не загружены, покажем сообщение
+            if (!state.buildingsLoaded) {
+                elements.building.innerHTML = '<option value="">Ошибка загрузки корпусов</option>';
+            }
         }
     }
 }
@@ -157,11 +258,11 @@ function handleLoadingState(loading, resource) {
 function handleFormSubmit(e) {
     e.preventDefault();
     console.log('Teacher signup form submitted');
-
+    
     // Очищаем предыдущие сообщения
     elements.messageContainer.innerHTML = '';
     displayValidationErrors({});
-
+    
     const formData = {
         email: elements.email.value,
         password: elements.password.value,
@@ -170,16 +271,16 @@ function handleFormSubmit(e) {
         buildingId: elements.building.value,
         inviteCode: elements.inviteCode.value,
     };
-
+    
     console.log('Teacher form data:', formData);
-
+    
     // Валидация на клиенте
     const errors = validateFormClient(formData);
     if (Object.keys(errors).length > 0) {
         displayValidationErrors(errors);
         return;
     }
-
+    
     sendMessageToParent({
         type: 'TEACHER_SIGNUP_FORM_SUBMIT',
         data: formData
@@ -188,31 +289,31 @@ function handleFormSubmit(e) {
 
 function validateFormClient(formData) {
     const errors = {};
-
+    
     if (!formData.email) {
         errors.email = 'Email обязателен';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
         errors.email = 'Некорректный формат email';
     }
-
+    
     if (!formData.password) {
         errors.password = 'Пароль обязателен';
     } else if (formData.password.length < 6) {
         errors.password = 'Пароль должен быть не менее 6 символов';
     }
-
+    
     if (!formData.firstName) {
         errors.firstName = 'Имя обязательно';
     }
-
+    
     if (!formData.lastName) {
         errors.lastName = 'Фамилия обязательна';
     }
-
+    
     if (!formData.inviteCode) {
         errors.inviteCode = 'Пригласительный код обязателен';
     }
-
+    
     return errors;
 }
 
@@ -228,35 +329,13 @@ function handleLoginClick() {
     });
 }
 
-function populateBuildings(buildings) {
-    console.log('Populating buildings:', buildings);
-    state.buildings = buildings;
-
-    // Очищаем select
-    elements.building.innerHTML = '<option value="">Выберите корпус (опционально)</option>';
-
-    if (!buildings || buildings.length === 0) {
-        console.log('No buildings to populate');
-        return;
-    }
-
-    buildings.forEach(building => {
-        const option = document.createElement('option');
-        option.value = building.id;
-        option.textContent = building.name;
-        elements.building.appendChild(option);
-    });
-
-    console.log('Buildings populated successfully');
-}
-
 function showMessage(message, type) {
     elements.messageContainer.innerHTML = `
         <div class="message ${type}">
             ${message}
         </div>
     `;
-
+    
     // Прокрутка к сообщению
     elements.messageContainer.scrollIntoView({ behavior: 'smooth' });
 }
@@ -269,7 +348,7 @@ function displayValidationErrors(errors) {
             element.style.color = '';
         }
     });
-
+    
     // Устанавливаем новые ошибки
     Object.entries(errors).forEach(([field, error]) => {
         const errorElement = elements[`${field}Error`];
@@ -284,109 +363,28 @@ function resetForm() {
     elements.authForm.reset();
     elements.messageContainer.innerHTML = '';
     displayValidationErrors({});
-
+    
     // Очищаем сообщение о проверке кода
     elements.inviteCodeError.textContent = '';
     elements.inviteCodeError.style.color = '';
-}
-
-// Функции для администратора (добавьте в отдельный файл admin.js или в этот, если нужно)
-// Эти функции вызываются из административной панели
-
-/**
- * Функция для администратора чтобы посмотреть использованные коды
- * @returns {Promise<Array>} Массив с информацией о кодах
- */
-async function getInviteCodesStats() {
-    try {
-        const response = await fetch('/api/invite-codes/stats', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка при получении статистики кодов');
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('Error getting invite codes stats:', error);
-        throw error;
+    
+    // Сбрасываем select корпусов к значению по умолчанию
+    if (elements.building) {
+        elements.building.value = '';
     }
 }
 
-/**
- * Функция для создания нового пригласительного кода
- * @param {number} expiresInDays - Срок действия в днях
- * @returns {Promise<Object>} Созданный код
- */
-async function createInviteCode(expiresInDays = 30) {
-    try {
-        const response = await fetch('/api/invite-codes/create', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                expiresInDays: expiresInDays
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка при создании кода');
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('Error creating invite code:', error);
-        throw error;
-    }
-}
-
-/**
- * Функция для получения детальной информации о конкретном коде
- * @param {string} code - Код для проверки
- * @returns {Promise<Object>} Информация о коде
- */
-async function getInviteCodeDetails(code) {
-    try {
-        const response = await fetch(`/api/invite-codes/${code}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error('Ошибка при получении информации о коде');
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('Error getting invite code details:', error);
-        throw error;
-    }
-}
-
-// Пример использования функций администратора (в консоли или административной панели)
-/*
-// Получить статистику всех кодов
-getInviteCodesStats().then(stats => {
-    console.log('Статистика кодов:', stats);
-});
-
-// Создать новый код
-createInviteCode(60).then(newCode => {
-    console.log('Новый код создан:', newCode);
-});
-
-// Получить информацию о конкретном коде
-getInviteCodeDetails('ABC12345').then(details => {
-    console.log('Детали кода:', details);
-});
-*/
+// Добавляем глобальную функцию для отладки
+window.debugBuildingSelect = function() {
+    console.log('Building select debug info:', {
+        element: elements.building,
+        disabled: elements.building.disabled,
+        options: elements.building.options,
+        value: elements.building.value,
+        buildings: state.buildings
+    });
+    
+    // Принудительно включаем
+    elements.building.disabled = false;
+    console.log('Building select enabled manually');
+};
