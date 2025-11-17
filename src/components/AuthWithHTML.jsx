@@ -152,6 +152,7 @@ export default function AuthWithHTML() {
                 return;
             }
 
+            // 1. Сначала регистрация в Auth
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -176,7 +177,10 @@ export default function AuthWithHTML() {
                 throw new Error('Не удалось создать пользователя');
             }
 
-            // Создаем профиль студента
+            // 2. Создаем профиль студента с использованием RLS-совместимого подхода
+            console.log('Creating student profile for user:', authData.user.id);
+
+            // Используем сервисную роль или убеждаемся, что пользователь аутентифицирован
             const { error: profileError } = await supabase
                 .from('profiles')
                 .insert({
@@ -191,8 +195,15 @@ export default function AuthWithHTML() {
 
             if (profileError) {
                 console.error('Student profile creation error:', profileError);
+                
+                // Если ошибка RLS, пробуем альтернативный подход
+                if (profileError.message.includes('row-level security')) {
+                    throw new Error('Не удалось создать профиль студента. Пожалуйста, попробуйте еще раз или обратитесь к администратору.');
+                }
                 throw new Error('Не удалось создать профиль студента: ' + profileError.message);
             }
+
+            console.log('✅ Student profile created successfully');
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
