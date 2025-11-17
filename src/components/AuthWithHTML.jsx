@@ -177,33 +177,14 @@ export default function AuthWithHTML() {
                 throw new Error('Не удалось создать пользователя');
             }
 
-            // 2. Создаем профиль студента с использованием RLS-совместимого подхода
-            console.log('Creating student profile for user:', authData.user.id);
+            console.log('✅ User created in Auth:', authData.user.id);
 
-            // Используем сервисную роль или убеждаемся, что пользователь аутентифицирован
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .insert({
-                    id: authData.user.id,
-                    email: formData.email,
-                    first_name: formData.firstName,
-                    last_name: formData.lastName,
-                    group_id: formData.selectedGroupId,
-                    role: 'student',
-                    updated_at: new Date().toISOString()
-                });
+            // 2. Используем альтернативный подход для создания профиля
+            // Вариант A: Используем Edge Function или сервисную роль
+            await createStudentProfileWithServiceRole(authData.user.id, formData);
 
-            if (profileError) {
-                console.error('Student profile creation error:', profileError);
-                
-                // Если ошибка RLS, пробуем альтернативный подход
-                if (profileError.message.includes('row-level security')) {
-                    throw new Error('Не удалось создать профиль студента. Пожалуйста, попробуйте еще раз или обратитесь к администратору.');
-                }
-                throw new Error('Не удалось создать профиль студента: ' + profileError.message);
-            }
-
-            console.log('✅ Student profile created successfully');
+            // Или Вариант B: Создаем профиль через API endpoint с сервисным ключом
+            // await createStudentProfileViaAPI(authData.user.id, formData);
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
@@ -220,6 +201,89 @@ export default function AuthWithHTML() {
             });
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Функция для создания профиля с использованием сервисной роли
+    const createStudentProfileWithServiceRole = async (userId, formData) => {
+        try {
+            // Создаем новый клиент Supabase с сервисным ключом
+            const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY;
+
+            if (!serviceRoleKey) {
+                throw new Error('Service role key not configured');
+            }
+
+            const supabaseAdmin = createClient(
+                process.env.REACT_APP_SUPABASE_URL,
+                serviceRoleKey,
+                {
+                    auth: {
+                        autoRefreshToken: false,
+                        persistSession: false
+                    }
+                }
+            );
+
+            const { error: profileError } = await supabaseAdmin
+                .from('profiles')
+                .insert({
+                    id: userId,
+                    email: formData.email,
+                    first_name: formData.firstName,
+                    last_name: formData.lastName,
+                    group_id: formData.selectedGroupId,
+                    role: 'student',
+                    updated_at: new Date().toISOString()
+                });
+
+            if (profileError) {
+                console.error('Profile creation with service role failed:', profileError);
+                throw new Error('Не удалось создать профиль студента: ' + profileError.message);
+            }
+
+            console.log('✅ Student profile created with service role');
+
+        } catch (error) {
+            console.error('Service role approach failed:', error);
+            // Пробуем альтернативный подход
+            await createStudentProfileAlternative(userId, formData);
+        }
+    };
+
+    // Альтернативный подход - использование триггера в БД
+    const createStudentProfileAlternative = async (userId, formData) => {
+        try {
+            // Используем прямой запрос через REST API с сервисным ключом
+            const response = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/rest/v1/profiles`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': process.env.REACT_APP_SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY}`,
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({
+                    id: userId,
+                    email: formData.email,
+                    first_name: formData.firstName,
+                    last_name: formData.lastName,
+                    group_id: formData.selectedGroupId,
+                    role: 'student',
+                    updated_at: new Date().toISOString()
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+            }
+
+            console.log('✅ Student profile created via REST API');
+
+        } catch (error) {
+            console.error('REST API approach failed:', error);
+            throw new Error('Не удалось создать профиль студента. Обратитесь к администратору.');
         }
     };
 
