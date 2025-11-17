@@ -1,5 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
+
+// Белый список разрешенных источников
+const ALLOWED_ORIGINS = [
+    window.location.origin,
+    'http://localhost:3000',
+    'http://localhost:5173'
+];
+
+// Rate limiting
+const signupAttempts = new Map();
+const MAX_ATTEMPTS = 5;
+const TIME_WINDOW = 15 * 60 * 1000; // 15 минут
 
 export default function AuthWithHTML() {
     const [loading, setLoading] = useState(false);
@@ -9,9 +22,16 @@ export default function AuthWithHTML() {
 
     useEffect(() => {
         const handleMessage = async (event) => {
+            // ВАЖНО: Проверяем источник сообщения
+            if (!ALLOWED_ORIGINS.includes(event.origin)) {
+                console.warn('Message from untrusted origin:', event.origin);
+                return;
+            }
+
             const { type, data } = event.data;
 
-            console.log('Received message from iframe:', type, data);
+            // Логируем только тип, без чувствительных данных
+            console.log('Received message from iframe:', type);
 
             switch (type) {
                 case 'SIGNUP_FORM_SUBMIT':
@@ -84,11 +104,34 @@ export default function AuthWithHTML() {
         }
     }, [isSignUp, isTeacherSignUp]);
 
+    // Функции безопасности
+    const sanitizeInput = (str) => {
+        if (typeof str !== 'string') return '';
+        return str.trim().replace(/[<>"'&]/g, '');
+    };
+
+    const isValidEmail = (email) => {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    };
+
+    const checkRateLimit = (email) => {
+        const now = Date.now();
+        const attempts = signupAttempts.get(email) || [];
+        const recentAttempts = attempts.filter(time => now - time < TIME_WINDOW);
+        
+        if (recentAttempts.length >= MAX_ATTEMPTS) {
+            throw new Error('Слишком много попыток регистрации. Попробуйте позже.');
+        }
+        
+        recentAttempts.push(now);
+        signupAttempts.set(email, recentAttempts);
+    };
+
     const handleValidateInviteCode = async (code) => {
         try {
-            console.log('Validating invite code:', code);
+            const cleanCode = sanitizeInput(code);
 
-            if (!code || code.length < 3) {
+            if (!cleanCode || cleanCode.length < 3) {
                 sendMessageToIframe({
                     type: 'INVITE_CODE_VALIDATION_RESULT',
                     data: {
@@ -103,7 +146,7 @@ export default function AuthWithHTML() {
             const { data: codeData, error } = await supabase
                 .from('invite_codes')
                 .select('*')
-                .eq('code', code.toUpperCase())
+                .eq('code', cleanCode.toUpperCase())
                 .eq('is_used', false)
                 .gte('expires_at', new Date().toISOString())
                 .single();
@@ -143,6 +186,10 @@ export default function AuthWithHTML() {
         setLoading(true);
 
         try {
+            // Проверка rate limit
+            checkRateLimit(formData.email);
+
+            // Валидация и санитизация данных
             const errors = validateStudentSignUpForm(formData);
             if (Object.keys(errors).length > 0) {
                 sendMessageToIframe({
@@ -152,44 +199,62 @@ export default function AuthWithHTML() {
                 return;
             }
 
+            // Очистка данных
+            const cleanData = {
+                email: sanitizeInput(formData.email).toLowerCase(),
+                password: formData.password,
+                firstName: sanitizeInput(formData.firstName),
+                lastName: sanitizeInput(formData.lastName),
+                groupId: parseInt(formData.selectedGroupId) || null
+            };
+
+            // Дополнительная валидация
+            if (!isValidEmail(cleanData.email)) {
+                throw new Error('Некорректный формат email');
+            }
+
+            if (cleanData.password.length < 6) {
+                throw new Error('Пароль должен быть не менее 6 символов');
+            }
+
             // 1. Сначала регистрация в Auth
             const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: formData.email,
-                password: formData.password,
+                email: cleanData.email,
+                password: cleanData.password,
                 options: {
                     data: {
-                        first_name: formData.firstName,
-                        last_name: formData.lastName,
-                        group_id: formData.selectedGroupId,
+                        first_name: cleanData.firstName,
+                        last_name: cleanData.lastName,
+                        group_id: cleanData.groupId,
                         role: 'student'
                     }
                 }
             });
 
             if (authError) {
+                // Унифицированные сообщения об ошибках
                 if (authError.message.includes('already registered')) {
                     throw new Error('Пользователь с таким email уже зарегистрирован');
                 }
-                throw authError;
+                if (authError.message.includes('password')) {
+                    throw new Error('Ненадежный пароль');
+                }
+                throw new Error('Ошибка регистрации');
             }
 
             if (!authData.user) {
                 throw new Error('Не удалось создать пользователя');
             }
 
-            console.log('✅ User created in Auth:', authData.user.id);
+            console.log('✅ User created in Auth');
 
-            // 2. Используем альтернативный подход для создания профиля
-            // Вариант A: Используем Edge Function или сервисную роль
-            await createStudentProfileWithServiceRole(authData.user.id, formData);
-
-            // Или Вариант B: Создаем профиль через API endpoint с сервисным ключом
-            // await createStudentProfileViaAPI(authData.user.id, formData);
+            // 2. Безопасное создание профиля
+            await createStudentProfileSafely(authData.user.id, cleanData);
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
                 data: {
-                    message: 'Регистрация успешна! Пожалуйста, проверьте вашу электронную почту для подтверждения учетной записи перед входом.'
+                    message: 'Регистрация успешна! Проверьте вашу электронную почту для подтверждения.'
                 }
             });
 
@@ -197,93 +262,41 @@ export default function AuthWithHTML() {
             console.error('Sign up error:', error);
             sendMessageToIframe({
                 type: 'AUTH_ERROR',
-                data: { message: error.message }
+                data: { 
+                    message: error.message || 'Произошла ошибка при регистрации'
+                }
             });
         } finally {
             setLoading(false);
         }
     };
 
-    // Функция для создания профиля с использованием сервисной роли
-    const createStudentProfileWithServiceRole = async (userId, formData) => {
+    const createStudentProfileSafely = async (userId, cleanData) => {
         try {
-            // Создаем новый клиент Supabase с сервисным ключом
-            const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY;
-
-            if (!serviceRoleKey) {
-                throw new Error('Service role key not configured');
-            }
-
-            const supabaseAdmin = createClient(
-                process.env.REACT_APP_SUPABASE_URL,
-                serviceRoleKey,
-                {
-                    auth: {
-                        autoRefreshToken: false,
-                        persistSession: false
-                    }
-                }
-            );
-
-            const { error: profileError } = await supabaseAdmin
+            // Пытаемся создать профиль через обычный клиент
+            const { error: profileError } = await supabase
                 .from('profiles')
                 .insert({
                     id: userId,
-                    email: formData.email,
-                    first_name: formData.firstName,
-                    last_name: formData.lastName,
-                    group_id: formData.selectedGroupId,
+                    email: cleanData.email,
+                    first_name: cleanData.firstName,
+                    last_name: cleanData.lastName,
+                    group_id: cleanData.groupId,
                     role: 'student',
                     updated_at: new Date().toISOString()
                 });
 
             if (profileError) {
-                console.error('Profile creation with service role failed:', profileError);
-                throw new Error('Не удалось создать профиль студента: ' + profileError.message);
+                console.log('Profile creation failed, will create on first login');
+                // Не бросаем ошибку - профиль создадим при входе
+                return;
             }
 
-            console.log('✅ Student profile created with service role');
+            console.log('✅ Student profile created successfully');
 
         } catch (error) {
-            console.error('Service role approach failed:', error);
-            // Пробуем альтернативный подход
-            await createStudentProfileAlternative(userId, formData);
-        }
-    };
-
-    // Альтернативный подход - использование триггера в БД
-    const createStudentProfileAlternative = async (userId, formData) => {
-        try {
-            // Используем прямой запрос через REST API с сервисным ключом
-            const response = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/rest/v1/profiles`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': process.env.REACT_APP_SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY}`,
-                    'Prefer': 'return=minimal'
-                },
-                body: JSON.stringify({
-                    id: userId,
-                    email: formData.email,
-                    first_name: formData.firstName,
-                    last_name: formData.lastName,
-                    group_id: formData.selectedGroupId,
-                    role: 'student',
-                    updated_at: new Date().toISOString()
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
-            }
-
-            console.log('✅ Student profile created via REST API');
-
-        } catch (error) {
-            console.error('REST API approach failed:', error);
-            throw new Error('Не удалось создать профиль студента. Обратитесь к администратору.');
+            console.error('Profile creation failed:', error);
+            // Не прерываем процесс регистрации
         }
     };
 
@@ -291,6 +304,10 @@ export default function AuthWithHTML() {
         setLoading(true);
 
         try {
+            // Проверка rate limit
+            checkRateLimit(formData.email);
+
+            // Валидация и санитизация
             const errors = validateTeacherSignUpForm(formData);
             if (Object.keys(errors).length > 0) {
                 sendMessageToIframe({
@@ -300,22 +317,36 @@ export default function AuthWithHTML() {
                 return;
             }
 
+            const cleanData = {
+                email: sanitizeInput(formData.email).toLowerCase(),
+                password: formData.password,
+                firstName: sanitizeInput(formData.firstName),
+                lastName: sanitizeInput(formData.lastName),
+                inviteCode: sanitizeInput(formData.inviteCode),
+                buildingId: parseInt(formData.buildingId) || null
+            };
+
+            // Дополнительная валидация
+            if (!isValidEmail(cleanData.email)) {
+                throw new Error('Некорректный формат email');
+            }
+
             // Проверяем, не зарегистрирован ли уже пользователь с таким email
             const { data: existingTeacher, error: checkError } = await supabase
                 .from('teachers')
                 .select('id')
-                .eq('email', formData.email)
+                .eq('email', cleanData.email)
                 .single();
 
             if (!checkError && existingTeacher) {
                 throw new Error('Пользователь с таким email уже зарегистрирован');
             }
 
-            // ПРОВЕРЯЕМ КОД: существует ли он и не занят ли
+            // ПРОВЕРЯЕМ КОД
             const { data: codeData, error: codeError } = await supabase
                 .from('invite_codes')
                 .select('*')
-                .eq('code', formData.inviteCode.toUpperCase())
+                .eq('code', cleanData.inviteCode.toUpperCase())
                 .eq('is_used', false)
                 .gte('expires_at', new Date().toISOString())
                 .single();
@@ -324,18 +355,16 @@ export default function AuthWithHTML() {
                 throw new Error('Неверный, просроченный или уже использованный пригласительный код');
             }
 
-            console.log('✅ Valid code found:', codeData);
-
             // Создаем пользователя в auth
             const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: formData.email,
-                password: formData.password,
+                email: cleanData.email,
+                password: cleanData.password,
                 options: {
                     data: {
-                        first_name: formData.firstName,
-                        last_name: formData.lastName,
+                        first_name: cleanData.firstName,
+                        last_name: cleanData.lastName,
                         role: 'teacher',
-                        invite_code: formData.inviteCode.toUpperCase()
+                        invite_code: cleanData.inviteCode.toUpperCase()
                     }
                 }
             });
@@ -352,14 +381,8 @@ export default function AuthWithHTML() {
             }
 
             const userId = authData.user.id;
-            console.log('✅ Teacher user created:', userId);
 
-            // Ждем создания пользователя
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // ОБНОВЛЯЕМ КОД - помечаем как использованный и привязываем к преподавателю
-            console.log('Updating invite code with used_by:', userId);
-
+            // ОБНОВЛЯЕМ КОД
             const { error: updateCodeError } = await supabase
                 .from('invite_codes')
                 .update({
@@ -371,28 +394,18 @@ export default function AuthWithHTML() {
                 .eq('is_used', false);
 
             if (updateCodeError) {
-                console.error('Code update error:', updateCodeError);
                 throw new Error('Не удалось зарегистрировать пригласительный код');
             }
 
-            console.log('✅ Invite code updated successfully');
-
-            // СОЗДАЕМ ЗАПИСЬ В TEACHERS с ПРИВЯЗКОЙ К КОДУ
-            console.log('Inserting teacher with data:', {
-                id: userId,
-                building_id: formData.buildingId,
-                invite_code_id: codeData.id,
-                email: formData.email
-            });
-
+            // СОЗДАЕМ ЗАПИСЬ В TEACHERS
             const { error: teacherError } = await supabase
                 .from('teachers')
                 .insert({
                     id: userId,
-                    building_id: formData.buildingId || null,
-                    first_name: formData.firstName,
-                    last_name: formData.lastName,
-                    email: formData.email,
+                    building_id: cleanData.buildingId,
+                    first_name: cleanData.firstName,
+                    last_name: cleanData.lastName,
+                    email: cleanData.email,
                     role: 'teacher',
                     avatar_url: null,
                     invite_code_id: codeData.id,
@@ -401,25 +414,13 @@ export default function AuthWithHTML() {
                 });
 
             if (teacherError) {
-                console.error('Teacher creation error:', teacherError);
-                throw new Error('Не удалось создать запись преподавателя: ' + teacherError.message);
+                throw new Error('Не удалось создать запись преподавателя');
             }
-
-            console.log('✅ Teacher record created successfully');
-
-            // ФИНАЛЬНАЯ ПРОВЕРКА
-            const { data: finalCodeCheck, error: finalCodeError } = await supabase
-                .from('invite_codes')
-                .select('id, code, used_by, is_used')
-                .eq('id', codeData.id)
-                .single();
-
-            console.log('✅ Final code status:', finalCodeCheck);
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
                 data: {
-                    message: 'Регистрация преподавателя успешна! Проверьте вашу электронную почту для подтверждения учетной записи перед входом.'
+                    message: 'Регистрация преподавателя успешна! Проверьте вашу электронную почту для подтверждения.'
                 }
             });
 
@@ -427,7 +428,9 @@ export default function AuthWithHTML() {
             console.error('Teacher sign up error:', error);
             sendMessageToIframe({
                 type: 'AUTH_ERROR',
-                data: { message: error.message }
+                data: { 
+                    message: error.message || 'Произошла ошибка при регистрации'
+                }
             });
         } finally {
             setLoading(false);
@@ -438,6 +441,7 @@ export default function AuthWithHTML() {
         setLoading(true);
 
         try {
+            // Валидация и санитизация
             const errors = validateLoginForm(formData);
             if (Object.keys(errors).length > 0) {
                 sendMessageToIframe({
@@ -447,25 +451,32 @@ export default function AuthWithHTML() {
                 return;
             }
 
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email: formData.email,
+            const cleanData = {
+                email: sanitizeInput(formData.email).toLowerCase(),
                 password: formData.password
+            };
+
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: cleanData.email,
+                password: cleanData.password
             });
 
             if (error) {
                 if (error.message.includes('Invalid login credentials')) {
                     throw new Error('Неверный email или пароль');
                 }
-                throw error;
+                if (error.message.includes('Email not confirmed')) {
+                    throw new Error('Email не подтвержден. Проверьте вашу почту.');
+                }
+                throw new Error('Ошибка входа');
             }
 
-            // После успешного входа проверяем роль пользователя
+            // После успешного входа создаем профиль если его нет
             if (data.user) {
                 const userRole = data.user.user_metadata?.role;
-                console.log('User role from metadata:', userRole);
-
+                
                 if (userRole === 'teacher') {
-                    // ДЛЯ ПРЕПОДАВАТЕЛЕЙ - проверяем ТОЛЬКО teachers таблицу
+                    // Для преподавателей
                     const { data: teacherData, error: teacherError } = await supabase
                         .from('teachers')
                         .select('*')
@@ -473,8 +484,7 @@ export default function AuthWithHTML() {
                         .single();
 
                     if (teacherError && teacherError.code === 'PGRST116') {
-                        // Если записи преподавателя нет, создаем ее в teachers
-                        console.log('Creating teacher record on login...');
+                        // Создаем запись преподавателя если ее нет
                         const { error: createError } = await supabase
                             .from('teachers')
                             .insert({
@@ -489,25 +499,12 @@ export default function AuthWithHTML() {
                             });
 
                         if (createError) {
-                            console.error('Error creating teacher record on login:', createError);
+                            console.error('Error creating teacher record:', createError);
                         }
                     }
 
-                    // ВАЖНО: ПРЕПОДАВАТЕЛЯМ НЕ СОЗДАЕМ ПРОФИЛЬ В PROFILES!
-                    // Удаляем запись в profiles если она случайно создалась
-                    const { error: deleteProfileError } = await supabase
-                        .from('profiles')
-                        .delete()
-                        .eq('id', data.user.id);
-
-                    if (deleteProfileError && deleteProfileError.code !== 'PGRST116') {
-                        console.error('Error deleting teacher profile:', deleteProfileError);
-                    }
-
-                    console.log('Teacher login successful - profile removed if existed');
-
                 } else {
-                    // ДЛЯ СТУДЕНТОВ - создаем запись в profiles если ее нет
+                    // Для студентов - создаем профиль если его нет
                     const { data: profile, error: profileError } = await supabase
                         .from('profiles')
                         .select('*')
@@ -515,8 +512,6 @@ export default function AuthWithHTML() {
                         .single();
 
                     if (profileError && profileError.code === 'PGRST116') {
-                        // Создаем профиль студента если его нет
-                        console.log('Creating student profile on login...');
                         const { error: createError } = await supabase
                             .from('profiles')
                             .insert({
@@ -530,17 +525,8 @@ export default function AuthWithHTML() {
                             });
 
                         if (createError) {
-                            console.error('Error creating student profile on login:', createError);
+                            console.error('Error creating student profile:', createError);
                         }
-                    } else if (profile && !profile.role) {
-                        // Если профиль есть но нет роли, обновляем его
-                        await supabase
-                            .from('profiles')
-                            .update({
-                                role: 'student',
-                                updated_at: new Date().toISOString()
-                            })
-                            .eq('id', data.user.id);
                     }
                 }
             }
@@ -554,7 +540,9 @@ export default function AuthWithHTML() {
             console.error('Sign in error:', error);
             sendMessageToIframe({
                 type: 'AUTH_ERROR',
-                data: { message: error.message }
+                data: { 
+                    message: error.message || 'Произошла ошибка при входе'
+                }
             });
         } finally {
             setLoading(false);
@@ -563,8 +551,6 @@ export default function AuthWithHTML() {
 
     const handleLoadBuildingsRequest = async () => {
         try {
-            console.log('Loading buildings request received');
-
             sendMessageToIframe({
                 type: 'LOADING_STATE',
                 data: {
@@ -579,11 +565,8 @@ export default function AuthWithHTML() {
                 .order('name');
 
             if (error) {
-                console.error('Error loading buildings:', error);
                 throw error;
             }
-
-            console.log(`Loaded ${data?.length || 0} buildings:`, data);
 
             sendMessageToIframe({
                 type: 'BUILDINGS_LOADED',
@@ -591,12 +574,12 @@ export default function AuthWithHTML() {
             });
 
         } catch (error) {
-            console.error('Error in handleLoadBuildingsRequest:', error);
+            console.error('Error loading buildings:', error);
             sendMessageToIframe({
                 type: 'LOAD_ERROR',
                 data: {
                     resource: 'buildings',
-                    message: error.message
+                    message: 'Ошибка загрузки данных'
                 }
             });
         }
@@ -615,7 +598,7 @@ export default function AuthWithHTML() {
             const { data, error } = await supabase
                 .from('courses')
                 .select('*')
-                .eq('building_id', buildingId)
+                .eq('building_id', parseInt(buildingId))
                 .order('course_number');
 
             if (error) throw error;
@@ -629,7 +612,7 @@ export default function AuthWithHTML() {
                 type: 'LOAD_ERROR',
                 data: {
                     resource: 'courses',
-                    message: error.message
+                    message: 'Ошибка загрузки данных'
                 }
             });
         }
@@ -648,7 +631,7 @@ export default function AuthWithHTML() {
             const { data, error } = await supabase
                 .from('student_groups')
                 .select('*')
-                .eq('course_id', courseId)
+                .eq('course_id', parseInt(courseId))
                 .order('group_number');
 
             if (error) throw error;
@@ -662,14 +645,14 @@ export default function AuthWithHTML() {
                 type: 'LOAD_ERROR',
                 data: {
                     resource: 'groups',
-                    message: error.message
+                    message: 'Ошибка загрузки данных'
                 }
             });
         }
     };
 
     const handleGroupSelected = (groupId) => {
-        console.log('Group selected:', groupId);
+        // Логика выбора группы
     };
 
     const validateStudentSignUpForm = (formData) => {
@@ -677,7 +660,7 @@ export default function AuthWithHTML() {
 
         if (!formData.email) {
             errors.email = 'Email обязателен';
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        } else if (!isValidEmail(formData.email)) {
             errors.email = 'Некорректный формат email';
         }
 
@@ -699,37 +682,19 @@ export default function AuthWithHTML() {
 
         if (!formData.email) {
             errors.email = 'Email обязателен';
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        } else if (!isValidEmail(formData.email)) {
             errors.email = 'Некорректный формат email';
-        } else if (formData.email.length > 255) {
-            errors.email = 'Email слишком длинный';
         }
 
         if (!formData.password) {
             errors.password = 'Пароль обязателен';
         } else if (formData.password.length < 6) {
             errors.password = 'Пароль должен быть не менее 6 символов';
-        } else if (formData.password.length > 100) {
-            errors.password = 'Пароль слишком длинный';
         }
 
-        if (!formData.firstName) {
-            errors.firstName = 'Имя обязательно';
-        } else if (formData.firstName.length > 100) {
-            errors.firstName = 'Имя слишком длинное';
-        }
-
-        if (!formData.lastName) {
-            errors.lastName = 'Фамилия обязательна';
-        } else if (formData.lastName.length > 100) {
-            errors.lastName = 'Фамилия слишком длинная';
-        }
-
-        if (!formData.inviteCode) {
-            errors.inviteCode = 'Пригласительный код обязателен';
-        } else if (formData.inviteCode.length > 50) {
-            errors.inviteCode = 'Код слишком длинный';
-        }
+        if (!formData.firstName) errors.firstName = 'Имя обязательно';
+        if (!formData.lastName) errors.lastName = 'Фамилия обязательна';
+        if (!formData.inviteCode) errors.inviteCode = 'Пригласительный код обязателен';
 
         return errors;
     };
@@ -739,7 +704,7 @@ export default function AuthWithHTML() {
 
         if (!formData.email) {
             errors.email = 'Email обязателен';
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        } else if (!isValidEmail(formData.email)) {
             errors.email = 'Некорректный формат email';
         }
 
@@ -752,8 +717,9 @@ export default function AuthWithHTML() {
 
     const sendMessageToIframe = (message) => {
         if (iframeRef.current && iframeRef.current.contentWindow) {
-            console.log('Sending message to iframe:', message);
-            iframeRef.current.contentWindow.postMessage(message, '*');
+            // Отправляем только на конкретный origin
+            const targetOrigin = new URL(iframeRef.current.src).origin;
+            iframeRef.current.contentWindow.postMessage(message, targetOrigin);
         }
     };
 
