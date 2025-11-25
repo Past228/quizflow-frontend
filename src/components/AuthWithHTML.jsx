@@ -118,11 +118,11 @@ export default function AuthWithHTML() {
         const now = Date.now();
         const attempts = signupAttempts.get(email) || [];
         const recentAttempts = attempts.filter(time => now - time < TIME_WINDOW);
-        
+
         if (recentAttempts.length >= MAX_ATTEMPTS) {
             throw new Error('Слишком много попыток регистрации. Попробуйте позже.');
         }
-        
+
         recentAttempts.push(now);
         signupAttempts.set(email, recentAttempts);
     };
@@ -257,12 +257,17 @@ export default function AuthWithHTML() {
                     message: 'Регистрация успешна! Проверьте вашу электронную почту для подтверждения.'
                 }
             });
+            // Добавляем автоматический переход через 3 секунды
+            setTimeout(() => {
+                setIsSignUp(false);
+                setIsTeacherSignUp(false);
+            }, 3000);
 
         } catch (error) {
             console.error('Sign up error:', error);
             sendMessageToIframe({
                 type: 'AUTH_ERROR',
-                data: { 
+                data: {
                     message: error.message || 'Произошла ошибка при регистрации'
                 }
             });
@@ -423,12 +428,17 @@ export default function AuthWithHTML() {
                     message: 'Регистрация преподавателя успешна! Проверьте вашу электронную почту для подтверждения.'
                 }
             });
+            // Добавляем автоматический переход через 3 секунды
+            setTimeout(() => {
+                setIsSignUp(false);
+                setIsTeacherSignUp(false);
+            }, 3000);
 
         } catch (error) {
             console.error('Teacher sign up error:', error);
             sendMessageToIframe({
                 type: 'AUTH_ERROR',
-                data: { 
+                data: {
                     message: error.message || 'Произошла ошибка при регистрации'
                 }
             });
@@ -474,7 +484,7 @@ export default function AuthWithHTML() {
             // После успешного входа создаем профиль если его нет
             if (data.user) {
                 const userRole = data.user.user_metadata?.role;
-                
+
                 if (userRole === 'teacher') {
                     // Для преподавателей
                     const { data: teacherData, error: teacherError } = await supabase
@@ -540,7 +550,7 @@ export default function AuthWithHTML() {
             console.error('Sign in error:', error);
             sendMessageToIframe({
                 type: 'AUTH_ERROR',
-                data: { 
+                data: {
                     message: error.message || 'Произошла ошибка при входе'
                 }
             });

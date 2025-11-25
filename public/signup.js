@@ -92,8 +92,23 @@ window.addEventListener('message', function(event) {
             break;
             
         case 'AUTH_SUCCESS':
-            showMessage(data.message, 'success');
+            // Показываем сообщение о необходимости подтверждения email
+            showMessage(`
+                <div class="message success">
+                    <strong>Регистрация успешна! 🎉</strong><br><br>
+                    📧 На вашу почту отправлено письмо с ссылкой для подтверждения.<br>
+                    Пожалуйста, проверьте вашу электронную почту и перейдите по ссылке в письме.<br><br>
+                    Через несколько секунд вы будете перенаправлены на страницу входа...
+                </div>
+            `, 'success');
+            
+            // Очищаем форму
             resetForm();
+            
+            // Автоматический переход на страницу входа через 3 секунды
+            setTimeout(() => {
+                handleToggleToLogin();
+            }, 3000);
             break;
             
         case 'AUTH_ERROR':
@@ -262,11 +277,17 @@ function setLoadingState(resource, loading) {
 }
 
 function showMessage(message, type) {
-    elements.messageContainer.innerHTML = `
-        <div class="message ${type}">
-            ${message}
-        </div>
-    `;
+    if (typeof message === 'string' && message.includes('<div')) {
+        // Если message уже содержит HTML, используем как есть
+        elements.messageContainer.innerHTML = message;
+    } else {
+        // Стандартное сообщение
+        elements.messageContainer.innerHTML = `
+            <div class="message ${type}">
+                ${message}
+            </div>
+        `;
+    }
 }
 
 function displayValidationErrors(errors) {
