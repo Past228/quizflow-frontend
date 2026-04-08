@@ -565,38 +565,81 @@ function updateStudentTestsUI(tests) {
     elements.testsLoading.style.display = 'none';
     elements.emptyTests.style.display = 'none';
 
-    let testsHTML = '';
+    elements.testsGrid.innerHTML = '';
+    const fragment = document.createDocumentFragment();
 
     tests.forEach(test => {
         const questionsCount = test.questions_count || 'Не указано';
         const timeLimit = test.time_limit ? `${test.time_limit} мин` : 'Не ограничено';
-        const createdDate = test.created_at ? new Date(test.created_at).toLocaleDateString('ru-RU') : '';
 
-        testsHTML += `
-            <div class="test-card">
-                <div class="test-header">
-                    <div>
-                        <h4 class="test-title">${test.title}</h4>
-                    </div>
-                    <span class="test-status">Доступен</span>
-                </div>
-                <p class="test-description">${test.description || 'Описание отсутствует'}</p>
-                <div class="test-meta">
-                    <span>Вопросов: ${questionsCount}</span>
-                    <span>Лимит: ${timeLimit}</span>
-                </div>
-                <button class="start-test-btn" onclick="handleStartTest('${test.id}')">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    Начать тест
-                </button>
-            </div>
+        const card = document.createElement('div');
+        card.className = 'test-card';
+
+        const header = document.createElement('div');
+        header.className = 'test-header';
+
+        const titleWrap = document.createElement('div');
+        const titleEl = document.createElement('h4');
+        titleEl.className = 'test-title';
+        titleEl.textContent = test.title || '';
+        titleWrap.appendChild(titleEl);
+
+        const statusEl = document.createElement('span');
+        statusEl.className = 'test-status';
+        statusEl.textContent = 'Доступен';
+
+        header.appendChild(titleWrap);
+        header.appendChild(statusEl);
+
+        const descEl = document.createElement('p');
+        descEl.className = 'test-description';
+        descEl.textContent = test.description || 'Описание отсутствует';
+
+        const metaEl = document.createElement('div');
+        metaEl.className = 'test-meta';
+
+        const qEl = document.createElement('span');
+        qEl.textContent = `Вопросов: ${questionsCount}`;
+
+        const limitEl = document.createElement('span');
+        limitEl.textContent = `Лимит: ${timeLimit}`;
+
+        metaEl.appendChild(qEl);
+        metaEl.appendChild(limitEl);
+
+        const startBtn = document.createElement('button');
+        startBtn.className = 'start-test-btn';
+        startBtn.type = 'button';
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '16');
+        svg.setAttribute('height', '16');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2');
+        svg.innerHTML = `
+            <path stroke-linecap="round" stroke-linejoin="round"
+                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round"
+                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         `;
+
+        startBtn.appendChild(svg);
+        startBtn.appendChild(document.createTextNode('Начать тест'));
+        startBtn.addEventListener('click', function () {
+            handleStartTest(test.id);
+        });
+
+        card.appendChild(header);
+        card.appendChild(descEl);
+        card.appendChild(metaEl);
+        card.appendChild(startBtn);
+
+        fragment.appendChild(card);
     });
 
-    elements.testsGrid.innerHTML = testsHTML;
+    elements.testsGrid.appendChild(fragment);
     elements.testsGrid.style.display = 'grid';
 }
 
