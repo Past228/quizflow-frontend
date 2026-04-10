@@ -18,9 +18,7 @@ html {
 }
 
 :root {
-  /* Gothic: Century Gothic на Windows/macOS; Didact Gothic — веб-запасной вариант */
-  --qf-font: 'Century Gothic', CenturyGothic, 'Didact Gothic', 'Franklin Gothic Medium', 'Apple Gothic',
-    'URW Gothic L', sans-serif;
+  --qf-font: 'Gothic A1', sans-serif;
 }
 
 body {

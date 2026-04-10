@@ -19,6 +19,8 @@
   --qf-sidebar-avatar: 110px;
   --qf-sidebar-logo-mark-max: 126px;
   --qf-sidebar-nav-gap: 8px;
+  /* Иконка визуально по центру всей панели 200px (макет), не геометрическому центру кнопки 180px */
+  --qf-sidebar-icon: 67px;
   --qf-radius-lg: 18px;
   --qf-radius-md: 12px;
   --qf-shadow: 0 8px 24px rgba(18, 122, 182, 0.08);
@@ -39,6 +41,7 @@ body {
   display: flex;
   flex-direction: column;
   width: 100%;
+  height: 100%;
 }
 
 /* Холст прижат к левому краю вьюпорта (как в макете), без лишней центровки */
@@ -52,6 +55,8 @@ body {
   max-width: var(--qf-layout-w);
   flex: 1;
   min-height: 0;
+  height: 100%;
+  max-height: 100%;
   margin-left: 0;
   margin-right: auto;
   background: var(--qf-bg);
@@ -69,6 +74,10 @@ body {
   z-index: 2;
   box-shadow: none;
   border: none;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 /* Логотип: знак + подпись 126×25 px по макету */
@@ -102,10 +111,10 @@ body {
   height: var(--qf-sidebar-brand-h);
   margin: 0;
   padding: 0;
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 700;
   line-height: var(--qf-sidebar-brand-h);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: #000000;
   text-align: center;
   text-transform: uppercase;
@@ -119,20 +128,26 @@ body {
   align-items: flex-end;
   gap: var(--qf-sidebar-nav-gap);
   width: 100%;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Кнопки навигации: 180×100 px; «таб» в сторону контента — скругление слева, прямой край у границы с контентом */
+/* Кнопки навигации: 180×100 px; иконка по центру всей панели 200px: padding-left = 100 − icon/2 − отступ кнопки слева */
 .student-sidebar__link {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   box-sizing: border-box;
   width: var(--qf-sidebar-nav-btn-w);
   height: var(--qf-sidebar-nav-btn-h);
   min-height: var(--qf-sidebar-nav-btn-h);
   padding: 0;
+  padding-left: calc(
+    var(--qf-sidebar-w) / 2 - var(--qf-sidebar-icon) / 2 - (var(--qf-sidebar-w) - var(--qf-sidebar-nav-btn-w))
+  );
   border: none;
   background: var(--qf-white);
   cursor: pointer;
@@ -144,10 +159,11 @@ body {
 }
 
 .student-sidebar__link img {
-  width: 56px;
-  height: 56px;
+  width: var(--qf-sidebar-icon);
+  height: var(--qf-sidebar-icon);
   object-fit: contain;
   display: block;
+  flex-shrink: 0;
 }
 
 .student-sidebar__link:hover:not(.student-sidebar__link--active) {
@@ -161,7 +177,7 @@ body {
 .student-sidebar__avatar {
   margin-top: auto;
   flex-shrink: 0;
-  padding-top: 20px;
+  padding-top: 16px;
   align-self: center;
 }
 
@@ -333,7 +349,7 @@ html.qf-a11y {
 }
 
 html.qf-a11y .student-sidebar__brand {
-  font-size: calc(14px * 1.1);
+  font-size: calc(15px * 1.1);
   line-height: calc(25px * 1.1);
   height: calc(25px * 1.1);
 }

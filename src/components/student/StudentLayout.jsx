@@ -53,8 +53,8 @@ export default function StudentLayout({ session }) {
                     <img
                       src={isActive ? `/icons/${item.iconActive}` : `/icons/${item.icon}`}
                       alt=""
-                      width={56}
-                      height={56}
+                      width={67}
+                      height={67}
                       decoding="async"
                     />
                   )}
