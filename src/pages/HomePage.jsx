@@ -32,9 +32,9 @@ export default function HomePage() {
             <section className="student-card">
               <h2 className="home-section-title">Доступные тесты:</h2>
               {loading ? (
-                <p style={{ color: 'var(--qf-dark-blue)' }}>Загрузка…</p>
+                <p style={{ color: '#000' }}>Загрузка…</p>
               ) : displayTests.length === 0 ? (
-                <p style={{ color: 'var(--qf-dark-blue)', marginBottom: 16 }}>
+                <p style={{ color: '#000', marginBottom: 16 }}>
                   Для вашей группы пока нет назначенных тестов. Откройте каталог.
                 </p>
               ) : null}
@@ -158,7 +158,7 @@ export default function HomePage() {
           font-size: 24px;
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
-          color: var(--qf-dark-blue);
+          color: #000;
           margin: 0 0 22px;
           letter-spacing: 0.04em;
         }
@@ -215,7 +215,7 @@ export default function HomePage() {
           font-weight: var(--qf-fw-medium);
           font-size: 16px;
           margin-bottom: 8px;
-          color: var(--qf-text-body);
+          color: #000;
           font-family: var(--qf-font);
         }
         .home-shop-grid__price {
@@ -233,6 +233,7 @@ export default function HomePage() {
           font-size: 18px;
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
+          color: #000;
         }
         .home-leaders {
           list-style: none;
@@ -256,7 +257,7 @@ export default function HomePage() {
           font-size: 14px;
           font-weight: var(--qf-fw-medium);
           font-family: var(--qf-font);
-          color: var(--qf-dark-blue);
+          color: #000;
           text-align: center;
         }
         .home-leaders__btn {
