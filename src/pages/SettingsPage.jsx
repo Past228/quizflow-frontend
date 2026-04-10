@@ -75,7 +75,7 @@ export default function SettingsPage() {
           text-align: center;
         }
         .settings-page__title {
-          font-size: 54px;
+          font-size: 40px;
           font-weight: var(--qf-fw-black);
           font-family: var(--qf-font);
           letter-spacing: 0.06em;

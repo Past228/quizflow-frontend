@@ -89,49 +89,55 @@ export default function CatalogPage() {
               className="student-card"
               onClick={() => navigate(`/test/${card.id}`)}
               style={{
+                position: 'relative',
                 textAlign: 'left',
                 cursor: 'pointer',
                 border: 'none',
-                padding: '22px 24px',
+                padding: '22px 24px 22px 24px',
                 transition: 'transform 0.15s ease, box-shadow 0.2s ease',
               }}
             >
-              <div
-                className="qf-title-test"
-                style={{
-                  fontSize: 20,
-                  fontWeight: 900,
-                  letterSpacing: '0.04em',
-                  marginBottom: 12,
-                  color: 'var(--qf-text-body)',
-                }}
-              >
-                {card.title}
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 4 }}>
-                Уровень: {card.level}
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 16 }}>
-                Время: {card.time}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <span
+              <div style={{ paddingRight: 68 }}>
+                <div
+                  className="qf-title-test"
                   style={{
-                    minWidth: 48,
-                    height: 48,
-                    borderRadius: 12,
-                    background: 'linear-gradient(135deg, #338ff9, #20aeb9)',
-                    color: '#fff',
+                    fontSize: 28,
                     fontWeight: 900,
-                    fontSize: 14,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    letterSpacing: '0.04em',
+                    marginTop: 10,
+                    marginBottom: 20,
+                    color: 'var(--qf-text-body)',
                   }}
                 >
-                  {card.tag}
-                </span>
+                  {card.title}
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 4 }}>
+                  Уровень: {card.level}
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--qf-text-muted)' }}>
+                  Время: {card.time}
+                </div>
               </div>
+              <span
+                style={{
+                  position: 'absolute',
+                  bottom: 22,
+                  right: 24,
+                  width: 56,
+                  height: 56,
+                  borderRadius: 14,
+                  background: 'linear-gradient(135deg, #338ff9, #20aeb9)',
+                  color: '#fff',
+                  fontWeight: 900,
+                  fontSize: 14,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: 'var(--qf-font)',
+                }}
+              >
+                {card.tag}
+              </span>
             </button>
           ))}
         </div>
