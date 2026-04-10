@@ -10,6 +10,15 @@
   --qf-sidebar-w: 200px;
   --qf-main-w: 1720px;
   --qf-layout-w: 1920px;
+  /* Боковая панель — размеры из макета (100% zoom) */
+  --qf-sidebar-pad-x: 10px; /* (200 − 180) / 2 */
+  --qf-sidebar-nav-btn-w: 180px;
+  --qf-sidebar-nav-btn-h: 100px;
+  --qf-sidebar-brand-w: 126px;
+  --qf-sidebar-brand-h: 25px;
+  --qf-sidebar-avatar: 110px;
+  --qf-sidebar-logo-mark-max: 126px;
+  --qf-sidebar-nav-gap: 8px;
   --qf-radius-lg: 18px;
   --qf-radius-md: 12px;
   --qf-shadow: 0 8px 24px rgba(18, 122, 182, 0.08);
@@ -53,108 +62,127 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px 12px 24px;
+  padding: 24px var(--qf-sidebar-pad-x) 28px;
   z-index: 2;
   box-shadow: none;
   border: none;
 }
 
+/* Логотип: знак + подпись 126×25 px по макету */
 .student-sidebar__logo {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 28px;
+  gap: 8px;
+  margin: 0 0 20px;
   text-decoration: none;
   color: inherit;
+  flex-shrink: 0;
+  width: 100%;
 }
 
-.student-sidebar__logo img {
-  width: 56px;
-  height: auto;
+.student-sidebar__logo-mark {
   display: block;
+  width: var(--qf-sidebar-logo-mark-max);
+  max-width: 100%;
+  height: auto;
+  max-height: 80px;
+  object-fit: contain;
 }
 
 .student-sidebar__brand {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--qf-sidebar-brand-w);
+  height: var(--qf-sidebar-brand-h);
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: var(--qf-sidebar-brand-h);
+  letter-spacing: 0.1em;
+  color: #000000;
   text-align: center;
-  line-height: 1.2;
-  max-width: 176px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .student-sidebar__nav {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
+  align-items: center;
+  gap: var(--qf-sidebar-nav-gap);
   width: 100%;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
+/* Кнопки навигации: 180×100 px, по 10 px от края панели 200 px */
 .student-sidebar__link {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  min-height: 48px;
+  box-sizing: border-box;
+  width: var(--qf-sidebar-nav-btn-w);
+  height: var(--qf-sidebar-nav-btn-h);
+  min-height: var(--qf-sidebar-nav-btn-h);
   padding: 0;
   border: none;
-  background: transparent;
+  background: var(--qf-white);
   cursor: pointer;
-  border-radius: 0 14px 14px 0;
-  transition: background 0.2s ease, transform 0.15s ease;
+  border-radius: 0 18px 18px 0;
+  transition: background 0.2s ease;
   text-decoration: none;
   color: inherit;
+  flex-shrink: 0;
 }
 
 .student-sidebar__link img {
-  width: 28px;
-  height: 28px;
+  width: 56px;
+  height: 56px;
   object-fit: contain;
   display: block;
 }
 
 .student-sidebar__link:hover:not(.student-sidebar__link--active) {
-  background: rgba(51, 143, 249, 0.08);
+  background: rgba(51, 143, 249, 0.06);
 }
 
 .student-sidebar__link--active {
   background: var(--qf-bright-blue);
 }
 
-.student-sidebar__link--active img {
-  filter: brightness(0) invert(1);
-}
-
 .student-sidebar__avatar {
   margin-top: auto;
-  padding-top: 16px;
+  flex-shrink: 0;
+  padding-top: 20px;
 }
 
+/* Аватар: 110×110 px по макету */
 .student-sidebar__avatar-btn {
-  width: 52px;
-  height: 52px;
+  width: var(--qf-sidebar-avatar);
+  height: var(--qf-sidebar-avatar);
   border-radius: 50%;
-  border: 2px solid rgba(51, 143, 249, 0.35);
+  box-sizing: border-box;
+  border: 2px solid rgba(51, 143, 249, 0.45);
   padding: 0;
   overflow: hidden;
   cursor: pointer;
   background: var(--qf-white);
-  transition: box-shadow 0.2s ease, transform 0.15s ease;
+  transition: box-shadow 0.2s ease;
 }
 
 .student-sidebar__avatar-btn:hover {
-  box-shadow: 0 4px 12px rgba(51, 143, 249, 0.35);
-  transform: scale(1.03);
+  box-shadow: 0 4px 16px rgba(51, 143, 249, 0.25);
 }
 
 .student-sidebar__avatar-btn img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .student-main {
@@ -295,5 +323,7 @@ html.qf-a11y {
 }
 
 html.qf-a11y .student-sidebar__brand {
-  font-size: 10px;
+  font-size: calc(14px * 1.1);
+  line-height: calc(25px * 1.1);
+  height: calc(25px * 1.1);
 }

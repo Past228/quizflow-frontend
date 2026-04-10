@@ -33,7 +33,7 @@ export default function StudentLayout({ session }) {
       <div className="student-app">
         <aside className="student-sidebar" aria-label="Основная навигация">
           <NavLink to="/" className="student-sidebar__logo" end title="СТУДТЕСТ">
-            <img src="/icons/Logo.png" alt="" width={56} height={56} />
+            <img className="student-sidebar__logo-mark" src="/icons/Logo.png" alt="" />
             <span className="student-sidebar__brand">СТУДТЕСТ</span>
           </NavLink>
 
@@ -52,8 +52,9 @@ export default function StudentLayout({ session }) {
                   <img
                     src={isActive ? `/icons/${item.iconActive}` : `/icons/${item.icon}`}
                     alt=""
-                    width={28}
-                    height={28}
+                    width={56}
+                    height={56}
+                    decoding="async"
                   />
                 )}
               </NavLink>
