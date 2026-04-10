@@ -393,10 +393,12 @@ export default function Profile({ session, embedded = false }) {
         <div
             style={{
                 width: '100%',
-                height: embedded ? '100%' : '100vh',
-                minHeight: embedded ? '100%' : undefined,
+                height: '100%',
+                minHeight: 0,
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
                 position: 'relative',
-                flex: embedded ? 1 : undefined,
             }}
         >
             <iframe
@@ -406,7 +408,7 @@ export default function Profile({ session, embedded = false }) {
                 height="100%"
                 frameBorder="0"
                 title="Profile"
-                style={{ display: 'block', minHeight: embedded ? '100%' : undefined }}
+                style={{ display: 'block', flex: 1, minHeight: 0, border: 0 }}
                 onLoad={() => console.log('Profile iframe loaded')}
             />
         </div>

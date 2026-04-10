@@ -30,53 +30,54 @@ export default function StudentLayout({ session }) {
 
   return (
     <StudentProfileProvider session={session}>
-      <div className="student-app">
-        <aside className="student-sidebar" aria-label="Основная навигация">
-          <NavLink to="/" className="student-sidebar__logo" end title="СТУДТЕСТ">
-            <img className="student-sidebar__logo-mark" src="/icons/Logo.png" alt="" />
-            <span className="student-sidebar__brand">СТУДТЕСТ</span>
-          </NavLink>
+      <div className="student-layout-root">
+        <div className="student-app">
+          <aside className="student-sidebar" aria-label="Основная навигация">
+            <NavLink to="/" className="student-sidebar__logo" end title="СТУДТЕСТ">
+              <img className="student-sidebar__logo-mark" src="/icons/Logo.png" alt="" />
+              <span className="student-sidebar__brand">СТУДТЕСТ</span>
+            </NavLink>
 
-          <nav className="student-sidebar__nav">
-            {NAV.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  'student-sidebar__link' + (isActive ? ' student-sidebar__link--active' : '')
-                }
-                title={item.label}
+            <nav className="student-sidebar__nav">
+              {NAV.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    'student-sidebar__link' + (isActive ? ' student-sidebar__link--active' : '')
+                  }
+                  title={item.label}
+                >
+                  {({ isActive }) => (
+                    <img
+                      src={isActive ? `/icons/${item.iconActive}` : `/icons/${item.icon}`}
+                      alt=""
+                      width={56}
+                      height={56}
+                      decoding="async"
+                    />
+                  )}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="student-sidebar__avatar">
+              <button
+                type="button"
+                className="student-sidebar__avatar-btn"
+                onClick={() => navigate('/profile')}
+                title="Профиль"
               >
-                {({ isActive }) => (
-                  <img
-                    src={isActive ? `/icons/${item.iconActive}` : `/icons/${item.icon}`}
-                    alt=""
-                    width={56}
-                    height={56}
-                    decoding="async"
-                  />
-                )}
-              </NavLink>
-            ))}
-          </nav>
+                <img src="/icons/Standard_avatar.png" alt="Аватар" />
+              </button>
+            </div>
+          </aside>
 
-          <div className="student-sidebar__avatar">
-            <button
-              type="button"
-              className="student-sidebar__avatar-btn"
-              onClick={() => navigate('/profile')}
-              title="Профиль"
-            >
-              <img src="/icons/Standard_avatar.png" alt="Аватар" />
-            </button>
-          </div>
-
-        </aside>
-
-        <main className="student-main">
-          <AnimatedOutlet context={{ session }} />
-        </main>
+          <main className="student-main">
+            <AnimatedOutlet context={{ session }} />
+          </main>
+        </div>
       </div>
     </StudentProfileProvider>
   );

@@ -734,7 +734,17 @@ export default function AuthWithHTML() {
     };
 
     return (
-        <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
+        <div
+            style={{
+                width: '100%',
+                height: '100%',
+                minHeight: 0,
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+            }}
+        >
             <iframe
                 ref={iframeRef}
                 src={isTeacherSignUp ? "/signup-teacher.html" : (isSignUp ? "/signup.html" : "/login.html")}
@@ -742,7 +752,7 @@ export default function AuthWithHTML() {
                 height="100%"
                 frameBorder="0"
                 title="Auth Form"
-                style={{ display: 'block' }}
+                style={{ display: 'block', flex: 1, minHeight: 0, border: 0 }}
                 onLoad={() => console.log('Iframe loaded')}
             />
 

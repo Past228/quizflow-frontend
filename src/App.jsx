@@ -36,13 +36,10 @@ function App() {
   if (loading) {
     return (
       <div
+        className="app-root app-root--loading"
         style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#eaf4fc',
           fontFamily: 'system-ui, sans-serif',
+          background: '#eaf4fc',
         }}
       >
         <div style={{ textAlign: 'center' }}>
@@ -72,26 +69,32 @@ function App() {
   const isTeacher = session?.user?.user_metadata?.role === 'teacher';
 
   return (
-    <div style={{ minHeight: '100vh', width: '100%', margin: 0, padding: 0, background: '#eaf4fc' }}>
+    <div className="app-root" style={{ background: '#eaf4fc' }}>
       {!session ? (
-        <AuthWithHTML />
+        <div className="app-root__fill">
+          <AuthWithHTML />
+        </div>
       ) : isTeacher ? (
-        <Profile key={session.user.id} session={session} />
+        <div className="app-root__fill">
+          <Profile key={session.user.id} session={session} />
+        </div>
       ) : (
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<StudentLayout session={session} />}>
-              <Route index element={<HomePage />} />
-              <Route path="catalog" element={<CatalogPage />} />
-              <Route path="test/:testId" element={<TestPage />} />
-              <Route path="leaderboard" element={<LeaderboardPage />} />
-              <Route path="shop" element={<ShopPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="help" element={<HelpPage />} />
-              <Route path="profile" element={<ProfileRoute />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <div className="app-root__fill">
+            <Routes>
+              <Route path="/" element={<StudentLayout session={session} />}>
+                <Route index element={<HomePage />} />
+                <Route path="catalog" element={<CatalogPage />} />
+                <Route path="test/:testId" element={<TestPage />} />
+                <Route path="leaderboard" element={<LeaderboardPage />} />
+                <Route path="shop" element={<ShopPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="help" element={<HelpPage />} />
+                <Route path="profile" element={<ProfileRoute />} />
+              </Route>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
         </BrowserRouter>
       )}
     </div>
