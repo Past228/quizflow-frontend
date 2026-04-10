@@ -29,7 +29,7 @@
   --qf-sidebar-nav-btn-h: 100px;
   --qf-sidebar-brand-w: 126px;
   --qf-sidebar-brand-h: 25px;
-  --qf-sidebar-avatar: 110px;
+  --qf-sidebar-avatar: 100px;
   --qf-sidebar-logo-mark-max: 126px;
   --qf-sidebar-nav-gap: 8px;
   /* Компактные отступы сверху/снизу — больше места под 6 кнопок без прокрутки */
@@ -38,7 +38,7 @@
   /* Симметрия внутри блока навигации */
   --qf-sidebar-nav-pad-y: 12px;
   /* Иконка визуально по центру всей панели 200px (макет), не геометрическому центру кнопки 180px */
-  --qf-sidebar-icon: 67px;
+  --qf-sidebar-icon: 55px;
   --qf-radius-lg: 18px;
   --qf-radius-md: 12px;
   --qf-shadow: 0 8px 24px rgba(18, 122, 182, 0.08);
@@ -214,7 +214,7 @@ body {
   align-self: center;
 }
 
-/* Аватар: 110×110 px по макету */
+/* Аватар: 100×100 px */
 .student-sidebar__avatar-btn {
   width: var(--qf-sidebar-avatar);
   height: var(--qf-sidebar-avatar);
@@ -232,7 +232,7 @@ body {
   box-shadow: 0 4px 16px rgba(51, 143, 249, 0.25);
 }
 
-/* В PNG есть внутренние поля — слегка увеличиваем, чтобы круг заполнял рамку 110×110 */
+/* В PNG есть внутренние поля — слегка увеличиваем, чтобы круг заполнял рамку 100×100 */
 .student-sidebar__avatar-btn img {
   width: 100%;
   height: 100%;
