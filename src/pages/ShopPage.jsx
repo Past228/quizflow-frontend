@@ -52,25 +52,25 @@ export default function ShopPage() {
           <h1 className="student-page-title" style={{ marginBottom: 0 }}>
             МАГАЗИН ПРЕДМЕТОВ
           </h1>
-          <div className="shop-header-balance">
-            <span className="shop-header-balance__label">Монеты</span>
+        </header>
+        <div className="shop-header-balance">
+          <span className="shop-header-balance__label">Монеты</span>
             <span className="shop-header-balance__value">
-              <img src="/icons/sp_coins.png" alt="" width={28} height={28} />
+              <img src="/icons/sp_coins.png" alt="" width={50} height={50} />
               <span className="qf-num" style={{ fontSize: 28 }}>
                 250
               </span>
-            </span>
-          </div>
-        </header>
+          </span>
+        </div>
         <div className="shop-page-grid">
           {ROWS.map((item) => (
             <article key={item.title} className="student-card shop-card">
               <div className="shop-card__preview">{renderPreview(item)}</div>
               <h2 className="shop-card__title">{item.title}</h2>
               <div className="shop-card__price">
-                <img src="/icons/sp_coins.png" alt="" width={20} height={20} />
+                <img src="/icons/sp_coins.png" alt="" width={30} height={30} />
                 <span className="shop-card__price-txt">
-                  SP <span className="qf-num">{item.price}</span>
+                  <span className="qf-num">{item.price}</span>
                 </span>
               </div>
               <button type="button" className="qf-btn-primary shop-card__btn">
