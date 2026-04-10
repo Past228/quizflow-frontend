@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-export default function Profile({ session }) {
+export default function Profile({ session, embedded = false }) {
     const iframeRef = useRef(null);
 
     useEffect(() => {
@@ -390,7 +390,15 @@ export default function Profile({ session }) {
     };
 
     return (
-        <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
+        <div
+            style={{
+                width: '100%',
+                height: embedded ? '100%' : '100vh',
+                minHeight: embedded ? '100%' : undefined,
+                position: 'relative',
+                flex: embedded ? 1 : undefined,
+            }}
+        >
             <iframe
                 ref={iframeRef}
                 src="/profile.html"
@@ -398,7 +406,7 @@ export default function Profile({ session }) {
                 height="100%"
                 frameBorder="0"
                 title="Profile"
-                style={{ display: 'block' }}
+                style={{ display: 'block', minHeight: embedded ? '100%' : undefined }}
                 onLoad={() => console.log('Profile iframe loaded')}
             />
         </div>
