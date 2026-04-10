@@ -103,7 +103,7 @@ export default function HomePage() {
             <ul className="home-leaders">
               {LEADERS.map((u, i) => (
                 <li key={u.name} className={i < LEADERS.length - 1 ? 'home-leaders__row' : 'home-leaders__row home-leaders__row--last'}>
-                  <img src={u.avatar} alt="" width={40} height={40} style={{ borderRadius: '50%' }} />
+                  <img src={u.avatar} alt="" width={48} height={48} style={{ borderRadius: '50%' }} />
                   <span style={{ fontWeight: 700 }}>{u.name}</span>
                 </li>
               ))}
@@ -138,16 +138,16 @@ export default function HomePage() {
           width: 100%;
         }
         .home-section-title {
-          font-size: 1.05rem;
+          font-size: 1.15rem;
           font-weight: 800;
           color: #127ab6;
-          margin: 0 0 20px;
+          margin: 0 0 22px;
           letter-spacing: 0.04em;
         }
         .home-shop-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-          gap: 16px;
+          grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+          gap: 18px;
         }
         .home-shop-grid__item {
           border: 2px solid rgba(51, 143, 249, 0.25);

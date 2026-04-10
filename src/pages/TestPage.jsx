@@ -64,7 +64,7 @@ export default function TestPage() {
             marginBottom: 16,
           }}
         >
-          <h1 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#127ab6', letterSpacing: '0.04em' }}>
+          <h1 className="student-page-title" style={{ margin: 0, letterSpacing: '0.06em' }}>
             {title}
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -126,7 +126,7 @@ export default function TestPage() {
             <p style={{ margin: '0 0 8px', fontWeight: 700, color: '#127ab6' }}>
               Вопрос {DEMO.index} из {DEMO.total}:
             </p>
-            <p style={{ margin: '0 0 18px', fontSize: '1.1rem', lineHeight: 1.5, color: '#1a202c' }}>
+            <p style={{ margin: '0 0 18px', fontSize: '1.2rem', lineHeight: 1.5, color: '#1a202c' }}>
               Что выведет <code style={{ color: '#20aeb9', fontWeight: 700 }}>{DEMO.codeHighlight}</code>?
             </p>
 
@@ -151,7 +151,7 @@ export default function TestPage() {
                       background: isSel ? '#338ff9' : '#fff',
                       color: isSel ? '#fff' : '#1a202c',
                       fontWeight: 700,
-                      fontSize: '1rem',
+                      fontSize: '1.08rem',
                       cursor: 'pointer',
                       transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease',
                     }}

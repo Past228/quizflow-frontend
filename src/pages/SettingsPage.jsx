@@ -75,11 +75,11 @@ export default function SettingsPage() {
           text-align: center;
         }
         .settings-page__title {
-          font-size: 1.5rem;
+          font-size: 1.65rem;
           font-weight: 800;
           letter-spacing: 0.08em;
           color: #338ff9;
-          margin: 0 0 28px;
+          margin: 0 0 32px;
           text-align: center;
         }
         .settings-card {
@@ -93,8 +93,8 @@ export default function SettingsPage() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 24px;
-          padding: 22px 28px;
+          gap: 28px;
+          padding: 26px 32px;
           border-bottom: 1px solid #eaf4fc;
         }
         .settings-row:last-child {
@@ -102,20 +102,21 @@ export default function SettingsPage() {
         }
         .settings-label {
           font-weight: 700;
-          font-size: 1rem;
+          font-size: 1.08rem;
           color: #1a202c;
           text-align: right;
           flex: 1;
         }
         .settings-toggle {
           flex-shrink: 0;
-          min-width: 80px;
-          padding: 12px 18px;
+          min-width: 88px;
+          padding: 14px 20px;
           border: none;
           border-radius: 12px;
           background: #338ff9;
           color: #fff;
           font-weight: 800;
+          font-size: 1rem;
           cursor: pointer;
           transition: filter 0.2s ease, transform 0.15s ease;
         }
