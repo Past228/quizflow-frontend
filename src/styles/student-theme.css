@@ -133,6 +133,12 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE / старый Edge */
+}
+
+.student-sidebar__nav::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Chromium */
 }
 
 /* Кнопки навигации: 180×100 px; иконка по центру всей панели 200px: padding-left = 100 − icon/2 − отступ кнопки слева */
