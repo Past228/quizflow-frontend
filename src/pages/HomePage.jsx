@@ -245,7 +245,7 @@ export default function HomePage() {
           align-items: center;
           gap: 12px;
           padding: 10px 0;
-          border-bottom: 1px solid var(--qf-border-subtle);
+          border-bottom: 3px solid #838383;
         }
         .home-leaders__row--last {
           border-bottom: none;
@@ -253,9 +253,9 @@ export default function HomePage() {
         .home-leaders__footer {
           margin-top: 16px;
           padding-top: 16px;
-          border-top: 1px solid var(--qf-border-subtle);
+          border-top: 3px solid #838383;
           font-size: 14px;
-          font-weight: var(--qf-fw-medium);
+          font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
           color: #000;
           text-align: center;
