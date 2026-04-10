@@ -47,7 +47,7 @@ export default function SettingsPage() {
         <h1 className="settings-page__title">НАСТРОЙКИ</h1>
 
         <section className="student-card settings-card">
-          <ToggleRow label="Сменить тему" on={themeOn} onToggle={() => setThemeOn((v) => !v)} />
+          <ThemeToggleRow on={themeOn} onToggle={() => setThemeOn((v) => !v)} />
           <ToggleRow
             label="Режим «Инкогнито» в таблице лидеров"
             on={incognito}
@@ -78,7 +78,7 @@ export default function SettingsPage() {
           font-size: 1.65rem;
           font-weight: 800;
           letter-spacing: 0.08em;
-          color: #338ff9;
+          color: var(--qf-bright-blue);
           margin: 0 0 32px;
           text-align: center;
         }
@@ -95,7 +95,7 @@ export default function SettingsPage() {
           justify-content: space-between;
           gap: 28px;
           padding: 26px 32px;
-          border-bottom: 1px solid #eaf4fc;
+          border-bottom: 1px solid var(--qf-border-subtle);
         }
         .settings-row:last-child {
           border-bottom: none;
@@ -103,9 +103,56 @@ export default function SettingsPage() {
         .settings-label {
           font-weight: 700;
           font-size: 1.08rem;
-          color: #1a202c;
+          color: var(--qf-text-body);
           text-align: right;
           flex: 1;
+        }
+        .settings-row--theme {
+          gap: 20px;
+        }
+        .settings-label--theme {
+          text-align: left;
+          font-size: 1.1rem;
+        }
+        .settings-switch {
+          position: relative;
+          width: 54px;
+          height: 30px;
+          flex-shrink: 0;
+          padding: 0;
+          border: none;
+          border-radius: 999px;
+          background: #94a3b8;
+          cursor: pointer;
+          transition: background 0.22s ease, box-shadow 0.2s ease;
+          box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+        }
+        .settings-switch:hover {
+          filter: brightness(1.05);
+        }
+        .settings-switch:focus-visible {
+          outline: none;
+          box-shadow:
+            inset 0 1px 3px rgba(0, 0, 0, 0.12),
+            0 0 0 3px rgba(51, 143, 249, 0.35);
+        }
+        .settings-switch--on {
+          background: linear-gradient(135deg, #338ff9 0%, #127ab6 100%);
+          box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.2);
+        }
+        .settings-switch__thumb {
+          position: absolute;
+          top: 3px;
+          left: 3px;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: #ffffff;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+          transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .settings-switch--on .settings-switch__thumb {
+          transform: translateX(24px);
         }
         .settings-toggle {
           flex-shrink: 0;
@@ -132,10 +179,34 @@ export default function SettingsPage() {
           justify-content: center;
         }
         .settings-page__logout {
-          background: #127ab6 !important;
+          background: var(--qf-dark-blue) !important;
           min-width: 240px;
         }
+        html.qf-theme-alt .settings-page__logout {
+          background: linear-gradient(135deg, #338ff9, #1e5a8a) !important;
+        }
+        html.qf-theme-alt .settings-switch:not(.settings-switch--on) {
+          background: #475569;
+        }
       `}</style>
+    </div>
+  );
+}
+
+function ThemeToggleRow({ on, onToggle }) {
+  return (
+    <div className="settings-row settings-row--theme">
+      <div className="settings-label settings-label--theme">Сменить тему</div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label="Тёмная тема: переключатель"
+        className={'settings-switch' + (on ? ' settings-switch--on' : '')}
+        onClick={onToggle}
+      >
+        <span className="settings-switch__thumb" aria-hidden />
+      </button>
     </div>
   );
 }

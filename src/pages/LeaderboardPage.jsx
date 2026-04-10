@@ -125,19 +125,19 @@ export default function LeaderboardPage() {
           align-items: center;
           gap: 12px;
           padding: 14px 20px;
-          border-bottom: 1px solid #eaf4fc;
+          border-bottom: 1px solid var(--qf-border-subtle);
         }
         .lb-row--last { border-bottom: none; }
-        .lb-rank-num { font-weight: 800; color: #127ab6; }
+        .lb-rank-num { font-weight: 800; color: var(--qf-dark-blue); }
         .lb-av { border-radius: 50%; object-fit: cover; }
         .lb-row-name { font-weight: 700; }
         .lb-row-xp { font-weight: 800; color: #338ff9; }
         .lb-aside { width: 100%; }
-        .lb-aside-title { font-size: 1rem; font-weight: 800; color: #127ab6; margin: 0 0 16px; }
+        .lb-aside-title { font-size: 1rem; font-weight: 800; color: var(--qf-dark-blue); margin: 0 0 16px; }
         .lb-aside-list { list-style: none; padding: 0; margin: 0; }
         .lb-aside-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
-        .lb-hr { border: none; border-top: 1px solid #eaf4fc; margin: 16px 0; }
-        .lb-empty { margin: 0; color: #64748b; font-size: 14px; }
+        .lb-hr { border: none; border-top: 1px solid var(--qf-border-subtle); margin: 16px 0; }
+        .lb-empty { margin: 0; color: var(--qf-text-muted); font-size: 14px; }
         .lb-medal {
           width: 64px;
           height: 64px;

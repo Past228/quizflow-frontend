@@ -53,7 +53,7 @@ export default function ShopPage() {
             МАГАЗИН ПРЕДМЕТОВ
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800 }}>
-            <span style={{ color: '#1a202c' }}>Монеты</span>
+            <span style={{ color: 'var(--qf-text-body)' }}>Монеты</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               <img src="/icons/sp_coins.png" alt="" width={28} height={28} />
               <span style={{ fontSize: '1.2rem' }}>250</span>
@@ -114,7 +114,7 @@ export default function ShopPage() {
           font-size: 0.95rem;
           font-weight: 800;
           margin: 0 0 12px;
-          color: #1a202c;
+          color: var(--qf-text-body);
         }
         .shop-card__price {
           display: flex;
@@ -150,13 +150,13 @@ export default function ShopPage() {
         }
         .shop-prefix {
           font-weight: 800;
-          color: #127ab6;
+          color: var(--qf-dark-blue);
           font-size: 1rem;
         }
         .shop-glyph {
           font-size: 56px;
           font-weight: 900;
-          color: #1a202c;
+          color: var(--qf-text-body);
         }
       `}</style>
     </div>

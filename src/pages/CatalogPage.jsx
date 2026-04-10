@@ -69,7 +69,7 @@ export default function CatalogPage() {
 
         {loading ? 'Загрузка…' : null}
         {!loading && tests.length === 0 ? (
-          <p style={{ color: '#127ab6', marginBottom: 16 }}>
+          <p style={{ color: 'var(--qf-dark-blue)', marginBottom: 16 }}>
             Показаны демонстрационные карточки. Когда преподаватель назначит тесты группе, здесь появятся реальные
             данные.
           </p>
@@ -96,11 +96,19 @@ export default function CatalogPage() {
                 transition: 'transform 0.15s ease, box-shadow 0.2s ease',
               }}
             >
-              <div style={{ fontWeight: 900, fontSize: 15, letterSpacing: '0.04em', marginBottom: 12 }}>
+              <div
+                style={{
+                  fontWeight: 900,
+                  fontSize: 15,
+                  letterSpacing: '0.04em',
+                  marginBottom: 12,
+                  color: 'var(--qf-text-body)',
+                }}
+              >
                 {card.title}
               </div>
-              <div style={{ fontSize: 14, color: '#4a5568', marginBottom: 4 }}>Уровень: {card.level}</div>
-              <div style={{ fontSize: 14, color: '#4a5568', marginBottom: 16 }}>Время: {card.time}</div>
+              <div style={{ fontSize: 14, color: 'var(--qf-text-muted)', marginBottom: 4 }}>Уровень: {card.level}</div>
+              <div style={{ fontSize: 14, color: 'var(--qf-text-muted)', marginBottom: 16 }}>Время: {card.time}</div>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <span
                   style={{

@@ -27,7 +27,7 @@ body {
   border: 0;
   height: 100%;
   overflow: hidden;
-  background-color: #eaf4fc;
+  background-color: var(--qf-bg, #eaf4fc);
   font-family: var(--qf-font);
 }
 

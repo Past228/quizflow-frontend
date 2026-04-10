@@ -32,9 +32,9 @@ export default function HomePage() {
             <section className="student-card">
               <h2 className="home-section-title">Доступные тесты:</h2>
               {loading ? (
-                <p style={{ color: '#127ab6' }}>Загрузка…</p>
+                <p style={{ color: 'var(--qf-dark-blue)' }}>Загрузка…</p>
               ) : displayTests.length === 0 ? (
-                <p style={{ color: '#127ab6', marginBottom: 16 }}>
+                <p style={{ color: 'var(--qf-dark-blue)', marginBottom: 16 }}>
                   Для вашей группы пока нет назначенных тестов. Откройте каталог.
                 </p>
               ) : null}
@@ -155,7 +155,7 @@ export default function HomePage() {
         .home-section-title {
           font-size: 1.15rem;
           font-weight: 800;
-          color: #127ab6;
+          color: var(--qf-dark-blue);
           margin: 0 0 22px;
           letter-spacing: 0.04em;
         }
@@ -170,10 +170,10 @@ export default function HomePage() {
           }
         }
         .home-shop-grid__item {
-          border: 2px solid rgba(51, 143, 249, 0.25);
+          border: 2px solid var(--qf-accent-border-soft);
           border-radius: 14px;
           padding: 16px;
-          background: #fff;
+          background: var(--qf-card);
           cursor: pointer;
           text-align: center;
           transition: box-shadow 0.2s ease;
@@ -210,6 +210,7 @@ export default function HomePage() {
           font-weight: 700;
           font-size: 14px;
           margin-bottom: 8px;
+          color: var(--qf-text-body);
         }
         .home-shop-grid__price {
           display: flex;
@@ -228,7 +229,7 @@ export default function HomePage() {
           align-items: center;
           gap: 12px;
           padding: 10px 0;
-          border-bottom: 1px solid #eaf4fc;
+          border-bottom: 1px solid var(--qf-border-subtle);
         }
         .home-leaders__row--last {
           border-bottom: none;
@@ -236,10 +237,10 @@ export default function HomePage() {
         .home-leaders__footer {
           margin-top: 16px;
           padding-top: 16px;
-          border-top: 1px solid #eaf4fc;
+          border-top: 1px solid var(--qf-border-subtle);
           font-size: 13px;
           font-weight: 700;
-          color: #127ab6;
+          color: var(--qf-dark-blue);
           text-align: center;
         }
         .home-leaders__btn {

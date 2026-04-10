@@ -123,10 +123,10 @@ export default function TestPage() {
           </div>
 
           <div style={{ padding: '28px 28px 32px' }}>
-            <p style={{ margin: '0 0 8px', fontWeight: 700, color: '#127ab6' }}>
+            <p style={{ margin: '0 0 8px', fontWeight: 700, color: 'var(--qf-dark-blue)' }}>
               Вопрос {DEMO.index} из {DEMO.total}:
             </p>
-            <p style={{ margin: '0 0 18px', fontSize: '1.2rem', lineHeight: 1.5, color: '#1a202c' }}>
+            <p style={{ margin: '0 0 18px', fontSize: '1.2rem', lineHeight: 1.5, color: 'var(--qf-text-body)' }}>
               Что выведет <code style={{ color: '#20aeb9', fontWeight: 700 }}>{DEMO.codeHighlight}</code>?
             </p>
 
@@ -147,9 +147,9 @@ export default function TestPage() {
                     style={{
                       padding: '18px 16px',
                       borderRadius: 14,
-                      border: isSel ? '2px solid #338ff9' : '2px solid #cbd5e0',
-                      background: isSel ? '#338ff9' : '#fff',
-                      color: isSel ? '#fff' : '#1a202c',
+                      border: isSel ? '2px solid #338ff9' : '2px solid var(--qf-border-control)',
+                      background: isSel ? '#338ff9' : 'var(--qf-card)',
+                      color: isSel ? '#fff' : 'var(--qf-text-body)',
                       fontWeight: 700,
                       fontSize: '1.08rem',
                       cursor: 'pointer',
