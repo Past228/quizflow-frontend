@@ -215,11 +215,11 @@ function ThemeToggleRow({ on, onToggle }) {
 
 function ToggleRow({ label, on, onToggle }) {
   return (
-    <div className="settings-row">
+    <div className="settings-row settings-row--theme">
+      <div className="settings-label settings-label--theme">{label}</div>
       <button type="button" className={'settings-toggle' + (on ? '' : ' settings-toggle--off')} onClick={onToggle}>
         {on ? 'ВКЛ' : 'ВЫКЛ'}
       </button>
-      <div className="settings-label">{label}</div>
     </div>
   );
 }

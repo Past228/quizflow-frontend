@@ -25,14 +25,23 @@
             /* Предотвращает горизонтальную прокрутку */
         }
 
-        .profile-header {
+        .page-header {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          padding: 28px 20px 0;
+          max-width: 1200px;
+          margin: 0 auto;
+          width: 100%;
+        }
+
+        .page-title {
           font-size: 40px;
-          font-weight: var(--qf-fw-black);
-          font-family: var(--qf-font);
+          font-weight: 900;
+          font-family: "Gothic A1", sans-serif;
           letter-spacing: 0.06em;
-          color: var(--qf-bright-blue);
-          margin: 0 0 32px;
-          text-align: justify;
+          color: #127ab6;
+          margin: 0;
         }
 
         .logo {
@@ -909,8 +918,8 @@
     </div>
 
     <!-- Header -->
-    <header className="profile-header">
-        <h1 className="student-page-title lb-title">ЛИЧНЫЙ КАБИНЕТ</h1>
+    <header class="page-header">
+        <h1 class="page-title">ЛИЧНЫЙ КАБИНЕТ</h1>
         <button class="logout-btn" id="logoutBtn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
@@ -918,7 +927,7 @@
             </svg>
             Выйти
         </button>
-      </header>
+    </header>
 
     <!-- Main Content -->
     <main class="main-container">
