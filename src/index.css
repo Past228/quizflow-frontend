@@ -17,6 +17,12 @@ html {
   overflow: hidden;
 }
 
+:root {
+  /* Gothic: Century Gothic на Windows/macOS; Didact Gothic — веб-запасной вариант */
+  --qf-font: 'Century Gothic', CenturyGothic, 'Didact Gothic', 'Franklin Gothic Medium', 'Apple Gothic',
+    'URW Gothic L', sans-serif;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -24,6 +30,7 @@ body {
   height: 100%;
   overflow: hidden;
   background-color: #eaf4fc;
+  font-family: var(--qf-font);
 }
 
 #root {
@@ -34,6 +41,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-family: inherit;
 }
 
 /* Растягивает дочерние экраны (студент / iframe) на высоту окна без полосы прокрутки у document */

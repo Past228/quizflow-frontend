@@ -1,4 +1,4 @@
-/* СТУДТЕСТ — палитра из макета */
+/* СТУДТЕСТ — палитра из макета (--qf-font задаётся в index.css) */
 :root {
   --qf-bright-blue: #338ff9;
   --qf-turquoise: #20aeb9;
@@ -11,7 +11,7 @@
   --qf-main-w: 1720px;
   --qf-layout-w: 1920px;
   /* Боковая панель — размеры из макета (100% zoom) */
-  --qf-sidebar-pad-x: 10px; /* (200 − 180) / 2 */
+  --qf-sidebar-pad-x: 0px; /* кнопки прижаты к правому краю панели */
   --qf-sidebar-nav-btn-w: 180px;
   --qf-sidebar-nav-btn-h: 100px;
   --qf-sidebar-brand-w: 126px;
@@ -55,7 +55,7 @@ body {
   margin-left: 0;
   margin-right: auto;
   background: var(--qf-bg);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-family: var(--qf-font);
 }
 
 .student-sidebar {
@@ -64,7 +64,7 @@ body {
   background: var(--qf-white);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   padding: 24px var(--qf-sidebar-pad-x) 28px;
   z-index: 2;
   box-shadow: none;
@@ -82,6 +82,7 @@ body {
   color: inherit;
   flex-shrink: 0;
   width: 100%;
+  align-self: center;
 }
 
 .student-sidebar__logo-mark {
@@ -109,20 +110,20 @@ body {
   text-align: center;
   text-transform: uppercase;
   white-space: nowrap;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--qf-font);
 }
 
 .student-sidebar__nav {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--qf-sidebar-nav-gap);
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
 }
 
-/* Кнопки навигации: 180×100 px, по 10 px от края панели 200 px */
+/* Кнопки навигации: 180×100 px; «таб» в сторону контента — скругление слева, прямой край у границы с контентом */
 .student-sidebar__link {
   display: flex;
   align-items: center;
@@ -135,7 +136,7 @@ body {
   border: none;
   background: var(--qf-white);
   cursor: pointer;
-  border-radius: 0 18px 18px 0;
+  border-radius: 18px 0 0 18px;
   transition: background 0.2s ease;
   text-decoration: none;
   color: inherit;
@@ -161,6 +162,7 @@ body {
   margin-top: auto;
   flex-shrink: 0;
   padding-top: 20px;
+  align-self: center;
 }
 
 /* Аватар: 110×110 px по макету */

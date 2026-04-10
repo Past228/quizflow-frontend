@@ -38,7 +38,8 @@ function App() {
       <div
         className="app-root app-root--loading"
         style={{
-          fontFamily: 'system-ui, sans-serif',
+          fontFamily:
+            "'Century Gothic', CenturyGothic, 'Didact Gothic', 'Franklin Gothic Medium', sans-serif",
           background: '#eaf4fc',
         }}
       >
