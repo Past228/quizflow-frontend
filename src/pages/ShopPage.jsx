@@ -84,8 +84,12 @@ export default function ShopPage() {
       <style>{`
         .qf-num {
           line-height: 1;       /* Убирает «пустоту» снизу и сверху цифр */
-          display: inline-flex; /* Помогает браузеру точнее считать высоту */
-          align-items: center;
+          font-size: 28px;
+          /* Добавьте эти три строки: */
+          display: inline-flex;  /* Делает контейнер гибким под размер цифр */
+          align-items: center;   /* Центрирует цифры внутри этого контейнера */
+          height: 28px;    
+          vertical-align: middle;
         }
         .shop-header-balance {
           display: flex;                /* Включаем Flexbox */
@@ -158,6 +162,7 @@ export default function ShopPage() {
           font-weight: var(--qf-fw-semibold);
           line-height: 1; /* Убирает пространство под цифрами */
           display: flex;   /* Помогает выровнять содержимое внутри */
+          align-items: center;
         }
         .shop-card__price .qf-num {
           line-height: 1;
