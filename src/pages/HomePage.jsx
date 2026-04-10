@@ -253,7 +253,7 @@ export default function HomePage() {
         .home-leaders__footer {
           margin-top: 16px;
           padding-top: 16px;
-          border-top: 3px solid #838383;
+          border-top: 2px solid #838383;
           font-size: 14px;
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);

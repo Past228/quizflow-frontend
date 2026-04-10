@@ -170,7 +170,7 @@ export default function LeaderboardPage() {
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
         }
-        .lb-hr { border: none; border-top: 2px solid var(--qf-border-subtle); margin: 16px 0; }
+        .lb-hr { border: none; border-top: 2px solid var(--qf-border-subtle); margin: 16px 0; color: #838383}
         .lb-empty {
           margin: 0;
           color: var(--qf-text-muted);

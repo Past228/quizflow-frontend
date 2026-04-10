@@ -93,7 +93,8 @@ export default function SettingsPage() {
         .settings-row {
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          flex-direction: row-reverse; /* Разворачивает элементы: текст будет слева, кнопка справа */
+          justify-content: space-between; /* Расталкивает их по краям */
           gap: 28px;
           padding: 26px 32px;
           border-bottom: 1px solid var(--qf-border-subtle);
