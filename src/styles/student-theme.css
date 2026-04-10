@@ -22,6 +22,8 @@
   /* Компактные отступы сверху/снизу — больше места под 6 кнопок без прокрутки */
   --qf-sidebar-pad-y-top: 10px;
   --qf-sidebar-pad-y-bottom: 10px;
+  /* Симметрия внутри блока навигации */
+  --qf-sidebar-nav-pad-y: 12px;
   /* Иконка визуально по центру всей панели 200px (макет), не геометрическому центру кнопки 180px */
   --qf-sidebar-icon: 67px;
   --qf-radius-lg: 18px;
@@ -129,10 +131,13 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  justify-content: safe center;
   gap: var(--qf-sidebar-nav-gap);
   width: 100%;
   flex: 1 1 0;
   min-height: 0;
+  padding: var(--qf-sidebar-nav-pad-y) 0;
+  box-sizing: border-box;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
