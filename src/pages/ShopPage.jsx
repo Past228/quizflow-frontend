@@ -82,23 +82,24 @@ export default function ShopPage() {
       </div>
 
       <style>{`
-      .header-container {
-  display: flex;
-  justify-content: flex-end; /* Прижимает всё содержимое вправо */
-  align-items: center;    /* Центрирует по вертикали */
-}
+        .qf-num {
+          line-height: 1;       /* Убирает «пустоту» снизу и сверху цифр */
+          display: inline-flex; /* Помогает браузеру точнее считать высоту */
+          align-items: center;
+        }
         .shop-header-balance {
-        display: flex;                /* Включаем Flexbox */
-        justify-content: space-between; /* "Монеты" влево, "SP 250" вправо */
-        align-items: center;          /* Выравниваем по вертикали */
-        width: 100%; 
-        gap: 10px;
-        font-family: var(--qf-font);
+          display: flex;                /* Включаем Flexbox */
+          justify-content: space-between; /* "Монеты" влево, "SP 250" вправо */
+          align-items: center;          /* Выравниваем по вертикали */
+          width: 100%; 
+          gap: 10px;
+          font-family: var(--qf-font);
+          margin-bottom: 20px;
         }
         .shop-header-balance__label {
           font-size: 35px;
           color: var(--qf-text-body);
-          font-weight: var(--qf-fw-semibold);
+          font-weight: var(--qf-fw-bold);
         }
         .shop-header-balance__value {
           display: flex;
@@ -138,8 +139,8 @@ export default function ShopPage() {
           margin-bottom: 14px;
         }
         .shop-card__title {
-          font-size: 16px;
-          font-weight: var(--qf-fw-medium);
+          font-size: 20px;
+          font-weight: var(--qf-fw-bold);
           margin: 0 0 12px;
           color: var(--qf-text-body);
           font-family: var(--qf-font);
@@ -155,6 +156,12 @@ export default function ShopPage() {
         }
         .shop-card__price-txt {
           font-weight: var(--qf-fw-semibold);
+          line-height: 1; /* Убирает пространство под цифрами */
+          display: flex;   /* Помогает выровнять содержимое внутри */
+        }
+        .shop-card__price .qf-num {
+          line-height: 1;
+          font-size: 20px; /* Укажите нужный размер, если он не наследовался */
         }
         .shop-card__btn {
           width: 100%;
