@@ -75,10 +75,10 @@ export default function SettingsPage() {
           text-align: center;
         }
         .settings-page__title {
-          font-size: 1.65rem;
+          font-size: 54px;
           font-weight: var(--qf-fw-black);
           font-family: var(--qf-font);
-          letter-spacing: 0.08em;
+          letter-spacing: 0.06em;
           color: var(--qf-bright-blue);
           margin: 0 0 32px;
           text-align: center;
@@ -103,7 +103,7 @@ export default function SettingsPage() {
         }
         .settings-label {
           font-weight: var(--qf-fw-medium);
-          font-size: 1.08rem;
+          font-size: 20px;
           font-family: var(--qf-font);
           color: var(--qf-text-body);
           text-align: right;
@@ -114,7 +114,6 @@ export default function SettingsPage() {
         }
         .settings-label--theme {
           text-align: left;
-          font-size: 1.1rem;
         }
         .settings-switch {
           position: relative;
@@ -165,8 +164,8 @@ export default function SettingsPage() {
           background: #338ff9;
           color: #fff;
           font-family: var(--qf-font);
-          font-weight: var(--qf-fw-semibold);
-          font-size: 1rem;
+          font-weight: var(--qf-fw-bold);
+          font-size: 20px;
           cursor: pointer;
           transition: filter 0.2s ease, transform 0.15s ease;
         }

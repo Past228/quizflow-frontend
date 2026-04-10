@@ -56,7 +56,7 @@ export default function ShopPage() {
             <span className="shop-header-balance__label">Монеты</span>
             <span className="shop-header-balance__value">
               <img src="/icons/sp_coins.png" alt="" width={28} height={28} />
-              <span className="qf-num" style={{ fontSize: '1.2rem' }}>
+              <span className="qf-num" style={{ fontSize: 28 }}>
                 250
               </span>
             </span>
@@ -89,6 +89,7 @@ export default function ShopPage() {
           font-family: var(--qf-font);
         }
         .shop-header-balance__label {
+          font-size: 20px;
           color: var(--qf-text-body);
           font-weight: var(--qf-fw-semibold);
         }
@@ -130,7 +131,7 @@ export default function ShopPage() {
           margin-bottom: 14px;
         }
         .shop-card__title {
-          font-size: 0.95rem;
+          font-size: 16px;
           font-weight: var(--qf-fw-medium);
           margin: 0 0 12px;
           color: var(--qf-text-body);
@@ -170,13 +171,13 @@ export default function ShopPage() {
         }
         .shop-name {
           font-weight: var(--qf-fw-black);
-          font-size: 1.1rem;
+          font-size: 20px;
           font-family: var(--qf-font);
         }
         .shop-prefix {
           font-weight: var(--qf-fw-bold);
           color: var(--qf-dark-blue);
-          font-size: 1rem;
+          font-size: 18px;
           font-family: var(--qf-font);
         }
         .shop-glyph {

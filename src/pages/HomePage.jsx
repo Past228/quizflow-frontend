@@ -155,7 +155,7 @@ export default function HomePage() {
           background: #20aeb9 !important;
         }
         .home-section-title {
-          font-size: 1.15rem;
+          font-size: 24px;
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
           color: var(--qf-dark-blue);
@@ -213,7 +213,7 @@ export default function HomePage() {
         }
         .home-shop-grid__title {
           font-weight: var(--qf-fw-medium);
-          font-size: 14px;
+          font-size: 16px;
           margin-bottom: 8px;
           color: var(--qf-text-body);
           font-family: var(--qf-font);
@@ -230,6 +230,7 @@ export default function HomePage() {
           font-weight: var(--qf-fw-semibold);
         }
         .home-leaders__name {
+          font-size: 18px;
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
         }
@@ -252,7 +253,7 @@ export default function HomePage() {
           margin-top: 16px;
           padding-top: 16px;
           border-top: 1px solid var(--qf-border-subtle);
-          font-size: 13px;
+          font-size: 14px;
           font-weight: var(--qf-fw-medium);
           font-family: var(--qf-font);
           color: var(--qf-dark-blue);

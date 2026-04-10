@@ -308,7 +308,7 @@ body {
 }
 
 .student-page-title {
-  font-size: 1.5rem;
+  font-size: 54px;
   font-weight: var(--qf-fw-black);
   letter-spacing: 0.06em;
   color: var(--qf-dark-blue);
@@ -341,7 +341,7 @@ body {
   color: var(--qf-white);
   font-family: var(--qf-font);
   font-weight: var(--qf-fw-semibold);
-  font-size: 1.05rem;
+  font-size: 20px;
   cursor: pointer;
   transition: filter 0.2s ease, transform 0.15s ease;
 }
@@ -361,8 +361,8 @@ body {
   border: 2px solid rgba(51, 143, 249, 0.35);
   border-radius: 999px;
   font-family: var(--qf-font);
-  font-weight: var(--qf-fw-semibold);
-  font-size: 1.05rem;
+  font-weight: var(--qf-fw-medium);
+  font-size: 18px;
   color: var(--qf-text-body);
   background-color: var(--qf-card);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='%2320AEB9' stroke-width='2'%3E%3Ccircle cx='9' cy='9' r='7'/%3E%3Cpath d='M14 14l4 4'/%3E%3C/svg%3E");

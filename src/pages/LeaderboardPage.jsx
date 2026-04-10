@@ -112,7 +112,7 @@ export default function LeaderboardPage() {
         }
         .lb-name {
           font-weight: var(--qf-fw-bold);
-          font-size: 1.05rem;
+          font-size: 20px;
           font-family: var(--qf-font);
           display: flex;
           align-items: center;
@@ -120,7 +120,7 @@ export default function LeaderboardPage() {
         }
         .lb-xp {
           font-weight: var(--qf-fw-black);
-          font-size: 1.1rem;
+          font-size: 22px;
           color: #338ff9;
           font-family: var(--qf-font);
         }
@@ -135,23 +135,26 @@ export default function LeaderboardPage() {
         }
         .lb-row--last { border-bottom: none; }
         .lb-rank-num {
+          font-size: 18px;
           font-weight: var(--qf-fw-black);
           color: var(--qf-dark-blue);
           font-family: var(--qf-font);
         }
         .lb-av { border-radius: 50%; object-fit: cover; }
         .lb-row-name {
+          font-size: 18px;
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
         }
         .lb-row-xp {
+          font-size: 18px;
           font-weight: var(--qf-fw-black);
           color: #338ff9;
           font-family: var(--qf-font);
         }
         .lb-aside { width: 100%; }
         .lb-aside-title {
-          font-size: 1rem;
+          font-size: 16px;
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
           color: var(--qf-dark-blue);
@@ -160,6 +163,7 @@ export default function LeaderboardPage() {
         .lb-aside-list { list-style: none; padding: 0; margin: 0; }
         .lb-aside-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
         .lb-aside-name {
+          font-size: 16px;
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
         }
@@ -180,7 +184,7 @@ export default function LeaderboardPage() {
           justify-content: center;
           color: #fff;
           font-weight: var(--qf-fw-black);
-          font-size: 22px;
+          font-size: 24px;
           font-family: var(--qf-font);
           font-variant-numeric: tabular-nums;
           box-shadow: 0 6px 16px rgba(0,0,0,0.12);

@@ -99,7 +99,8 @@ export default function CatalogPage() {
               <div
                 className="qf-title-test"
                 style={{
-                  fontSize: 15,
+                  fontSize: 20,
+                  fontWeight: 900,
                   letterSpacing: '0.04em',
                   marginBottom: 12,
                   color: 'var(--qf-text-body)',
@@ -107,10 +108,10 @@ export default function CatalogPage() {
               >
                 {card.title}
               </div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 4 }}>
+              <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 4 }}>
                 Уровень: {card.level}
               </div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 16 }}>
                 Время: {card.time}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

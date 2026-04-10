@@ -116,6 +116,7 @@ export default function TestPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#fff',
+                fontSize: 22,
                 letterSpacing: '0.06em',
               }}
             >
@@ -124,13 +125,13 @@ export default function TestPage() {
           </div>
 
           <div style={{ padding: '28px 28px 32px' }}>
-            <p style={{ margin: '0 0 8px', fontWeight: 500, color: 'var(--qf-dark-blue)' }}>
+            <p style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 500, color: 'var(--qf-dark-blue)' }}>
               Вопрос <span className="qf-num">{DEMO.index}</span> из <span className="qf-num">{DEMO.total}</span>:
             </p>
             <p
               style={{
                 margin: '0 0 18px',
-                fontSize: '1.2rem',
+                fontSize: 20,
                 lineHeight: 1.5,
                 color: 'var(--qf-text-body)',
                 fontWeight: 500,
@@ -161,7 +162,7 @@ export default function TestPage() {
                       background: isSel ? '#338ff9' : 'var(--qf-card)',
                       color: isSel ? '#fff' : 'var(--qf-text-body)',
                       fontWeight: 500,
-                      fontSize: '1.08rem',
+                      fontSize: 20,
                       fontFamily: 'var(--qf-font)',
                       cursor: 'pointer',
                       transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease',
