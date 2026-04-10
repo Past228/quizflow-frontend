@@ -38,8 +38,9 @@ function App() {
       <div
         className="app-root app-root--loading"
         style={{
-          fontFamily: "'Gothic A1', sans-serif",
-          background: '#eaf4fc',
+          fontFamily: 'var(--qf-font), "Gothic A1", sans-serif',
+          background: 'var(--qf-bg, #eaf4fc)',
+          color: 'var(--qf-text-body, #1a202c)',
         }}
       >
         <div style={{ textAlign: 'center' }}>
@@ -54,8 +55,10 @@ function App() {
               animation: 'qf-spin 0.9s linear infinite',
             }}
           />
-          <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#127ab6' }}>Загрузка СТУДТЕСТ…</div>
-          <p style={{ color: '#64748b', marginTop: 8 }}>Пожалуйста, подождите</p>
+          <div style={{ fontSize: '1.1rem', fontWeight: 'var(--qf-fw-black, 900)', color: '#127ab6' }}>
+            Загрузка СТУДТЕСТ…
+          </div>
+          <p style={{ color: 'var(--qf-text-muted, #64748b)', marginTop: 8, fontWeight: 500 }}>Пожалуйста, подождите</p>
         </div>
         <style>{`
           @keyframes qf-spin {
@@ -69,7 +72,7 @@ function App() {
   const isTeacher = session?.user?.user_metadata?.role === 'teacher';
 
   return (
-    <div className="app-root" style={{ background: '#eaf4fc' }}>
+    <div className="app-root" style={{ background: 'var(--qf-bg, #eaf4fc)' }}>
       {!session ? (
         <div className="app-root__fill">
           <AuthWithHTML />

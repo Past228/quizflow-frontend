@@ -136,7 +136,7 @@ body {
   margin: 0;
   padding: 0;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: var(--qf-fw-black);
   line-height: var(--qf-sidebar-brand-h);
   letter-spacing: 0.12em;
   color: var(--qf-sidebar-fg);
@@ -309,7 +309,7 @@ body {
 
 .student-page-title {
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: var(--qf-fw-black);
   letter-spacing: 0.06em;
   color: var(--qf-dark-blue);
   margin: 0 0 24px;
@@ -326,6 +326,8 @@ body {
   box-shadow: var(--qf-shadow);
   padding: 28px 32px;
   transition: background-color 0.25s ease, box-shadow 0.25s ease;
+  font-weight: var(--qf-fw-medium);
+  font-family: var(--qf-font);
 }
 
 .qf-btn-primary {
@@ -337,7 +339,8 @@ body {
   border-radius: var(--qf-radius-md);
   background: var(--qf-bright-blue);
   color: var(--qf-white);
-  font-weight: 600;
+  font-family: var(--qf-font);
+  font-weight: var(--qf-fw-semibold);
   font-size: 1.05rem;
   cursor: pointer;
   transition: filter 0.2s ease, transform 0.15s ease;
@@ -357,6 +360,8 @@ body {
   padding: 14px 18px 14px 48px;
   border: 2px solid rgba(51, 143, 249, 0.35);
   border-radius: 999px;
+  font-family: var(--qf-font);
+  font-weight: var(--qf-fw-semibold);
   font-size: 1.05rem;
   color: var(--qf-text-body);
   background-color: var(--qf-card);
@@ -431,4 +436,17 @@ html.qf-a11y .student-sidebar__brand {
   font-size: calc(15px * 1.1);
   line-height: calc(25px * 1.1);
   height: calc(25px * 1.1);
+}
+
+/* Gothic A1 — цифры Black (макет) */
+.qf-num {
+  font-weight: var(--qf-fw-black);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--qf-font);
+}
+
+/* Названия тестов и заголовки того же уровня — Black */
+.qf-title-test {
+  font-weight: var(--qf-fw-black);
+  font-family: var(--qf-font);
 }

@@ -52,11 +52,13 @@ export default function ShopPage() {
           <h1 className="student-page-title" style={{ marginBottom: 0 }}>
             МАГАЗИН ПРЕДМЕТОВ
           </h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800 }}>
-            <span style={{ color: 'var(--qf-text-body)' }}>Монеты</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <div className="shop-header-balance">
+            <span className="shop-header-balance__label">Монеты</span>
+            <span className="shop-header-balance__value">
               <img src="/icons/sp_coins.png" alt="" width={28} height={28} />
-              <span style={{ fontSize: '1.2rem' }}>250</span>
+              <span className="qf-num" style={{ fontSize: '1.2rem' }}>
+                250
+              </span>
             </span>
           </div>
         </header>
@@ -67,7 +69,9 @@ export default function ShopPage() {
               <h2 className="shop-card__title">{item.title}</h2>
               <div className="shop-card__price">
                 <img src="/icons/sp_coins.png" alt="" width={20} height={20} />
-                <span>SP {item.price}</span>
+                <span className="shop-card__price-txt">
+                  SP <span className="qf-num">{item.price}</span>
+                </span>
               </div>
               <button type="button" className="qf-btn-primary shop-card__btn">
                 Купить
@@ -78,6 +82,21 @@ export default function ShopPage() {
       </div>
 
       <style>{`
+        .shop-header-balance {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-family: var(--qf-font);
+        }
+        .shop-header-balance__label {
+          color: var(--qf-text-body);
+          font-weight: var(--qf-fw-semibold);
+        }
+        .shop-header-balance__value {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
         .shop-page-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -112,17 +131,22 @@ export default function ShopPage() {
         }
         .shop-card__title {
           font-size: 0.95rem;
-          font-weight: 800;
+          font-weight: var(--qf-fw-medium);
           margin: 0 0 12px;
           color: var(--qf-text-body);
+          font-family: var(--qf-font);
         }
         .shop-card__price {
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          font-weight: 800;
+          font-weight: var(--qf-fw-semibold);
+          font-family: var(--qf-font);
           margin-bottom: 16px;
+        }
+        .shop-card__price-txt {
+          font-weight: var(--qf-fw-semibold);
         }
         .shop-card__btn {
           width: 100%;
@@ -145,18 +169,21 @@ export default function ShopPage() {
           flex-wrap: wrap;
         }
         .shop-name {
-          font-weight: 900;
+          font-weight: var(--qf-fw-black);
           font-size: 1.1rem;
+          font-family: var(--qf-font);
         }
         .shop-prefix {
-          font-weight: 800;
+          font-weight: var(--qf-fw-bold);
           color: var(--qf-dark-blue);
           font-size: 1rem;
+          font-family: var(--qf-font);
         }
         .shop-glyph {
           font-size: 56px;
-          font-weight: 900;
+          font-weight: var(--qf-fw-black);
           color: var(--qf-text-body);
+          font-family: var(--qf-font);
         }
       `}</style>
     </div>

@@ -76,7 +76,8 @@ export default function SettingsPage() {
         }
         .settings-page__title {
           font-size: 1.65rem;
-          font-weight: 800;
+          font-weight: var(--qf-fw-black);
+          font-family: var(--qf-font);
           letter-spacing: 0.08em;
           color: var(--qf-bright-blue);
           margin: 0 0 32px;
@@ -101,8 +102,9 @@ export default function SettingsPage() {
           border-bottom: none;
         }
         .settings-label {
-          font-weight: 700;
+          font-weight: var(--qf-fw-medium);
           font-size: 1.08rem;
+          font-family: var(--qf-font);
           color: var(--qf-text-body);
           text-align: right;
           flex: 1;
@@ -162,7 +164,8 @@ export default function SettingsPage() {
           border-radius: 12px;
           background: #338ff9;
           color: #fff;
-          font-weight: 800;
+          font-family: var(--qf-font);
+          font-weight: var(--qf-fw-semibold);
           font-size: 1rem;
           cursor: pointer;
           transition: filter 0.2s ease, transform 0.15s ease;

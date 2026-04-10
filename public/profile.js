@@ -795,7 +795,7 @@ function generateColorAvatarURL(color, text) {
     const svg = `
         <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
             <rect width="100" height="100" fill="${color}" rx="50"/>
-            <text x="50" y="55" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="36" font-weight="bold">${text}</text>
+            <text x="50" y="55" text-anchor="middle" fill="white" font-family="'Gothic A1', sans-serif" font-size="36" font-weight="900">${text}</text>
         </svg>
     `;
     return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));

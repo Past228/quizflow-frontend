@@ -19,6 +19,21 @@ html {
 
 :root {
   --qf-font: 'Gothic A1', sans-serif;
+  /* Gothic A1: Medium 500, SemiBold 600, Bold 700, ExtraBold 800, Black 900 */
+  --qf-fw-medium: 500;
+  --qf-fw-semibold: 600;
+  --qf-fw-bold: 700;
+  --qf-fw-extrabold: 800;
+  --qf-fw-black: 900;
+}
+
+/* Всегда Gothic A1, без системного Arial из пресетов браузера / Tailwind */
+button,
+input,
+textarea,
+select,
+optgroup {
+  font-family: var(--qf-font);
 }
 
 body {

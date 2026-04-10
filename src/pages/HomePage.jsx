@@ -84,7 +84,9 @@ export default function HomePage() {
                     <div className="home-shop-grid__title">{item.title}</div>
                     <div className="home-shop-grid__price">
                       <img src="/icons/sp_coins.png" alt="" width={18} height={18} />
-                      <span>SP {item.price}</span>
+                      <span className="home-shop-grid__price-txt">
+                        SP <span className="qf-num">{item.price}</span>
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -98,7 +100,7 @@ export default function HomePage() {
               {LEADERS.map((u, i) => (
                 <li key={u.name} className={i < LEADERS.length - 1 ? 'home-leaders__row' : 'home-leaders__row home-leaders__row--last'}>
                   <img src={u.avatar} alt="" width={48} height={48} style={{ borderRadius: '50%' }} />
-                  <span style={{ fontWeight: 700 }}>{u.name}</span>
+                  <span className="home-leaders__name">{u.name}</span>
                 </li>
               ))}
             </ul>
@@ -154,7 +156,8 @@ export default function HomePage() {
         }
         .home-section-title {
           font-size: 1.15rem;
-          font-weight: 800;
+          font-weight: var(--qf-fw-bold);
+          font-family: var(--qf-font);
           color: var(--qf-dark-blue);
           margin: 0 0 22px;
           letter-spacing: 0.04em;
@@ -190,11 +193,13 @@ export default function HomePage() {
         }
         .home-shop-grid__glyph {
           font-size: 48px;
-          font-weight: 800;
+          font-weight: var(--qf-fw-black);
+          font-family: var(--qf-font);
         }
         .home-shop-grid__gradient {
           font-size: 1.4rem;
-          font-weight: 800;
+          font-weight: var(--qf-fw-black);
+          font-family: var(--qf-font);
           background: linear-gradient(90deg, #338ff9, #20aeb9);
           -webkit-background-clip: text;
           background-clip: text;
@@ -207,17 +212,26 @@ export default function HomePage() {
           display: inline-block;
         }
         .home-shop-grid__title {
-          font-weight: 700;
+          font-weight: var(--qf-fw-medium);
           font-size: 14px;
           margin-bottom: 8px;
           color: var(--qf-text-body);
+          font-family: var(--qf-font);
         }
         .home-shop-grid__price {
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 6px;
-          font-weight: 700;
+          font-weight: var(--qf-fw-semibold);
+          font-family: var(--qf-font);
+        }
+        .home-shop-grid__price-txt {
+          font-weight: var(--qf-fw-semibold);
+        }
+        .home-leaders__name {
+          font-weight: var(--qf-fw-bold);
+          font-family: var(--qf-font);
         }
         .home-leaders {
           list-style: none;
@@ -239,7 +253,8 @@ export default function HomePage() {
           padding-top: 16px;
           border-top: 1px solid var(--qf-border-subtle);
           font-size: 13px;
-          font-weight: 700;
+          font-weight: var(--qf-fw-medium);
+          font-family: var(--qf-font);
           color: var(--qf-dark-blue);
           text-align: center;
         }

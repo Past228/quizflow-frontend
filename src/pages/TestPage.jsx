@@ -82,7 +82,9 @@ export default function TestPage() {
                 }}
               />
             </div>
-            <span style={{ fontWeight: 800, color: '#ff5959', fontSize: 13 }}>{DEMO.healthPct}%</span>
+            <span className="qf-num" style={{ color: '#ff5959', fontSize: 13 }}>
+              {DEMO.healthPct}%
+            </span>
           </div>
         </header>
 
@@ -114,20 +116,28 @@ export default function TestPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#fff',
-                fontWeight: 800,
                 letterSpacing: '0.06em',
               }}
             >
-              {clock}
+              <span className="qf-num">{clock}</span>
             </div>
           </div>
 
           <div style={{ padding: '28px 28px 32px' }}>
-            <p style={{ margin: '0 0 8px', fontWeight: 700, color: 'var(--qf-dark-blue)' }}>
-              Вопрос {DEMO.index} из {DEMO.total}:
+            <p style={{ margin: '0 0 8px', fontWeight: 500, color: 'var(--qf-dark-blue)' }}>
+              Вопрос <span className="qf-num">{DEMO.index}</span> из <span className="qf-num">{DEMO.total}</span>:
             </p>
-            <p style={{ margin: '0 0 18px', fontSize: '1.2rem', lineHeight: 1.5, color: 'var(--qf-text-body)' }}>
-              Что выведет <code style={{ color: '#20aeb9', fontWeight: 700 }}>{DEMO.codeHighlight}</code>?
+            <p
+              style={{
+                margin: '0 0 18px',
+                fontSize: '1.2rem',
+                lineHeight: 1.5,
+                color: 'var(--qf-text-body)',
+                fontWeight: 500,
+              }}
+            >
+              Что выведет{' '}
+              <code style={{ color: '#20aeb9', fontWeight: 600, fontFamily: 'var(--qf-font)' }}>{DEMO.codeHighlight}</code>?
             </p>
 
             <div
@@ -150,8 +160,9 @@ export default function TestPage() {
                       border: isSel ? '2px solid #338ff9' : '2px solid var(--qf-border-control)',
                       background: isSel ? '#338ff9' : 'var(--qf-card)',
                       color: isSel ? '#fff' : 'var(--qf-text-body)',
-                      fontWeight: 700,
+                      fontWeight: 500,
                       fontSize: '1.08rem',
+                      fontFamily: 'var(--qf-font)',
                       cursor: 'pointer',
                       transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease',
                     }}
