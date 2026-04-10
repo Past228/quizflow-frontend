@@ -137,7 +137,7 @@ export default function LeaderboardPage() {
         .lb-rank-num {
           font-size: 18px;
           font-weight: var(--qf-fw-black);
-          color: var(--qf-dark-blue);
+          color:rgb(0, 0, 0);
           font-family: var(--qf-font);
         }
         .lb-av { border-radius: 50%; object-fit: cover; }
@@ -154,10 +154,13 @@ export default function LeaderboardPage() {
         }
         .lb-aside { width: 100%; }
         .lb-aside-title {
+          text-align: center;
+          width: 100%; /* Убедитесь, что заголовок занимает всю ширину карточки */
+          display: block;
           font-size: 16px;
-          font-weight: var(--qf-fw-bold);
+          font-weight: var(--qf-fw-extrabold);
           font-family: var(--qf-font);
-          color: var(--qf-dark-blue);
+          color:rgb(0, 0, 0);
           margin: 0 0 16px;
         }
         .lb-aside-list { list-style: none; padding: 0; margin: 0; }
@@ -167,7 +170,7 @@ export default function LeaderboardPage() {
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
         }
-        .lb-hr { border: none; border-top: 1px solid var(--qf-border-subtle); margin: 16px 0; }
+        .lb-hr { border: none; border-top: 2px solid var(--qf-border-subtle); margin: 16px 0; }
         .lb-empty {
           margin: 0;
           color: var(--qf-text-muted);

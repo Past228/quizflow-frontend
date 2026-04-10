@@ -98,7 +98,7 @@ export default function ShopPage() {
           width: 100%; 
           gap: 10px;
           font-family: var(--qf-font);
-          margin-bottom: 20px;
+          margin-bottom: 15px;
         }
         .shop-header-balance__label {
           font-size: 35px;

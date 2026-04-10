@@ -245,7 +245,7 @@ export default function HomePage() {
           align-items: center;
           gap: 12px;
           padding: 10px 0;
-          border-bottom: 3px solid #838383;
+          border-bottom: 2px solid #838383;
         }
         .home-leaders__row--last {
           border-bottom: none;

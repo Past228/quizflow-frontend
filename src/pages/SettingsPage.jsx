@@ -81,7 +81,7 @@ export default function SettingsPage() {
           letter-spacing: 0.06em;
           color: var(--qf-bright-blue);
           margin: 0 0 32px;
-          text-align: center;
+          text-align: justify;
         }
         .settings-card {
           display: flex;
