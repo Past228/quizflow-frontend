@@ -82,21 +82,28 @@ export default function ShopPage() {
       </div>
 
       <style>{`
+      .header-container {
+  display: flex;
+  justify-content: flex-end; /* Прижимает всё содержимое вправо */
+  align-items: center;    /* Центрирует по вертикали */
+}
         .shop-header-balance {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-family: var(--qf-font);
+        display: flex;                /* Включаем Flexbox */
+        justify-content: space-between; /* "Монеты" влево, "SP 250" вправо */
+        align-items: center;          /* Выравниваем по вертикали */
+        width: 100%; 
+        gap: 10px;
+        font-family: var(--qf-font);
         }
         .shop-header-balance__label {
-          font-size: 20px;
+          font-size: 35px;
           color: var(--qf-text-body);
           font-weight: var(--qf-fw-semibold);
         }
         .shop-header-balance__value {
-          display: inline-flex;
+          display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px; 
         }
         .shop-page-grid {
           display: grid;
