@@ -1,7 +1,7 @@
 export default function HelpPage() {
   return (
     <div className="student-page-wrap">
-      <div className="student-page" style={{ maxWidth: 720, margin: '0 auto' }}>
+      <div className="student-page student-page--wide" style={{ maxWidth: 'min(960px, 100%)', margin: '0 auto' }}>
         <h1 className="student-page-title">ПОМОЩЬ</h1>
         <section className="student-card">
           <p style={{ margin: 0, lineHeight: 1.6, color: '#334155' }}>

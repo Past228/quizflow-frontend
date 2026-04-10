@@ -24,7 +24,7 @@ export default function HomePage() {
 
   return (
     <div className="student-page-wrap">
-      <div className="student-page" style={{ maxWidth: 1180, margin: '0 auto' }}>
+      <div className="student-page student-page--wide">
         <h1 className="student-page-title">ГЛАВНАЯ</h1>
 
         <div className="home-layout">
@@ -38,13 +38,12 @@ export default function HomePage() {
                   Для вашей группы пока нет назначенных тестов. Откройте каталог.
                 </p>
               ) : null}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="home-tests-actions">
                 {displayTests.map((t) => (
                   <button
                     key={t.id}
                     type="button"
-                    className="qf-btn-primary"
-                    style={{ width: '100%', justifyContent: 'flex-start' }}
+                    className="qf-btn-primary home-tests-actions__btn"
                     onClick={() => navigate(`/test/${t.id}`)}
                   >
                     {t.title || 'Тест'}
@@ -52,12 +51,7 @@ export default function HomePage() {
                 ))}
                 <button
                   type="button"
-                  className="qf-btn-primary"
-                  style={{
-                    width: '100%',
-                    justifyContent: 'flex-start',
-                    background: '#20aeb9',
-                  }}
+                  className="qf-btn-primary home-tests-actions__btn home-tests-actions__btn--catalog"
                   onClick={() => navigate('/catalog')}
                 >
                   Каталог тестов
@@ -125,7 +119,8 @@ export default function HomePage() {
         }
         @media (min-width: 1024px) {
           .home-layout {
-            grid-template-columns: 1fr 300px;
+            grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+            gap: 28px;
           }
         }
         .home-layout__main {
@@ -137,6 +132,26 @@ export default function HomePage() {
         .home-layout__aside {
           width: 100%;
         }
+        .home-tests-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        @media (min-width: 900px) {
+          .home-tests-actions {
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 14px;
+          }
+          .home-tests-actions__btn {
+            flex: 1 1 calc(25% - 12px);
+            min-width: min(100%, 200px);
+            justify-content: center;
+          }
+        }
+        .home-tests-actions__btn--catalog {
+          background: #20aeb9 !important;
+        }
         .home-section-title {
           font-size: 1.15rem;
           font-weight: 800;
@@ -146,8 +161,13 @@ export default function HomePage() {
         }
         .home-shop-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 18px;
+        }
+        @media (min-width: 900px) {
+          .home-shop-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+          }
         }
         .home-shop-grid__item {
           border: 2px solid rgba(51, 143, 249, 0.25);

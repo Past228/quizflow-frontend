@@ -22,7 +22,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="student-page-wrap">
-      <div className="student-page lb-root">
+      <div className="student-page student-page--wide lb-root">
         <header className="lb-header">
           <h1 className="student-page-title lb-title">ДОСКА ЛИДЕРОВ</h1>
           <input
@@ -80,7 +80,7 @@ export default function LeaderboardPage() {
       </div>
 
       <style>{`
-        .lb-root { max-width: 1120px; margin: 0 auto; }
+        .lb-root { width: 100%; max-width: none; margin: 0; }
         .lb-header {
           display: flex;
           flex-wrap: wrap;
@@ -97,7 +97,10 @@ export default function LeaderboardPage() {
           align-items: start;
         }
         @media (min-width: 1024px) {
-          .lb-grid { grid-template-columns: 1fr 320px; }
+          .lb-grid {
+            grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+            gap: 28px;
+          }
         }
         .lb-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
         .lb-top-card {
@@ -129,7 +132,7 @@ export default function LeaderboardPage() {
         .lb-av { border-radius: 50%; object-fit: cover; }
         .lb-row-name { font-weight: 700; }
         .lb-row-xp { font-weight: 800; color: #338ff9; }
-        .lb-aside { width: 100%; max-width: 340px; }
+        .lb-aside { width: 100%; }
         .lb-aside-title { font-size: 1rem; font-weight: 800; color: #127ab6; margin: 0 0 16px; }
         .lb-aside-list { list-style: none; padding: 0; margin: 0; }
         .lb-aside-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; }

@@ -43,7 +43,7 @@ export default function SettingsPage() {
 
   return (
     <div className="student-page-wrap">
-      <div className="student-page settings-page">
+      <div className="student-page student-page--wide settings-page">
         <h1 className="settings-page__title">НАСТРОЙКИ</h1>
 
         <section className="student-card settings-card">
@@ -70,7 +70,7 @@ export default function SettingsPage() {
       <style>{`
         .settings-page {
           width: 100%;
-          max-width: 720px;
+          max-width: min(960px, 100%);
           margin: 0 auto;
           text-align: center;
         }

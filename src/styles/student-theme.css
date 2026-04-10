@@ -269,6 +269,16 @@ body {
   animation: qf-page-in 0.28s ease-out;
 }
 
+/* На всю ширину области контента (1720px), только внешние отступы из .student-page-wrap */
+.student-page--wide {
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
 @keyframes qf-page-in {
   from {
     opacity: 0;

@@ -43,7 +43,7 @@ export default function CatalogPage() {
 
   return (
     <div className="student-page-wrap">
-      <div className="student-page" style={{ maxWidth: 1100, margin: '0 auto' }}>
+      <div className="student-page student-page--wide">
         <header
           style={{
             display: 'flex',
@@ -78,8 +78,8 @@ export default function CatalogPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            gap: 20,
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))',
+            gap: 22,
           }}
         >
           {rows.map((card) => (

@@ -38,7 +38,7 @@ const ROWS = [
 export default function ShopPage() {
   return (
     <div className="student-page-wrap">
-      <div className="student-page" style={{ maxWidth: 1180, margin: '0 auto' }}>
+      <div className="student-page student-page--wide">
         <header
           style={{
             display: 'flex',
@@ -60,13 +60,7 @@ export default function ShopPage() {
             </span>
           </div>
         </header>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-            gap: 20,
-          }}
-        >
+        <div className="shop-page-grid">
           {ROWS.map((item) => (
             <article key={item.title} className="student-card shop-card">
               <div className="shop-card__preview">{renderPreview(item)}</div>
@@ -84,6 +78,22 @@ export default function ShopPage() {
       </div>
 
       <style>{`
+        .shop-page-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 22px;
+          width: 100%;
+        }
+        @media (max-width: 1100px) {
+          .shop-page-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+        @media (max-width: 520px) {
+          .shop-page-grid {
+            grid-template-columns: 1fr;
+          }
+        }
         .shop-card {
           display: flex;
           flex-direction: column;

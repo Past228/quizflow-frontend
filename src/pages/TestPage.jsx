@@ -53,7 +53,7 @@ export default function TestPage() {
 
   return (
     <div className="student-page-wrap">
-      <div className="student-page" style={{ maxWidth: 920, margin: '0 auto' }}>
+      <div className="student-page student-page--wide" style={{ maxWidth: 'min(100%, 1200px)' }}>
         <header
           style={{
             display: 'flex',
