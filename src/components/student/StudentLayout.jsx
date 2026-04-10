@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { StudentProfileProvider } from '../../context/StudentProfileContext';
 import { hydrateStudentSettings } from '../../lib/studentSettings';
-import '../../styles/student-theme.css';
 
 const NAV = [
   { to: '/', end: true, icon: 'Home_icon.png', iconActive: 'Home_icon_active.png', label: 'Главная' },
@@ -34,7 +33,7 @@ export default function StudentLayout({ session }) {
       <div className="student-app">
         <aside className="student-sidebar" aria-label="Основная навигация">
           <NavLink to="/" className="student-sidebar__logo" end title="СТУДТЕСТ">
-            <img src="/icons/Logo.png" alt="" width={44} height={44} />
+            <img src="/icons/Logo.png" alt="" width={56} height={56} />
             <span className="student-sidebar__brand">СТУДТЕСТ</span>
           </NavLink>
 
@@ -53,8 +52,8 @@ export default function StudentLayout({ session }) {
                   <img
                     src={isActive ? `/icons/${item.iconActive}` : `/icons/${item.icon}`}
                     alt=""
-                    width={26}
-                    height={26}
+                    width={28}
+                    height={28}
                   />
                 )}
               </NavLink>

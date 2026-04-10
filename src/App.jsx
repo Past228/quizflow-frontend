@@ -72,7 +72,7 @@ function App() {
   const isTeacher = session?.user?.user_metadata?.role === 'teacher';
 
   return (
-    <div style={{ minHeight: '100vh' }}>
+    <div style={{ minHeight: '100vh', width: '100%', margin: 0, padding: 0, background: '#eaf4fc' }}>
       {!session ? (
         <AuthWithHTML />
       ) : isTeacher ? (
