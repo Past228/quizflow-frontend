@@ -1066,7 +1066,7 @@ function buildCosmeticPreview(item) {
         preview.innerHTML = `<span style="color:white;font-weight:700;font-size:20px;text-shadow:0 1px 3px rgba(0,0,0,.5);">А</span>`;
 
     } else if (item.type === 'prefix') {
-        preview.innerHTML = `<span style="display:inline-block;padding:5px 10px;border-radius:20px;background:#f3f4f6;font-size:11px;font-weight:700;color:#374151;max-width:62px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.name)}</span>`;
+        preview.innerHTML = `<span style="display:inline-block;padding:5px 10px;border-radius:20px;background:#f3f4f6;font-size:11px;font-weight:700;color:#374151;max-width:100%;word-break:break-word;text-align:center;line-height:1.3;">${escapeHtml(item.name)}</span>`;
     }
 
     return preview;

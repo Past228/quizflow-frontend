@@ -1,24 +1,19 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useLeaderboard } from '../hooks/useLeaderboard';
+import { useStudentProfile } from '../context/StudentProfileContext';
 
-const TOP = [
-  { rank: 1, name: 'Иван Р.', xp: 2154, medal: 'gold', trophy: true },
-  { rank: 2, name: 'Михаил Т.', xp: 1989, medal: 'silver', trophy: false },
-  { rank: 3, name: 'Анна С.', xp: 1950, medal: 'bronze', trophy: false },
-];
-
-const REST = [
-  { rank: 4, name: 'Иван Б.', xp: 1867 },
-  { rank: 5, name: 'Петр В.', xp: 1752 },
-  { rank: 6, name: 'Арина К.', xp: 1683 },
-  { rank: 7, name: 'Данил К.', xp: 1546 },
-];
-
-const COURSE_TOP = ['Иван Р.', 'Анна С.', 'Петр В.'];
+const MEDAL_VARIANTS = ['gold', 'silver', 'bronze'];
 
 export default function LeaderboardPage() {
   const [q, setQ] = useState('');
+  const { profile } = useStudentProfile();
+  const { all, groupRanking, loading } = useLeaderboard(profile?.group_id ?? null);
 
-  const filtered = REST.filter((r) => r.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const top3 = useMemo(() => all.slice(0, 3), [all]);
+  const rest = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return all.slice(3).filter((r) => !term || r.name.toLowerCase().includes(term));
+  }, [all, q]);
 
   return (
     <div className="student-page-wrap">
@@ -28,58 +23,104 @@ export default function LeaderboardPage() {
           <input
             type="search"
             className="qf-search"
-            placeholder="Поиск студентов..." 
+            placeholder="Поиск студентов..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
             aria-label="Поиск студентов"
           />
         </header>
 
-        <div className="lb-grid">
-          <div className="lb-main">
-            {TOP.map((row) => (
-              <div key={row.rank} className="student-card lb-top-card">
-                <Medal rank={row.rank} variant={row.medal} />
-                <div>
-                  <div className="lb-name">
-                    {row.name}
-                    {row.trophy ? <span aria-hidden>🏆</span> : null}
-                  </div>
-                </div>
-                <div className="lb-xp">{row.xp} XP</div>
-              </div>
-            ))}
-
-            <div className="student-card lb-list">
-              {filtered.map((row, i) => (
-                <div key={row.rank} className={i < filtered.length - 1 ? 'lb-row' : 'lb-row lb-row--last'}>
-                  <span className="lb-rank-num">{row.rank}</span>
-                  <img src="/icons/Standard_avatar.png" alt="" width={40} height={40} className="lb-av" />
-                  <span className="lb-row-name">{row.name}</span>
-                  <span className="lb-row-xp">{row.xp} XP</span>
-                </div>
-              ))}
-            </div>
+        {loading ? (
+          <div className="lb-spinner-wrap">
+            <div className="lb-spinner" />
+            <p className="lb-spinner-text">Загрузка рейтинга…</p>
           </div>
-
-          <aside className="student-card lb-aside">
-            <h2 className="lb-aside-title">Рейтинг среди курса</h2>
-            <ul className="lb-aside-list">
-              {COURSE_TOP.map((n) => (
-                <li key={n} className="lb-aside-item">
-                  <img src="/icons/Standard_avatar.png" alt="" width={36} height={36} className="lb-av" />
-                  <span className="lb-aside-name">{n}</span>
-                </li>
+        ) : all.length === 0 ? (
+          <div className="lb-empty-root">
+            <div className="lb-empty-icon">🏆</div>
+            <p className="lb-empty-msg">
+              Пока нет данных для отображения. Пройдите первый тест!
+            </p>
+          </div>
+        ) : (
+          <div className="lb-grid">
+            {/* ── Main column ── */}
+            <div className="lb-main">
+              {/* Top-3 podium cards */}
+              {top3.map((row, i) => (
+                <div
+                  key={row.id}
+                  className={`student-card lb-top-card${row.id === profile?.id ? ' lb-card--me' : ''}`}
+                >
+                  <Medal rank={row.rank} variant={MEDAL_VARIANTS[i]} />
+                  <Avatar url={row.avatarUrl} size={52} />
+                  <div className="lb-name-block">
+                    <div className="lb-name">{row.name}</div>
+                    <div className="lb-name-sub">{row.spCoins} SP</div>
+                  </div>
+                  <div className="lb-xp">{row.totalScore} очков</div>
+                </div>
               ))}
-            </ul>
-            <hr className="lb-hr" />
-            <h2 className="lb-aside-title">Рейтинг среди группы</h2>
-            <p className="lb-empty">Нет данных для отображения.</p>
-          </aside>
-        </div>
+
+              {/* Ranked list (rank 4+) */}
+              {all.length > 3 && (
+                <div className="student-card lb-list">
+                  {rest.length === 0 ? (
+                    <p className="lb-not-found">Студент не найден</p>
+                  ) : (
+                    rest.map((row, i) => (
+                      <div
+                        key={row.id}
+                        className={[
+                          'lb-row',
+                          i === rest.length - 1 && 'lb-row--last',
+                          row.id === profile?.id && 'lb-row--me',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
+                        <span className="lb-rank-num">{row.rank}</span>
+                        <Avatar url={row.avatarUrl} size={40} />
+                        <span className="lb-row-name">{row.name}</span>
+                        <span className="lb-row-xp">{row.totalScore} очков</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── Aside: group ranking ── */}
+            <aside className="student-card lb-aside">
+              <h2 className="lb-aside-title">Рейтинг группы</h2>
+              {groupRanking.length === 0 ? (
+                <p className="lb-empty">
+                  {profile?.group_id
+                    ? 'Нет данных для отображения.'
+                    : 'Вы не состоите в группе.'}
+                </p>
+              ) : (
+                <ul className="lb-aside-list">
+                  {groupRanking.slice(0, 10).map((r) => (
+                    <li
+                      key={r.id}
+                      className={`lb-aside-item${r.id === profile?.id ? ' lb-aside-item--me' : ''}`}
+                    >
+                      <span className="lb-aside-rank">{r.rank}</span>
+                      <Avatar url={r.avatarUrl} size={34} />
+                      <span className="lb-aside-name">{r.name}</span>
+                      <span className="lb-aside-score">{r.totalScore}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </aside>
+          </div>
+        )}
       </div>
 
       <style>{`
+        /* ── Layout ── */
         .lb-root { width: 100%; max-width: none; margin: 0; }
         .lb-header {
           display: flex;
@@ -97,116 +138,176 @@ export default function LeaderboardPage() {
           align-items: start;
         }
         @media (min-width: 1024px) {
-          .lb-grid {
-            grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
-            gap: 28px;
-          }
+          .lb-grid { grid-template-columns: minmax(0,1fr) minmax(260px,340px); gap: 28px; }
         }
+
+        /* ── Spinner / empty states ── */
+        .lb-spinner-wrap {
+          display: flex; flex-direction: column; align-items: center;
+          padding: 60px 0; gap: 16px; color: var(--qf-text-muted);
+        }
+        .lb-spinner {
+          width: 36px; height: 36px;
+          border: 3px solid var(--qf-border-subtle);
+          border-top-color: #338ff9;
+          border-radius: 50%;
+          animation: lb-spin .8s linear infinite;
+        }
+        @keyframes lb-spin { to { transform: rotate(360deg); } }
+        .lb-spinner-text { font-size: 15px; font-family: var(--qf-font); }
+        .lb-empty-root {
+          display: flex; flex-direction: column; align-items: center;
+          padding: 60px 0; gap: 12px; color: var(--qf-text-muted);
+        }
+        .lb-empty-icon { font-size: 52px; }
+        .lb-empty-msg { font-size: 15px; font-family: var(--qf-font); text-align: center; }
+
+        /* ── Main column ── */
         .lb-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+        /* Top-3 cards */
         .lb-top-card {
           display: grid;
-          grid-template-columns: 72px 1fr auto;
+          grid-template-columns: 72px 56px 1fr auto;
           align-items: center;
-          gap: 18px;
+          gap: 16px;
           padding: 20px 24px;
         }
+        .lb-card--me { outline: 2px solid #338ff9; }
+        .lb-name-block { min-width: 0; }
         .lb-name {
           font-weight: var(--qf-fw-bold);
-          font-size: 20px;
+          font-size: 18px;
           font-family: var(--qf-font);
-          display: flex;
-          align-items: center;
-          gap: 8px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .lb-name-sub {
+          font-size: 13px;
+          font-weight: var(--qf-fw-medium);
+          color: var(--qf-text-muted);
+          font-family: var(--qf-font);
         }
         .lb-xp {
           font-weight: var(--qf-fw-black);
-          font-size: 22px;
+          font-size: 18px;
           color: #338ff9;
           font-family: var(--qf-font);
+          white-space: nowrap;
         }
+
+        /* Ranked list */
         .lb-list { padding: 0; overflow: hidden; }
+        .lb-not-found {
+          padding: 20px; text-align: center;
+          color: var(--qf-text-muted); font-size: 14px; font-family: var(--qf-font);
+        }
         .lb-row {
           display: grid;
-          grid-template-columns: 48px 48px 1fr auto;
+          grid-template-columns: 48px 44px 1fr auto;
           align-items: center;
           gap: 12px;
-          padding: 14px 20px;
+          padding: 12px 20px;
           border-bottom: 1px solid var(--qf-border-subtle);
+          transition: background .15s;
         }
+        .lb-row:hover { background: #f8faff; }
         .lb-row--last { border-bottom: none; }
+        .lb-row--me { background: #eff6ff; }
+        .lb-row--me:hover { background: #dbeafe; }
         .lb-rank-num {
-          font-size: 18px;
-          font-weight: var(--qf-fw-black);
-          color:rgb(0, 0, 0);
-          font-family: var(--qf-font);
+          font-size: 17px; font-weight: var(--qf-fw-black);
+          color: #111; font-family: var(--qf-font);
         }
-        .lb-av { border-radius: 50%; object-fit: cover; }
         .lb-row-name {
-          font-size: 18px;
-          font-weight: var(--qf-fw-bold);
+          font-size: 16px; font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         .lb-row-xp {
-          font-size: 18px;
-          font-weight: var(--qf-fw-black);
-          color: #338ff9;
-          font-family: var(--qf-font);
+          font-size: 16px; font-weight: var(--qf-fw-black);
+          color: #338ff9; font-family: var(--qf-font); white-space: nowrap;
         }
+
+        /* Avatar */
+        .lb-av { border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+
+        /* ── Aside ── */
         .lb-aside { width: 100%; }
         .lb-aside-title {
-          text-align: center;
-          width: 100%; /* Убедитесь, что заголовок занимает всю ширину карточки */
-          display: block;
-          font-size: 16px;
-          font-weight: var(--qf-fw-extrabold);
-          font-family: var(--qf-font);
-          color:rgb(0, 0, 0);
-          margin: 0 0 16px;
+          text-align: center; display: block;
+          font-size: 16px; font-weight: var(--qf-fw-extrabold);
+          font-family: var(--qf-font); color: #111; margin: 0 0 16px;
         }
         .lb-aside-list { list-style: none; padding: 0; margin: 0; }
-        .lb-aside-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
-        .lb-aside-name {
-          font-size: 16px;
-          font-weight: var(--qf-fw-bold);
-          font-family: var(--qf-font);
-        }
-        .lb-hr { border: none; border-top: 2px solid var(--qf-border-subtle); margin: 16px 0; color: #838383}
-        .lb-empty {
-          margin: 0;
-          color: var(--qf-text-muted);
-          font-size: 14px;
-          font-weight: var(--qf-fw-medium);
-          font-family: var(--qf-font);
-        }
-        .lb-medal {
-          width: 64px;
-          height: 64px;
-          border-radius: 50%;
-          display: flex;
+        .lb-aside-item {
+          display: grid;
+          grid-template-columns: 28px 38px 1fr auto;
           align-items: center;
-          justify-content: center;
-          color: #fff;
-          font-weight: var(--qf-fw-black);
-          font-size: 24px;
+          gap: 8px;
+          padding: 7px 0;
+          border-bottom: 1px solid var(--qf-border-subtle);
+        }
+        .lb-aside-item:last-child { border-bottom: none; }
+        .lb-aside-item--me { background: #eff6ff; border-radius: 8px; padding: 7px 6px; }
+        .lb-aside-rank {
+          font-size: 13px; font-weight: var(--qf-fw-black);
+          color: #555; font-family: var(--qf-font); text-align: center;
+        }
+        .lb-aside-name {
+          font-size: 14px; font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
-          font-variant-numeric: tabular-nums;
-          box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .lb-aside-score {
+          font-size: 13px; font-weight: var(--qf-fw-black);
+          color: #338ff9; font-family: var(--qf-font); white-space: nowrap;
+        }
+        .lb-hr { border: none; border-top: 2px solid var(--qf-border-subtle); margin: 16px 0; }
+        .lb-empty {
+          margin: 0; color: var(--qf-text-muted);
+          font-size: 14px; font-weight: var(--qf-fw-medium); font-family: var(--qf-font);
+        }
+
+        /* ── Medal circle ── */
+        .lb-medal {
+          width: 64px; height: 64px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          color: #fff; font-weight: var(--qf-fw-black); font-size: 24px;
+          font-family: var(--qf-font); font-variant-numeric: tabular-nums;
+          box-shadow: 0 6px 16px rgba(0,0,0,.12);
         }
       `}</style>
     </div>
   );
 }
 
+/* ── Sub-components ── */
+
 function Medal({ rank, variant }) {
   const bg =
     variant === 'gold'
-      ? 'linear-gradient(145deg, #f6d365, #fda085)'
+      ? 'linear-gradient(145deg,#f6d365,#fda085)'
       : variant === 'silver'
-        ? 'linear-gradient(145deg, #e2e8f0, #94a3b8)'
-        : 'linear-gradient(145deg, #fdba74, #c2410c)';
+        ? 'linear-gradient(145deg,#e2e8f0,#94a3b8)'
+        : 'linear-gradient(145deg,#fdba74,#c2410c)';
   return (
     <div className="lb-medal" style={{ background: bg }} aria-hidden>
       {rank}
     </div>
+  );
+}
+
+function Avatar({ url, size }) {
+  return (
+    <img
+      src={url || '/icons/Standard_avatar.png'}
+      alt=""
+      width={size}
+      height={size}
+      className="lb-av"
+      onError={(e) => { e.currentTarget.src = '/icons/Standard_avatar.png'; }}
+    />
   );
 }

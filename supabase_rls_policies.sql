@@ -115,19 +115,44 @@ CREATE POLICY "Users can insert own purchases"
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Students/teachers must be able to read their own profile
--- (group_id, sp_coins, avatar, etc. are loaded from here).
-DROP POLICY IF EXISTS "Users can read own profile"   ON profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+-- All authenticated users can read all profiles.
+-- This is intentional: the leaderboard displays names, avatars, and
+-- scores for every student, so a broader read policy is required.
+DROP POLICY IF EXISTS "Users can read own profile"              ON profiles;
+DROP POLICY IF EXISTS "Authenticated users can read all profiles" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile"            ON profiles;
 
-CREATE POLICY "Users can read own profile"
+CREATE POLICY "Authenticated users can read all profiles"
   ON profiles FOR SELECT TO authenticated
-  USING (auth.uid() = id);
+  USING (true);
 
 CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE TO authenticated
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
+
+-- ── test_results ───────────────────────────────────────────────
+-- Needed for the leaderboard (sum scores per student) and for
+-- students to see their own past results.
+
+ALTER TABLE test_results ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can read test results"  ON test_results;
+DROP POLICY IF EXISTS "Students can insert own test results"       ON test_results;
+DROP POLICY IF EXISTS "Students can update own test results"       ON test_results;
+
+CREATE POLICY "Authenticated users can read test results"
+  ON test_results FOR SELECT TO authenticated
+  USING (true);
+
+CREATE POLICY "Students can insert own test results"
+  ON test_results FOR INSERT TO authenticated
+  WITH CHECK (student_id = auth.uid());
+
+CREATE POLICY "Students can update own test results"
+  ON test_results FOR UPDATE TO authenticated
+  USING  (student_id = auth.uid())
+  WITH CHECK (student_id = auth.uid());
 
 -- ── tests ─────────────────────────────────────────────────────
 -- Students must be able to read active tests; teachers must be
