@@ -279,9 +279,10 @@ export default function HomePage() {
           border-radius: 14px;
           padding: 16px;
           background: var(--qf-card);
+          color: var(--qf-text-body);
           cursor: pointer;
           text-align: center;
-          transition: box-shadow 0.2s ease;
+          transition: box-shadow 0.2s ease, color 0.2s ease, background-color 0.2s ease;
         }
         .home-shop-grid__item:hover {
           box-shadow: 0 8px 24px rgba(18, 122, 182, 0.12);
@@ -327,10 +328,12 @@ export default function HomePage() {
           gap: 6px;
           font-weight: var(--qf-fw-semibold);
           font-family: var(--qf-font);
+          color: var(--qf-text-body);
         }
         .home-shop-grid__price-txt {
           font-weight: var(--qf-fw-semibold);
           font-family: var(--qf-font);
+          color: var(--qf-text-body);
         }
         .home-leaders {
           list-style: none;
