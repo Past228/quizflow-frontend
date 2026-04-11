@@ -401,7 +401,7 @@ export default function AuthWithHTML() {
                     email: cleanData.email,
                     role: 'teacher',
                     avatar_url: null,
-                    invite_code_id: codeData.id,
+                    invite_code_id: codeId,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 });
