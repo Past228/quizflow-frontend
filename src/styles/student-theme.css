@@ -398,47 +398,200 @@ body {
   transition: width 0.35s ease;
 }
 
-/* Тёмная тема («Сменить тему»): серо-синий сайдбар, тёмный фон контента */
+/* ══════════════════════════════════════════════════════════════
+   ТЁМНАЯ ТЕМА — комфорт для глаз
+   Принципы:
+   • Фон ≈ 13–18% яркости (не чёрный, иначе ореол и усталость)
+   • Карточки ≈ 17–22% яркости (заметный, но мягкий подъём)
+   • Текст ≈ 72–80% яркости на тёмном фоне → контраст ≈ 7–9:1
+   • Синий акцент — приглушённый blue-400, без слепящего sky-blue
+   ══════════════════════════════════════════════════════════════ */
 html.qf-theme-alt {
-  --qf-bg: #0c1017;
-  --qf-dark-blue: #7dd3fc;
-  --qf-card: #1a2332;
-  --qf-text-body: #e2e8f0;
-  --qf-text-muted: #94a3b8;
-  --qf-border-subtle: rgba(255, 255, 255, 0.08);
-  --qf-sidebar-bg: #2a3544;
-  --qf-sidebar-fg: #e8edf4;
-  --qf-nav-link-bg: transparent;
-  --qf-nav-hover: rgba(51, 143, 249, 0.14);
-  --qf-avatar-border: rgba(125, 211, 252, 0.4);
-  --qf-input-placeholder: #94a3b8;
-  --qf-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
-  --qf-accent-border-soft: rgba(125, 211, 252, 0.22);
-  --qf-border-control: #64748b;
+  /* Фон страницы: тёмно-синий, не питч-чёрный */
+  --qf-bg:              #1b2333;
+  /* Карточки: чуть светлее фона, хорошо читаемые */
+  --qf-card:            #232e42;
+  /* Основной текст: приглушённый сине-серый, без слепящего белого */
+  --qf-text-body:       #b2c2d4;
+  --qf-text-muted:      #6b7f96;
+  /* Границы */
+  --qf-border-subtle:   rgba(255, 255, 255, 0.07);
+  --qf-border-control:  #3d5065;
+  /* Сайдбар: чуть темнее фона для визуального разделения */
+  --qf-sidebar-bg:      #16202e;
+  --qf-sidebar-fg:      #b2c2d4;
+  /* Навигация */
+  --qf-nav-link-bg:     transparent;
+  --qf-nav-hover:       rgba(96, 165, 250, 0.12);
+  /* Акцент — blue-400, мягче и без слепящего sky-300 */
+  --qf-dark-blue:       #60a5fa;
+  /* Аватар */
+  --qf-avatar-border:   rgba(96, 165, 250, 0.35);
+  /* Поле ввода */
+  --qf-input-placeholder: #6b7f96;
+  /* Тени — менее глубокие, чтобы не создавать «дыры» */
+  --qf-shadow:          0 8px 24px rgba(0, 0, 0, 0.28);
+  --qf-accent-border-soft: rgba(96, 165, 250, 0.18);
 }
 
+/* Поле поиска в тёмной теме */
 html.qf-theme-alt .qf-search {
-  border-color: rgba(125, 211, 252, 0.25);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='%237DD3FC' stroke-width='2'%3E%3Ccircle cx='9' cy='9' r='7'/%3E%3Cpath d='M14 14l4 4'/%3E%3C/svg%3E");
+  background-color:  #1e2c3e;
+  border-color:      rgba(96, 165, 250, 0.22);
+  background-image:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='%2360A5FA' stroke-width='2'%3E%3Ccircle cx='9' cy='9' r='7'/%3E%3Cpath d='M14 14l4 4'/%3E%3C/svg%3E");
 }
-
 html.qf-theme-alt .qf-search:focus {
   border-color: var(--qf-bright-blue);
-  box-shadow: 0 0 0 3px rgba(51, 143, 249, 0.25);
+  box-shadow:   0 0 0 3px rgba(96, 165, 250, 0.22);
 }
 
+/* Полоса прогресса */
 html.qf-theme-alt .qf-progress {
-  background: rgba(51, 143, 249, 0.22);
+  background: rgba(96, 165, 250, 0.18);
 }
 
+/* Кнопки — слегка потемнее тёмный вариант outline/secondary */
+html.qf-theme-alt .student-card {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ВЕРСИЯ ДЛЯ СЛАБОВИДЯЩИХ (html.qf-a11y)
+   Принципы:
+   • Крупный шрифт (120%), увеличенный интерлиньяж
+   • Повышенный контраст текста и границ элементов
+   • Touch-targets кнопок и полей ≥ 48 px
+   • Заметные кольца фокуса (3 px, синие)
+   • Меньше «тонкого» мутного цвета — серый текст темнее
+   ══════════════════════════════════════════════════════════════ */
 html.qf-a11y {
-  font-size: 110%;
+  font-size: 120%;
+  /* Повышенный контраст: более тёмный body-цвет */
+  --qf-text-body:    #0d1320;
+  --qf-text-muted:   #374151;
+  /* Видимые границы карточек */
+  --qf-border-subtle: #b6c4d4;
+  --qf-border-control: #6b7f96;
 }
 
+/* Межстрочный интервал и трекинг для облегчения чтения */
+html.qf-a11y body {
+  line-height: 1.7;
+  letter-spacing: 0.015em;
+}
+
+/* Видимые границы карточек */
+html.qf-a11y .student-card {
+  border: 2px solid rgba(51, 143, 249, 0.22);
+}
+
+/* Крупные интерактивные цели (≥ 48 px) */
+html.qf-a11y .qf-btn-primary {
+  min-height: 52px;
+  padding: 14px 28px;
+  font-size: 1.05em;
+  letter-spacing: 0.03em;
+}
+
+html.qf-a11y .qf-search {
+  min-height: 52px;
+  font-size: 1.05em;
+  border-width: 2px;
+}
+
+/* Жирные/заметные индикаторы фокуса */
+html.qf-a11y *:focus-visible {
+  outline: 3px solid #127ab6;
+  outline-offset: 3px;
+}
+
+/* Сайдбар: больший логотип и иконки */
 html.qf-a11y .student-sidebar__brand {
-  font-size: calc(15px * 1.1);
-  line-height: calc(25px * 1.1);
-  height: calc(25px * 1.1);
+  font-size:   calc(15px * 1.2);
+  line-height: calc(25px * 1.2);
+  height:      calc(25px * 1.2);
+}
+
+html.qf-a11y .student-sidebar__link img {
+  width:  calc(var(--qf-sidebar-icon) * 1.1);
+  height: calc(var(--qf-sidebar-icon) * 1.1);
+}
+
+/* Мутный текст темнее, чтобы слабовидящим было легче */
+html.qf-a11y .student-card p,
+html.qf-a11y .student-card span {
+  color: inherit;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ТЁМНАЯ ТЕМА — переопределение компонент-специфичных классов
+   (Все компоненты используют глобальные CSS-классы, поэтому
+    переопределения здесь покрывают все страницы разом)
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Prefix-чип (PlayerName, лидеры, сайдбар) ── */
+.qf-prefix-chip {
+  background: #f3f4f6;
+  color:      #374151;
+}
+html.qf-theme-alt .qf-prefix-chip {
+  background: rgba(255, 255, 255, 0.09);
+  color:      var(--qf-text-muted);
+}
+
+/* ── Главная страница ── */
+html.qf-theme-alt .home-section-title     { color: var(--qf-text-body) !important; }
+html.qf-theme-alt .home-shop-grid__title  { color: var(--qf-text-body); }
+html.qf-theme-alt .home-leaders__row      { border-color: var(--qf-border-subtle); }
+html.qf-theme-alt .home-shop-grid__item:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+/* ── Доска лидеров ── */
+html.qf-theme-alt .lb-rank-num       { color: var(--qf-text-body); }
+html.qf-theme-alt .lb-aside-title    { color: var(--qf-text-body); }
+html.qf-theme-alt .lb-aside-rank     { color: var(--qf-text-muted); }
+html.qf-theme-alt .lb-row:hover      { background: rgba(96, 165, 250, 0.08); }
+html.qf-theme-alt .lb-row--me        { background: rgba(96, 165, 250, 0.12); }
+html.qf-theme-alt .lb-row--me:hover  { background: rgba(96, 165, 250, 0.18); }
+html.qf-theme-alt .lb-aside-item--me { background: rgba(96, 165, 250, 0.12); }
+
+/* ── Магазин ── */
+html.qf-theme-alt .shop-toast--success {
+  background:  rgba(22, 101, 52, 0.28);
+  color:       #86efac;
+}
+html.qf-theme-alt .shop-toast--error {
+  background:  rgba(153, 27, 27, 0.28);
+  color:       #fca5a5;
+}
+html.qf-theme-alt .shop-col-placeholder { color: var(--qf-text-muted); }
+html.qf-theme-alt .shop-col-spinner {
+  border-color:     rgba(255, 255, 255, 0.08);
+  border-top-color: var(--qf-dark-blue);
+}
+html.qf-theme-alt .shop-card__desc { color: var(--qf-text-muted); }
+html.qf-theme-alt .shop-card__btn--broke {
+  background: rgba(185, 28, 28, 0.22);
+  color:      #fca5a5;
+}
+html.qf-theme-alt .shop-card__btn--activate {
+  background: rgba(30, 64, 175, 0.25);
+  color:      #93c5fd;
+}
+html.qf-theme-alt .shop-card__btn--activate:hover { background: rgba(30, 64, 175, 0.38); }
+html.qf-theme-alt .shop-card__btn--active {
+  background: rgba(6, 95, 70, 0.25);
+  color:      #6ee7b7;
+}
+html.qf-theme-alt .shop-card__btn--loading {
+  background: rgba(255, 255, 255, 0.06);
+  color:      var(--qf-text-muted);
+}
+
+/* ── Страница теста ── */
+html.qf-theme-alt .test-timer-strip {
+  background: rgba(96, 165, 250, 0.14) !important;
 }
 
 /* Gothic A1 — цифры Black (макет) */

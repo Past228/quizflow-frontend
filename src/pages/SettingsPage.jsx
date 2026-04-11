@@ -185,10 +185,37 @@ export default function SettingsPage() {
           min-width: 240px;
         }
         html.qf-theme-alt .settings-page__logout {
-          background: linear-gradient(135deg, #338ff9, #1e5a8a) !important;
+          background: linear-gradient(135deg, #4f8fe0, #1e4f7a) !important;
         }
+        /* Switch track — off state matches the new muted border palette */
         html.qf-theme-alt .settings-switch:not(.settings-switch--on) {
-          background: #475569;
+          background: #3d5065;
+        }
+        /* A11y mode: larger row padding and text for better readability */
+        html.qf-a11y .settings-row {
+          padding: 30px 32px;
+        }
+        html.qf-a11y .settings-label {
+          font-size: 22px;
+          font-weight: var(--qf-fw-semibold);
+        }
+        html.qf-a11y .settings-switch {
+          width: 62px;
+          height: 36px;
+        }
+        html.qf-a11y .settings-switch__thumb {
+          width: 28px;
+          height: 28px;
+          top: 4px;
+          left: 4px;
+        }
+        html.qf-a11y .settings-switch--on .settings-switch__thumb {
+          transform: translateX(26px);
+        }
+        html.qf-a11y .settings-toggle {
+          min-height: 52px;
+          font-size: 22px;
+          padding: 14px 24px;
         }
       `}</style>
     </div>

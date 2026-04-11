@@ -94,6 +94,7 @@ export default function TestPage() {
 
         <section className="student-card" style={{ padding: 0, overflow: 'hidden' }}>
           <div
+            className="test-timer-strip"
             style={{
               height: 44,
               background: 'rgba(51, 143, 249, 0.12)',

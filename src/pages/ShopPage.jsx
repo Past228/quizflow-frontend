@@ -389,13 +389,11 @@ export default function ShopPage() {
           font-size: 18px;
           font-weight: var(--qf-fw-semibold);
           font-family: var(--qf-font);
-          line-height: 1;
         }
         .shop-balance-num {
           font-size: 28px;
           font-weight: var(--qf-fw-black);
           font-family: var(--qf-font);
-          line-height: 1;
         }
         .shop-header-balance {
           display: flex;
@@ -448,7 +446,6 @@ export default function ShopPage() {
           font-family: var(--qf-font);
           text-align: center;
           padding-bottom: 10px;
-          border-bottom: 2px solid #e5e7eb;
           margin: 0;
         }
         .shop-column__items {

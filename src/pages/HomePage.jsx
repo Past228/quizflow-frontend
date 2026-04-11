@@ -90,9 +90,9 @@ export default function HomePage() {
             <section className="student-card">
               <h2 className="home-section-title">Доступные тесты:</h2>
               {loading ? (
-                <p style={{ color: '#000' }}>Загрузка…</p>
+                <p style={{ color: 'var(--qf-text-body)' }}>Загрузка…</p>
               ) : displayTests.length === 0 ? (
-                <p style={{ color: '#000', marginBottom: 16 }}>
+                <p style={{ color: 'var(--qf-text-body)', marginBottom: 16 }}>
                   Для вашей группы пока нет назначенных тестов. Откройте каталог.
                 </p>
               ) : null}
@@ -136,7 +136,7 @@ export default function HomePage() {
                       <div className="home-shop-grid__title">{item.name || item.title}</div>
                       <div className="home-shop-grid__price">
                         <img src="/icons/sp_coins.png" alt="" width={18} height={18} style={{ display: 'block' }} />
-                        <span className="home-shop-grid__price-txt">SP {item.price}</span>
+                        <span className="home-shop-grid__price-txt">{item.price}</span>
                       </div>
                     </button>
                   ))}
@@ -184,17 +184,19 @@ export default function HomePage() {
                     {/* Prefix + colored name */}
                     <span style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
                       {u.activePrefix?.title && (
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, padding: '1px 7px',
-                          borderRadius: 20, background: '#f3f4f6', color: '#374151',
-                          whiteSpace: 'nowrap', flexShrink: 0,
-                        }}>
+                        <span
+                          className="qf-prefix-chip"
+                          style={{
+                            fontSize: 11, fontWeight: 700, padding: '1px 7px',
+                            borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0,
+                          }}
+                        >
                           {u.activePrefix.title}
                         </span>
                       )}
                       <span style={{
                         fontSize: 16, fontWeight: 700, fontFamily: 'var(--qf-font)',
-                        color: u.activeColor?.hex_code || '#000',
+                        color: u.activeColor?.hex_code || 'var(--qf-text-body)',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}>
                         {u.name}
@@ -329,7 +331,6 @@ export default function HomePage() {
         .home-shop-grid__price-txt {
           font-weight: var(--qf-fw-semibold);
           font-family: var(--qf-font);
-          line-height: 1;
         }
         .home-leaders {
           list-style: none;

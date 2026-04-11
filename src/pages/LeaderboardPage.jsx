@@ -9,11 +9,13 @@ export default function LeaderboardPage() {
   const { profile } = useStudentProfile();
   const { all, groupRanking, loading } = useLeaderboard(profile?.group_id ?? null);
 
-  const top3 = useMemo(() => all.slice(0, 3), [all]);
+  const term = q.trim().toLowerCase();
+  const top3 = useMemo(() => {
+    return all.slice(0, 3).filter((r) => !term || r.name.toLowerCase().includes(term));
+  }, [all, term]);
   const rest = useMemo(() => {
-    const term = q.trim().toLowerCase();
     return all.slice(3).filter((r) => !term || r.name.toLowerCase().includes(term));
-  }, [all, q]);
+  }, [all, term]);
 
   return (
     <div className="student-page-wrap">
@@ -339,16 +341,17 @@ function PlayerName({ name, prefix, color, size }) {
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
       {prefix?.title && (
-        <span style={{
-          fontSize: Math.max(10, size - 3),
-          fontWeight: 700,
-          padding: '1px 7px',
-          borderRadius: 20,
-          background: '#f3f4f6',
-          color: '#374151',
-          whiteSpace: 'nowrap',
-          flexShrink: 0,
-        }}>
+        <span
+          className="qf-prefix-chip"
+          style={{
+            fontSize: Math.max(10, size - 3),
+            fontWeight: 700,
+            padding: '1px 7px',
+            borderRadius: 20,
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+        >
           {prefix.title}
         </span>
       )}
@@ -356,7 +359,7 @@ function PlayerName({ name, prefix, color, size }) {
         fontSize: size,
         fontWeight: 700,
         fontFamily: 'var(--qf-font)',
-        color: color?.hex_code || '#111',
+        color: color?.hex_code || 'var(--qf-text-body)',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
