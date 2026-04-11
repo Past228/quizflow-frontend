@@ -808,7 +808,11 @@
         /* ── Avatar frame overlay ───────────────────────── */
         .user-avatar-frame {
             position: absolute;
-            inset: -20px;   /* extends 20px outside the 80 × 80 avatar on every side */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: calc(100% + 40px);   /* 20 px outside the 80px avatar on each side */
+            height: calc(100% + 40px);
             object-fit: contain;
             pointer-events: none;
             z-index: 3;
