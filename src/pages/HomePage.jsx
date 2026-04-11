@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStudentProfile } from '../context/StudentProfileContext';
 import { useStudentTests } from '../hooks/useStudentTests';
+import { supabase } from '../lib/supabaseClient';
 
 const LEADERS = [
   { name: 'Иван Р.', avatar: '/icons/Men_avatar.png' },
@@ -8,16 +10,76 @@ const LEADERS = [
   { name: 'Петр В.', avatar: '/icons/Boy_avatar.png' },
 ];
 
-const SHOP_PREVIEW = [
-  { title: 'Неоновая рамка', price: 100, accent: '#ff5959' },
-  { title: 'Цветное имя', price: 50, label: 'Иван' },
-  { title: 'Пропуск вопроса', price: 100, glyph: '?' },
-];
+const BONUS_GLYPH = { attempt: '↻', hint: '💡', skip: '?' };
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { groupId, loading: profileLoading } = useStudentProfile();
   const { tests, loading: testsLoading } = useStudentTests(groupId);
+
+  const [shopItems, setShopItems] = useState([]);
+  const [shopPreviewLoading, setShopPreviewLoading] = useState(true);
+
+  useEffect(() => {
+    loadShopPreview();
+  }, []);
+
+  async function loadShopPreview() {
+    setShopPreviewLoading(true);
+    try {
+      const [frameRes, colorRes, prefixRes, bonusRes] = await Promise.all([
+        supabase.from('items_frames').select('id, name, image_url, price').order('price').limit(1),
+        supabase.from('items_name_colors').select('id, name, hex_code, price').order('price').limit(1),
+        supabase.from('items_prefixes').select('id, title, price').order('price').limit(1),
+        supabase.from('shop_bonuses').select('id, name, price').order('price').limit(1),
+      ]);
+      const items = [];
+      if (frameRes.data?.[0])  items.push({ type: 'frame',      ...frameRes.data[0] });
+      if (colorRes.data?.[0])  items.push({ type: 'name_color', ...colorRes.data[0] });
+      if (prefixRes.data?.[0]) items.push({ type: 'prefix',     ...prefixRes.data[0] });
+      if (bonusRes.data?.[0])  items.push({ type: 'bonus',      ...bonusRes.data[0] });
+      setShopItems(items);
+    } catch (err) {
+      console.error('Shop preview load error:', err);
+    } finally {
+      setShopPreviewLoading(false);
+    }
+  }
+
+  function renderShopPreview(item) {
+    if (item.type === 'frame') {
+      return (
+        <img
+          src={item.image_url}
+          alt={item.name}
+          style={{ width: 56, height: 56, objectFit: 'contain' }}
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
+      );
+    }
+    if (item.type === 'name_color') {
+      return (
+        <span style={{ color: item.hex_code, fontWeight: 900, fontSize: '1.4rem', fontFamily: 'var(--qf-font)' }}>
+          Иван
+        </span>
+      );
+    }
+    if (item.type === 'prefix') {
+      return (
+        <span style={{ fontWeight: 700, color: 'var(--qf-dark-blue)', fontSize: '1.2rem', fontFamily: 'var(--qf-font)' }}>
+          {item.title}
+        </span>
+      );
+    }
+    if (item.type === 'bonus') {
+      return (
+        <span style={{ fontSize: '2.4rem', lineHeight: 1 }} aria-hidden>
+          {BONUS_GLYPH[item.id] || '★'}
+        </span>
+      );
+    }
+    return null;
+  }
 
   const displayTests = tests.slice(0, 3);
   const loading = profileLoading || testsLoading;
@@ -61,36 +123,31 @@ export default function HomePage() {
 
             <section className="student-card">
               <h2 className="home-section-title">Магазин предметов:</h2>
-              <div className="home-shop-grid">
-                {SHOP_PREVIEW.map((item) => (
-                  <button
-                    key={item.title}
-                    type="button"
-                    onClick={() => navigate('/shop')}
-                    className="home-shop-grid__item"
-                  >
-                    <div className="home-shop-grid__preview">
-                      {item.glyph ? (
-                        <span className="home-shop-grid__glyph">{item.glyph}</span>
-                      ) : item.label ? (
-                        <span className="home-shop-grid__gradient">{item.label}</span>
-                      ) : (
-                        <span
-                          className="home-shop-grid__neon"
-                          style={{ boxShadow: `0 0 0 4px ${item.accent}, 0 0 24px ${item.accent}` }}
-                        />
-                      )}
-                    </div>
-                    <div className="home-shop-grid__title">{item.title}</div>
-                    <div className="home-shop-grid__price">
-                      <img src="/icons/sp_coins.png" alt="" width={18} height={18} />
-                      <span className="home-shop-grid__price-txt">
-                        SP <span className="qf-num">{item.price}</span>
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {shopPreviewLoading ? (
+                <p style={{ color: '#9ca3af', fontFamily: 'var(--qf-font)', fontSize: 14 }}>Загрузка…</p>
+              ) : (
+                <div className="home-shop-grid">
+                  {shopItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => navigate('/shop')}
+                      className="home-shop-grid__item"
+                    >
+                      <div className="home-shop-grid__preview">
+                        {renderShopPreview(item)}
+                      </div>
+                      <div className="home-shop-grid__title">{item.name || item.title}</div>
+                      <div className="home-shop-grid__price">
+                        <img src="/icons/sp_coins.png" alt="" width={18} height={18} />
+                        <span className="home-shop-grid__price-txt">
+                          SP <span className="qf-num">{item.price}</span>
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </section>
           </div>
 
@@ -113,6 +170,13 @@ export default function HomePage() {
       </div>
 
       <style>{`
+        .qf-num {
+          line-height: 1;
+          display: inline-flex;
+          align-items: center;
+          height: 1em;
+          vertical-align: middle;
+        }
         .home-layout {
           display: grid;
           grid-template-columns: 1fr;
