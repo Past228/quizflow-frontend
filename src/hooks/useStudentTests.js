@@ -22,7 +22,6 @@ export function useStudentTests(groupId) {
             id,
             title,
             description,
-            time_limit,
             questions_count
           )
         `

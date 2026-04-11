@@ -66,6 +66,7 @@ export default function ShopPage() {
   const [prefixes, setPrefixes] = useState([]);
   const [bonuses, setBonuses] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [userPurchases, setUserPurchases] = useState([]);
   const [shopLoading, setShopLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(null);
   const [toast, setToast] = useState(null);
@@ -75,7 +76,10 @@ export default function ShopPage() {
   }, []);
 
   useEffect(() => {
-    if (profile?.id) loadInventory(profile.id);
+    if (profile?.id) {
+      loadInventory(profile.id);
+      loadUserPurchases(profile.id);
+    }
   }, [profile?.id]);
 
   async function loadShopData() {
@@ -87,6 +91,10 @@ export default function ShopPage() {
         supabase.from('items_prefixes').select('*').order('price'),
         supabase.from('shop_bonuses').select('*').order('price'),
       ]);
+      if (a.error) console.error('items_frames error:', a.error);
+      if (b.error) console.error('items_name_colors error:', b.error);
+      if (c.error) console.error('items_prefixes error:', c.error);
+      if (d.error) console.error('shop_bonuses error:', d.error);
       setFrames(a.data || []);
       setNameColors(b.data || []);
       setPrefixes(c.data || []);
@@ -99,17 +107,30 @@ export default function ShopPage() {
   }
 
   const loadInventory = useCallback(async (profileId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('user_inventory')
       .select('*')
       .eq('profile_id', profileId);
+    if (error) console.error('user_inventory error:', error);
     setInventory(data || []);
+  }, []);
+
+  const loadUserPurchases = useCallback(async (profileId) => {
+    const { data, error } = await supabase
+      .from('user_purchases')
+      .select('*')
+      .eq('profile_id', profileId);
+    if (error) console.error('user_purchases error:', error);
+    setUserPurchases(data || []);
   }, []);
 
   const ownedFrame  = (id) => inventory.some((i) => i.frame_id === id);
   const ownedColor  = (id) => inventory.some((i) => i.name_color_id === id);
   const ownedPrefix = (id) => inventory.some((i) => i.prefix_id === id);
-  const bonusCountFn = (bonusId) => inventory.filter((i) => i.item_type === bonusId).length;
+  const bonusCountFn = (bonusId) =>
+    userPurchases
+      .filter((p) => p.bonus_id === bonusId)
+      .reduce((sum, p) => sum + (p.amount ?? 1), 0);
 
   function showToast(type, text) {
     setToast({ type, text });
@@ -132,17 +153,26 @@ export default function ShopPage() {
         .eq('id', profile.id);
       if (e1) throw e1;
 
-      let invRow = { profile_id: profile.id };
-      if (itemType === 'frame')      invRow = { ...invRow, frame_id: item.id,      item_type: 'frame' };
-      else if (itemType === 'name_color') invRow = { ...invRow, name_color_id: item.id, item_type: 'name_color' };
-      else if (itemType === 'prefix')     invRow = { ...invRow, prefix_id: item.id,     item_type: 'prefix' };
-      else if (itemType === 'bonus')      invRow = { ...invRow, item_type: item.id };
-
-      const { error: e2 } = await supabase.from('user_inventory').insert(invRow);
-      if (e2) throw e2;
+      if (itemType === 'bonus') {
+        const { error: e2 } = await supabase.from('user_purchases').insert({
+          profile_id: profile.id,
+          bonus_id: item.id,
+          amount: 1,
+          total_price: item.price,
+        });
+        if (e2) throw e2;
+      } else {
+        let invRow = { profile_id: profile.id };
+        if (itemType === 'frame')           invRow = { ...invRow, frame_id: item.id,      item_type: 'frame' };
+        else if (itemType === 'name_color') invRow = { ...invRow, name_color_id: item.id, item_type: 'name_color' };
+        else if (itemType === 'prefix')     invRow = { ...invRow, prefix_id: item.id,     item_type: 'prefix' };
+        const { error: e2 } = await supabase.from('user_inventory').insert(invRow);
+        if (e2) throw e2;
+      }
 
       await refreshProfile();
       await loadInventory(profile.id);
+      await loadUserPurchases(profile.id);
       showToast('success', `${item.name || item.title} — куплено!`);
     } catch (err) {
       console.error('Purchase error:', err);
