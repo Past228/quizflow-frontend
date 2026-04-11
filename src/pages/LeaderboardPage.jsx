@@ -248,11 +248,11 @@ export default function LeaderboardPage() {
           grid-template-columns: 28px 38px 1fr auto;
           align-items: center;
           gap: 8px;
-          padding: 7px 12px 7px 0;
+          padding: 7px 0;
           border-bottom: 1px solid var(--qf-border-subtle);
         }
         .lb-aside-item:last-child { border-bottom: none; }
-        .lb-aside-item--me { background: #eff6ff; border-radius: 8px; padding: 7px 6px; }
+        .lb-aside-item--me { background: #eff6ff; border-radius: 8px; padding: 7px 4px; }
         .lb-aside-rank {
           font-size: 13px; font-weight: var(--qf-fw-black);
           color: #555; font-family: var(--qf-font); text-align: center;
