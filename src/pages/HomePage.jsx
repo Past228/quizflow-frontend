@@ -62,7 +62,7 @@ export default function HomePage() {
     }
     if (item.type === 'prefix') {
       return (
-        <span style={{ fontWeight: 700, color: 'var(--qf-dark-blue)', fontSize: '1.2rem', fontFamily: 'var(--qf-font)' }}>
+        <span style={{ fontWeight: 700, color: 'var(--qf-bright-blue)', fontSize: '1.2rem', fontFamily: 'var(--qf-font)' }}>
           {item.title}
         </span>
       );
@@ -260,7 +260,7 @@ export default function HomePage() {
           font-size: 24px;
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
-          color: #000;
+          color: var(--qf-text-body);
           margin: 0 0 22px;
           letter-spacing: 0.04em;
         }
@@ -317,7 +317,7 @@ export default function HomePage() {
           font-weight: var(--qf-fw-medium);
           font-size: 16px;
           margin-bottom: 8px;
-          color: #000;
+          color: var(--qf-text-body);
           font-family: var(--qf-font);
         }
         .home-shop-grid__price {
@@ -342,7 +342,7 @@ export default function HomePage() {
           align-items: center;
           gap: 12px;
           padding: 10px 0;
-          border-bottom: 2px solid #e5e7eb;
+          border-bottom: 2px solid var(--qf-border-subtle, #e5e7eb);
         }
         .home-leaders__row--last {
           border-bottom: none;
@@ -356,7 +356,7 @@ export default function HomePage() {
           font-size: 16px;
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
-          color: #000;
+          color: var(--qf-text-body);
         }
         .home-leaders__score {
           font-size: 14px;

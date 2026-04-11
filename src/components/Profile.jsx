@@ -4,6 +4,25 @@ import { supabase } from '../lib/supabaseClient';
 export default function Profile({ session, embedded = false, onAvatarUpdated }) {
     const iframeRef = useRef(null);
 
+    // Пробрасываем текущую тему в iframe при его загрузке и при смене темы
+    function syncThemeToIframe() {
+        if (!iframeRef.current?.contentWindow) return;
+        try {
+            const isDark = localStorage.getItem('qf_setting_theme') === '1';
+            const isA11y = localStorage.getItem('qf_setting_a11y') === '1';
+            iframeRef.current.contentWindow.postMessage(
+                { type: 'THEME_SYNC', data: { isDark, isA11y } },
+                '*'
+            );
+        } catch (e) { /* ignore */ }
+    }
+
+    useEffect(() => {
+        const observer = new MutationObserver(() => syncThemeToIframe());
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => observer.disconnect();
+    }, []);
+
     useEffect(() => {
         const handleMessage = async (event) => {
             const { type, data } = event.data;
@@ -504,7 +523,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                 frameBorder="0"
                 title="Profile"
                 style={{ display: 'block', flex: 1, minHeight: 0, border: 0 }}
-                onLoad={() => console.log('Profile iframe loaded')}
+                onLoad={() => { console.log('Profile iframe loaded'); syncThemeToIframe(); }}
             />
         </div>
     );

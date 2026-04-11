@@ -540,9 +540,6 @@ html.qf-theme-alt .qf-prefix-chip {
 }
 
 /* ── Главная страница ── */
-html.qf-theme-alt .home-section-title     { color: var(--qf-text-body) !important; }
-html.qf-theme-alt .home-shop-grid__title  { color: var(--qf-text-body); }
-html.qf-theme-alt .home-leaders__row      { border-color: var(--qf-border-subtle); }
 html.qf-theme-alt .home-shop-grid__item:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
@@ -592,6 +589,23 @@ html.qf-theme-alt .shop-card__btn--loading {
 /* ── Страница теста ── */
 html.qf-theme-alt .test-timer-strip {
   background: rgba(96, 165, 250, 0.14) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ТЁМНАЯ ТЕМА + СЛАБОВИДЯЩИЕ — переопределяем a11y-переменные,
+   которые иначе перекрашивают текст в почти-чёрный на тёмном фоне
+   ══════════════════════════════════════════════════════════════ */
+html.qf-theme-alt.qf-a11y {
+  /* Более яркий текст для высокого контраста на тёмном фоне */
+  --qf-text-body:      #e2eaf4;
+  --qf-text-muted:     #8a9daf;
+  --qf-border-subtle:  rgba(255, 255, 255, 0.18);
+  --qf-border-control: #5a7599;
+}
+
+/* Карточки: видимая граница в тёмном a11y-режиме */
+html.qf-theme-alt.qf-a11y .student-card {
+  border: 2px solid rgba(96, 165, 250, 0.28);
 }
 
 /* Gothic A1 — цифры Black (макет) */

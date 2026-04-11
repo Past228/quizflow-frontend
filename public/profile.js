@@ -1,4 +1,25 @@
 // profile.js (исправленная версия)
+
+// ─── Применяем тему сразу, до рендера DOM (избегаем flash of white) ──────────
+(function () {
+    try {
+        var isDark = localStorage.getItem('qf_setting_theme') === '1';
+        var isA11y = localStorage.getItem('qf_setting_a11y') === '1';
+        document.documentElement.classList.toggle('qf-theme-alt', isDark);
+        document.documentElement.classList.toggle('qf-a11y', isA11y);
+    } catch (e) { /* localStorage недоступен — молча игнорируем */ }
+})();
+
+// Обновляем тему при изменении настроек в соседней вкладке / родительском окне
+window.addEventListener('storage', function (e) {
+    if (e.key === 'qf_setting_theme') {
+        document.documentElement.classList.toggle('qf-theme-alt', e.newValue === '1');
+    }
+    if (e.key === 'qf_setting_a11y') {
+        document.documentElement.classList.toggle('qf-a11y', e.newValue === '1');
+    }
+});
+
 // State management
 const AVATAR_OPTIONS_STUDENT = [
     { id: 'standard', type: 'image', url: '/icons/Standard_avatar.png', label: 'По умолчанию' },
@@ -199,6 +220,11 @@ window.addEventListener('message', function (event) {
 
         case 'ITEM_REMOVED':
             handleItemRemoved(data.itemType);
+            break;
+
+        case 'THEME_SYNC':
+            document.documentElement.classList.toggle('qf-theme-alt', !!data.isDark);
+            document.documentElement.classList.toggle('qf-a11y', !!data.isA11y);
             break;
     }
 });
