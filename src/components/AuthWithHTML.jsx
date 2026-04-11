@@ -408,12 +408,20 @@ export default function AuthWithHTML() {
                 ...(codeId           ? { invite_code_id: codeId }           : {}),
             };
 
-            const { error: teacherError } = await supabase
-                .from('teachers')
-                .insert(teacherRow);
+            // If email confirmation is enabled, authData.session may be null right after
+            // signUp — the anon key would then be rejected by RLS (401). We attempt the
+            // insert only when we have an authenticated session; otherwise the row will
+            // be created automatically on the teacher's first successful login below.
+            if (authData.session) {
+                const { error: teacherError } = await supabase
+                    .from('teachers')
+                    .insert(teacherRow);
 
-            if (teacherError) {
-                throw new Error('Не удалось создать запись преподавателя');
+                if (teacherError) {
+                    // Don't block the user — the auth account was created successfully.
+                    // The teacher row will be created at first login.
+                    console.warn('Teacher row insert failed at signup (will retry at first login):', teacherError);
+                }
             }
 
             sendMessageToIframe({
@@ -481,14 +489,17 @@ export default function AuthWithHTML() {
 
                 if (userRole === 'teacher') {
                     // Для преподавателей
+                    // maybeSingle() returns null (no error) when the row is missing,
+                    // avoiding the 406 that .single() emits on zero rows.
                     const { data: teacherData, error: teacherError } = await supabase
                         .from('teachers')
                         .select('*')
                         .eq('id', data.user.id)
-                        .single();
+                        .maybeSingle();
 
-                    if (teacherError && teacherError.code === 'PGRST116') {
-                        // Создаем запись преподавателя если ее нет
+                    if (!teacherData && !teacherError) {
+                        // Создаем запись преподавателя если ее нет.
+                        // NOTE: `role` is NOT a column in teachers — it lives in auth metadata.
                         const { error: createError } = await supabase
                             .from('teachers')
                             .insert({
@@ -496,7 +507,6 @@ export default function AuthWithHTML() {
                                 email: data.user.email,
                                 first_name: data.user.user_metadata?.first_name || 'Преподаватель',
                                 last_name: data.user.user_metadata?.last_name || '',
-                                role: 'teacher',
                                 avatar_url: null,
                                 created_at: new Date().toISOString(),
                                 updated_at: new Date().toISOString()
