@@ -227,6 +227,9 @@ export default function AuthWithHTML() {
                 if (authError.message.includes('password')) {
                     throw new Error('Ненадежный пароль');
                 }
+                if (authError.status === 429 || authError.message.toLowerCase().includes('rate limit')) {
+                    throw new Error('Слишком много попыток регистрации с этим email. Подождите несколько минут и попробуйте снова.');
+                }
                 throw new Error('Ошибка регистрации');
             }
 
@@ -367,7 +370,10 @@ export default function AuthWithHTML() {
                 if (authError.message.includes('already registered')) {
                     throw new Error('Пользователь с таким email уже зарегистрирован в системе');
                 }
-                throw authError;
+                if (authError.status === 429 || authError.message.toLowerCase().includes('rate limit')) {
+                    throw new Error('Слишком много попыток регистрации с этим email. Подождите несколько минут и попробуйте снова, либо используйте другой адрес.');
+                }
+                throw new Error('Ошибка регистрации: ' + authError.message);
             }
 
             if (!authData.user) {
