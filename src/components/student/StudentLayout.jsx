@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { StudentProfileProvider } from '../../context/StudentProfileContext';
+import { StudentProfileProvider, useStudentProfile } from '../../context/StudentProfileContext';
 import { hydrateStudentSettings } from '../../lib/studentSettings';
 
 const NAV = [
@@ -12,6 +12,24 @@ const NAV = [
   { to: '/help', icon: 'Help_icon.png', iconActive: 'Help_icon_active.png', label: 'Помощь' },
 ];
 
+// Rendered inside StudentProfileProvider so it can read the live avatar_url
+function SidebarAvatar() {
+  const navigate = useNavigate();
+  const { profile } = useStudentProfile();
+  const src = profile?.avatar_url || '/icons/Standard_avatar.png';
+
+  return (
+    <button
+      type="button"
+      className="student-sidebar__avatar-btn"
+      onClick={() => navigate('/profile')}
+      title="Профиль"
+    >
+      <img src={src} alt="Аватар" />
+    </button>
+  );
+}
+
 function AnimatedOutlet({ context }) {
   const location = useLocation();
   return (
@@ -22,8 +40,6 @@ function AnimatedOutlet({ context }) {
 }
 
 export default function StudentLayout({ session }) {
-  const navigate = useNavigate();
-
   useEffect(() => {
     hydrateStudentSettings();
   }, []);
@@ -63,14 +79,7 @@ export default function StudentLayout({ session }) {
             </nav>
 
             <div className="student-sidebar__avatar">
-              <button
-                type="button"
-                className="student-sidebar__avatar-btn"
-                onClick={() => navigate('/profile')}
-                title="Профиль"
-              >
-                <img src="/icons/Standard_avatar.png" alt="Аватар" />
-              </button>
+              <SidebarAvatar />
             </div>
           </aside>
 

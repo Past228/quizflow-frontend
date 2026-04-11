@@ -457,21 +457,17 @@ function updateStudentAvatarUI() {
     const profile = state.profile;
 
     if (profile.avatar_url) {
-        // Проверяем, является ли avatar_url SVG или URL изображением
         if (profile.avatar_url.startsWith('data:image/svg+xml') ||
             profile.avatar_url.startsWith('http') ||
-            profile.avatar_url.startsWith('https')) {
+            profile.avatar_url.startsWith('https') ||
+            profile.avatar_url.startsWith('/')) {
 
             elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
+            elements.userAvatar.style.background = 'transparent';
 
             const img = elements.userAvatar.querySelector('img');
             if (img) {
-                img.onerror = function () {
-                    showDefaultStudentAvatar();
-                };
-                img.onload = function () {
-                    console.log('Avatar image loaded successfully');
-                };
+                img.onerror = function () { showDefaultStudentAvatar(); };
             }
         } else {
             showDefaultStudentAvatar();
@@ -639,21 +635,17 @@ function updateTeacherAvatarUI() {
     const profile = state.profile;
 
     if (profile.avatar_url) {
-        // Проверяем, является ли avatar_url SVG или URL изображением
         if (profile.avatar_url.startsWith('data:image/svg+xml') ||
             profile.avatar_url.startsWith('http') ||
-            profile.avatar_url.startsWith('https')) {
+            profile.avatar_url.startsWith('https') ||
+            profile.avatar_url.startsWith('/')) {
 
             elements.teacherAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
+            elements.teacherAvatar.style.background = 'transparent';
 
             const img = elements.teacherAvatar.querySelector('img');
             if (img) {
-                img.onerror = function () {
-                    showDefaultTeacherAvatar();
-                };
-                img.onload = function () {
-                    console.log('Teacher avatar image loaded successfully');
-                };
+                img.onerror = function () { showDefaultTeacherAvatar(); };
             }
         } else {
             showDefaultTeacherAvatar();
