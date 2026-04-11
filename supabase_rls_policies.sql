@@ -2,6 +2,15 @@
 -- Run this in: Supabase Dashboard → SQL Editor
 -- Safe to run multiple times — drops existing policies first.
 -- ============================================================
+--
+-- ⚠️  IMPORTANT — Fix "email rate limit exceeded" (429) errors:
+--    Supabase free tier limits signup confirmation emails for the
+--    ENTIRE PROJECT (not per address).  To remove this limit during
+--    development, disable email confirmation:
+--      Supabase Dashboard → Authentication → Settings
+--      → toggle OFF "Enable email confirmations"
+--    Users will then be signed in immediately without clicking a link.
+-- ============================================================
 
 -- ── invite_codes ───────────────────────────────────────────
 -- Anonymous users cannot read the table directly (RLS blocks it),
@@ -110,3 +119,53 @@ CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE TO authenticated
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
+
+-- ── tests ─────────────────────────────────────────────────────
+-- Students must be able to read active tests; teachers must be
+-- able to read/insert/update their own tests.
+
+ALTER TABLE tests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone authenticated can read active tests" ON tests;
+DROP POLICY IF EXISTS "Teachers can read own tests"               ON tests;
+DROP POLICY IF EXISTS "Teachers can insert own tests"             ON tests;
+DROP POLICY IF EXISTS "Teachers can update own tests"             ON tests;
+
+-- All authenticated users can read tests that are active
+-- (students see them through the catalog / profile).
+CREATE POLICY "Anyone authenticated can read active tests"
+  ON tests FOR SELECT TO authenticated
+  USING (is_active = true);
+
+-- Teachers can also read their own inactive tests.
+CREATE POLICY "Teachers can read own tests"
+  ON tests FOR SELECT TO authenticated
+  USING (teacher_id = auth.uid());
+
+-- Teachers can create and update their own tests.
+CREATE POLICY "Teachers can insert own tests"
+  ON tests FOR INSERT TO authenticated
+  WITH CHECK (teacher_id = auth.uid());
+
+CREATE POLICY "Teachers can update own tests"
+  ON tests FOR UPDATE TO authenticated
+  USING  (teacher_id = auth.uid())
+  WITH CHECK (teacher_id = auth.uid());
+
+-- ── group_tests ────────────────────────────────────────────────
+-- Students need to read which test IDs are assigned to their group.
+
+ALTER TABLE group_tests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can read group_tests" ON group_tests;
+DROP POLICY IF EXISTS "Teachers can manage group_tests"          ON group_tests;
+
+CREATE POLICY "Authenticated users can read group_tests"
+  ON group_tests FOR SELECT TO authenticated
+  USING (true);
+
+-- Teachers (or admins) can assign/remove tests from groups.
+CREATE POLICY "Teachers can manage group_tests"
+  ON group_tests FOR ALL TO authenticated
+  USING (true)
+  WITH CHECK (true);

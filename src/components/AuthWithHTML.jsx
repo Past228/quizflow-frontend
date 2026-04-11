@@ -228,7 +228,7 @@ export default function AuthWithHTML() {
                     throw new Error('Ненадежный пароль');
                 }
                 if (authError.status === 429 || authError.message.toLowerCase().includes('rate limit')) {
-                    throw new Error('Слишком много попыток регистрации с этим email. Подождите несколько минут и попробуйте снова.');
+                    throw new Error('Supabase ограничивает отправку email-писем для всего проекта. Отключите подтверждение email: Dashboard → Authentication → Settings → выключите «Enable email confirmations».');
                 }
                 throw new Error('Ошибка регистрации');
             }
@@ -371,7 +371,7 @@ export default function AuthWithHTML() {
                     throw new Error('Пользователь с таким email уже зарегистрирован в системе');
                 }
                 if (authError.status === 429 || authError.message.toLowerCase().includes('rate limit')) {
-                    throw new Error('Слишком много попыток регистрации с этим email. Подождите несколько минут и попробуйте снова, либо используйте другой адрес.');
+                    throw new Error('Supabase ограничивает отправку email-писем для всего проекта (не только для одного адреса). Отключите подтверждение email: Supabase Dashboard → Authentication → Settings → выключите «Enable email confirmations».');
                 }
                 throw new Error('Ошибка регистрации: ' + authError.message);
             }

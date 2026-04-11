@@ -225,7 +225,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             const { data: testsData, error: testsError } = await supabase
                 .from('tests')
                 .select('*')
-                .eq('created_by', session.user.id)
+                .eq('teacher_id', session.user.id)
                 .order('created_at', { ascending: false });
 
             if (testsError) throw testsError;
