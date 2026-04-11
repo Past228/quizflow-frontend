@@ -26,7 +26,18 @@ function SidebarAvatar() {
       onClick={() => navigate('/profile')}
       title="Профиль"
     >
-      <img src={src} alt="Аватар" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      {/* Avatar photo — clipped to circle on the img itself since the button overflow is visible */}
+      <img
+        src={src}
+        alt="Аватар"
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          display: 'block',
+          borderRadius: '50%',
+        }}
+      />
       {frameUrl && (
         <img
           src={frameUrl}
@@ -34,10 +45,12 @@ function SidebarAvatar() {
           aria-hidden
           style={{
             position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 'calc(100% + 20px)',
+            height: 'calc(100% + 20px)',
+            objectFit: 'contain',
             pointerEvents: 'none',
             display: 'block',
           }}

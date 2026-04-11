@@ -959,7 +959,7 @@ function refreshNameDisplay() {
     const nameEl    = elements.userName;
 
     if (state.activePrefix) {
-        nameEl.innerHTML = `<span style="color:#6b7280;font-size:0.78em;font-weight:600;margin-right:6px;letter-spacing:0.02em;">${escapeHtml(state.activePrefix.name)}</span>${escapeHtml(firstName + ' ' + lastName)}`;
+        nameEl.innerHTML = `<span style="color:#6b7280;font-weight:600;margin-right:6px;">${escapeHtml(state.activePrefix.name)}</span>${escapeHtml(firstName + ' ' + lastName)}`;
     } else {
         nameEl.textContent = `${firstName} ${lastName}`;
     }
@@ -1066,8 +1066,7 @@ function buildCosmeticPreview(item) {
         preview.innerHTML = `<span style="color:white;font-weight:700;font-size:20px;text-shadow:0 1px 3px rgba(0,0,0,.5);">А</span>`;
 
     } else if (item.type === 'prefix') {
-        preview.style.cssText = 'width:auto;height:auto;padding:8px 14px;border-radius:20px;background:#f3f4f6;';
-        preview.innerHTML = `<span style="font-size:13px;font-weight:700;color:#374151;">${escapeHtml(item.name)}</span>`;
+        preview.innerHTML = `<span style="display:inline-block;padding:5px 10px;border-radius:20px;background:#f3f4f6;font-size:11px;font-weight:700;color:#374151;max-width:62px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.name)}</span>`;
     }
 
     return preview;
