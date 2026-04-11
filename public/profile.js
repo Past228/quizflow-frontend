@@ -562,7 +562,7 @@ function updateStudentTestsUI(tests) {
 
     tests.forEach(test => {
         const questionsCount = test.questions_count || 'Не указано';
-        const timeLimit = test.time_limit ? `${test.time_limit} мин` : 'Не ограничено';
+        const timeLimit = test.time_limit_minutes ? `${test.time_limit_minutes} мин` : 'Не ограничено';
 
         const card = document.createElement('div');
         card.className = 'test-card';
@@ -705,7 +705,7 @@ function updateTeacherTestsUI(tests) {
 
     tests.forEach(test => {
         const questionsCount = test.questions_count || '0';
-        const timeLimit = test.time_limit ? `${test.time_limit} мин` : 'Не ограничено';
+        const timeLimit = test.time_limit_minutes ? `${test.time_limit_minutes} мин` : 'Не ограничено';
         const status = test.is_active ? 'active' : 'inactive';
         const statusText = test.is_active ? 'Активен' : 'Неактивен';
 

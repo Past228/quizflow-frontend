@@ -3,15 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useStudentProfile } from '../context/StudentProfileContext';
 import { useStudentTests } from '../hooks/useStudentTests';
 
-const DEMO_TESTS = [
-  { id: 'demo-js', title: 'ОСНОВЫ JAVASCRIPT', level: 'Средний', time: '30 мин', tag: 'JS' },
-  { id: 'demo-rv', title: 'REACT & VUE.JS', level: 'Сложный', time: '40 мин', tag: 'RV' },
-  { id: 'demo-db', title: 'БАЗЫ ДАННЫХ', level: 'Средний', time: '30 мин', tag: 'DB' },
-  { id: 'demo-html', title: 'HTML', level: 'Легкий', time: '20 мин', tag: 'H5' },
-  { id: 'demo-css', title: 'CSS', level: 'Легкий', time: '10 мин', tag: 'CSS' },
-  { id: 'demo-py', title: 'PYTHON', level: 'Легкий', time: '20 мин', tag: 'PY' },
-];
-
 function levelForTest(t) {
   const q = t.questions_count || 0;
   if (q <= 5) return 'Легкий';
@@ -26,17 +17,16 @@ export default function CatalogPage() {
   const { tests, loading: testsLoading } = useStudentTests(groupId);
 
   const rows = useMemo(() => {
-    const fromDb = tests.map((t) => ({
+    const mapped = tests.map((t) => ({
       id: String(t.id),
       title: (t.title || 'Тест').toUpperCase(),
       level: levelForTest(t),
-      time: t.time_limit ? `${t.time_limit} мин` : '—',
+      time: t.time_limit_minutes ? `${t.time_limit_minutes} мин` : '—',
       tag: '★',
     }));
-    const merged = fromDb.length ? fromDb : DEMO_TESTS;
     const q = query.trim().toLowerCase();
-    if (!q) return merged;
-    return merged.filter((x) => x.title.toLowerCase().includes(q));
+    if (!q) return mapped;
+    return mapped.filter((x) => x.title.toLowerCase().includes(q));
   }, [tests, query]);
 
   const loading = profileLoading || testsLoading;
@@ -60,89 +50,110 @@ export default function CatalogPage() {
           <input
             type="search"
             className="qf-search"
-            placeholder="Поиск тестов..." 
+            placeholder="Поиск тестов..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Поиск тестов"
           />
         </header>
 
-        {loading ? 'Загрузка…' : null}
-        {!loading && tests.length === 0 ? (
-          <p style={{ color: 'var(--qf-dark-blue)', marginBottom: 16 }}>
-            Показаны демонстрационные карточки. Когда преподаватель назначит тесты группе, здесь появятся реальные
-            данные.
+        {loading && (
+          <p style={{ color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)', fontSize: 16 }}>
+            Загрузка…
           </p>
-        ) : null}
+        )}
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))',
-            gap: 22,
-          }}
-        >
-          {rows.map((card) => (
-            <button
-              key={card.id}
-              type="button"
-              className="student-card"
-              onClick={() => navigate(`/test/${card.id}`)}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-                textAlign: 'left',
-                cursor: 'pointer',
-                border: 'none',
-                padding: '22px 24px',
-                transition: 'transform 0.15s ease, box-shadow 0.2s ease',
-              }}
-            >
-              <div
-                className="qf-title-test"
+        {!loading && rows.length === 0 && (
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '60px 24px',
+              color: 'var(--qf-text-muted)',
+              fontFamily: 'var(--qf-font)',
+            }}
+          >
+            <div style={{ fontSize: 56, marginBottom: 16 }}>📋</div>
+            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: 'var(--qf-text-body)' }}>
+              Нет доступных тестов
+            </div>
+            <div style={{ fontSize: 15 }}>
+              {groupId
+                ? 'Преподаватель пока не назначил тесты вашей группе.'
+                : 'Вы не состоите ни в одной учебной группе.'}
+            </div>
+          </div>
+        )}
+
+        {!loading && rows.length > 0 && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))',
+              gap: 22,
+            }}
+          >
+            {rows.map((card) => (
+              <button
+                key={card.id}
+                type="button"
+                className="student-card"
+                onClick={() => navigate(`/test/${card.id}`)}
                 style={{
-                  fontSize: 28,
-                  fontWeight: 900,
-                  letterSpacing: '0.04em',
-                  marginTop: 10,
-                  marginBottom: 20,
-                  color: 'var(--qf-text-body)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  border: 'none',
+                  padding: '22px 24px',
+                  transition: 'transform 0.15s ease, box-shadow 0.2s ease',
                 }}
               >
-                {card.title}
-              </div>
+                <div
+                  className="qf-title-test"
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 900,
+                    letterSpacing: '0.04em',
+                    marginTop: 10,
+                    marginBottom: 20,
+                    color: 'var(--qf-text-body)',
+                  }}
+                >
+                  {card.title}
+                </div>
 
-              <div style={{ marginTop: 'auto' }}>
-                <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 4 }}>
-                  Уровень: {card.level}
+                <div style={{ marginTop: 'auto' }}>
+                  <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 4 }}>
+                    Уровень: {card.level}
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 14 }}>
+                    Время: {card.time}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <span
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 85,
+                        height: 85,
+                        borderRadius: 18,
+                        background: 'linear-gradient(135deg, #338ff9, #20aeb9)',
+                        color: '#fff',
+                        fontWeight: 900,
+                        fontSize: 16,
+                        fontFamily: 'var(--qf-font)',
+                      }}
+                    >
+                      {card.tag}
+                    </span>
+                  </div>
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 14 }}>
-                  Время: {card.time}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <span
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 85,
-                      height: 85,
-                      borderRadius: 18,
-                      background: 'linear-gradient(135deg, #338ff9, #20aeb9)',
-                      color: '#fff',
-                      fontWeight: 900,
-                      fontSize: 16,
-                      fontFamily: 'var(--qf-font)',
-                    }}
-                  >
-                    {card.tag}
-                  </span>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

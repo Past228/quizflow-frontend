@@ -14,29 +14,37 @@ export function useStudentTests(groupId) {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('group_tests')
-        .select(
-          `
-          test:tests (
-            id,
-            title,
-            description,
-            questions_count
-          )
-        `
-        )
-        .eq('group_id', groupId);
+      try {
+        // Step 1 — get test IDs assigned to this group
+        const { data: groupRows, error: groupError } = await supabase
+          .from('group_tests')
+          .select('test_id')
+          .eq('group_id', groupId);
 
-      if (cancelled) return;
-      if (error) {
-        console.error(error);
-        setTests([]);
-      } else {
-        const list = (data || []).filter((x) => x.test).map((x) => x.test);
-        setTests(list);
+        if (groupError) throw groupError;
+
+        const testIds = (groupRows || []).map((r) => r.test_id).filter(Boolean);
+
+        let list = [];
+        if (testIds.length > 0) {
+          // Step 2 — fetch only active tests whose IDs match
+          const { data: testsData, error: testsError } = await supabase
+            .from('tests')
+            .select('id, title, description, time_limit_minutes, questions_count')
+            .in('id', testIds)
+            .eq('is_active', true);
+
+          if (testsError) throw testsError;
+          list = testsData || [];
+        }
+
+        if (!cancelled) setTests(list);
+      } catch (err) {
+        console.error('useStudentTests error:', err);
+        if (!cancelled) setTests([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     })();
     return () => {
       cancelled = true;

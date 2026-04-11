@@ -182,28 +182,32 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
         });
 
         try {
-            const { data, error } = await supabase
+            // Step 1 — find every test_id assigned to this group
+            const { data: groupRows, error: groupError } = await supabase
                 .from('group_tests')
-                .select(`
-                    test:tests (
-                        id,
-                        title,
-                        description,
-                        created_at,
-                        questions_count
-                    )
-                `)
+                .select('test_id')
                 .eq('group_id', groupId);
 
-            if (error) throw error;
+            if (groupError) throw groupError;
 
-            const tests = data
-                .filter(item => item.test)
-                .map(item => item.test);
+            const testIds = (groupRows || []).map(r => r.test_id).filter(Boolean);
+
+            let tests = [];
+            if (testIds.length > 0) {
+                // Step 2 — fetch only active tests whose ids match
+                const { data: testsData, error: testsError } = await supabase
+                    .from('tests')
+                    .select('id, title, description, time_limit_minutes, questions_count')
+                    .in('id', testIds)
+                    .eq('is_active', true);
+
+                if (testsError) throw testsError;
+                tests = testsData || [];
+            }
 
             sendMessageToIframe({
                 type: 'TESTS_LOADED',
-                data: { tests: tests || [] }
+                data: { tests }
             });
 
         } catch (error) {
