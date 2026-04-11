@@ -111,9 +111,18 @@ CREATE POLICY "Users can insert own purchases"
   ON user_purchases FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = profile_id);
 
--- ── profiles (allow updating sp_coins and active item ids) ────
+-- ── profiles ──────────────────────────────────────────────────
 
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Students/teachers must be able to read their own profile
+-- (group_id, sp_coins, avatar, etc. are loaded from here).
+DROP POLICY IF EXISTS "Users can read own profile"   ON profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+
+CREATE POLICY "Users can read own profile"
+  ON profiles FOR SELECT TO authenticated
+  USING (auth.uid() = id);
 
 CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE TO authenticated
