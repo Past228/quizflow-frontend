@@ -27,8 +27,10 @@ export function useLeaderboard(currentGroupId) {
         if (resultsErr) throw resultsErr;
 
         const scoreMap = {};
+        const testsMap = {};
         (results || []).forEach((r) => {
           scoreMap[r.student_id] = (scoreMap[r.student_id] || 0) + (r.score || 0);
+          testsMap[r.student_id] = (testsMap[r.student_id] || 0) + 1;
         });
 
         // Step 2 — get all student profiles
@@ -46,11 +48,11 @@ export function useLeaderboard(currentGroupId) {
             name: [p.first_name, p.last_name].filter(Boolean).join(' '),
             avatarUrl: p.avatar_url || null,
             groupId: p.group_id,
-            spCoins: p.sp_coins || 0,
             totalScore: scoreMap[p.id] || 0,
+            testsCompleted: testsMap[p.id] || 0,
           }))
-          // Primary sort: total test score. Tie-break: sp_coins.
-          .sort((a, b) => b.totalScore - a.totalScore || b.spCoins - a.spCoins);
+          // Primary sort: total score. Tie-break: tests completed.
+          .sort((a, b) => b.totalScore - a.totalScore || b.testsCompleted - a.testsCompleted);
 
         ranked.forEach((r, i) => {
           r.rank = i + 1;

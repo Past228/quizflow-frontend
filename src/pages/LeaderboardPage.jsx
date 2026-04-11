@@ -56,8 +56,8 @@ export default function LeaderboardPage() {
                   <Avatar url={row.avatarUrl} size={52} />
                   <div className="lb-name-block">
                     <div className="lb-name">{row.name}</div>
-                    <div className="lb-name-sub">{row.spCoins} SP</div>
                   </div>
+                  <div className="lb-tests-count">{row.testsCompleted} тест.</div>
                   <div className="lb-xp">{row.totalScore} очков</div>
                 </div>
               ))}
@@ -82,6 +82,7 @@ export default function LeaderboardPage() {
                         <span className="lb-rank-num">{row.rank}</span>
                         <Avatar url={row.avatarUrl} size={40} />
                         <span className="lb-row-name">{row.name}</span>
+                        <span className="lb-tests-count">{row.testsCompleted} тест.</span>
                         <span className="lb-row-xp">{row.totalScore} очков</span>
                       </div>
                     ))
@@ -168,7 +169,7 @@ export default function LeaderboardPage() {
         /* Top-3 cards */
         .lb-top-card {
           display: grid;
-          grid-template-columns: 72px 56px 1fr auto;
+          grid-template-columns: 72px 56px 1fr auto auto;
           align-items: center;
           gap: 16px;
           padding: 20px 24px;
@@ -183,17 +184,18 @@ export default function LeaderboardPage() {
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .lb-name-sub {
-          font-size: 13px;
-          font-weight: var(--qf-fw-medium);
-          color: var(--qf-text-muted);
-          font-family: var(--qf-font);
-        }
         .lb-xp {
           font-weight: var(--qf-fw-black);
           font-size: 18px;
           color: #338ff9;
           font-family: var(--qf-font);
+          white-space: nowrap;
+        }
+
+        /* Tests count chip */
+        .lb-tests-count {
+          font-size: 13px; font-weight: var(--qf-fw-medium);
+          color: var(--qf-text-muted); font-family: var(--qf-font);
           white-space: nowrap;
         }
 
@@ -205,7 +207,7 @@ export default function LeaderboardPage() {
         }
         .lb-row {
           display: grid;
-          grid-template-columns: 48px 44px 1fr auto;
+          grid-template-columns: 48px 44px 1fr auto auto;
           align-items: center;
           gap: 12px;
           padding: 12px 20px;

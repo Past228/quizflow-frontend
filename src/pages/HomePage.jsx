@@ -2,13 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStudentProfile } from '../context/StudentProfileContext';
 import { useStudentTests } from '../hooks/useStudentTests';
+import { useLeaderboard } from '../hooks/useLeaderboard';
 import { supabase } from '../lib/supabaseClient';
-
-const LEADERS = [
-  { name: 'Иван Р.', avatar: '/icons/Men_avatar.png' },
-  { name: 'Анна С.', avatar: '/icons/Women_avatar.png' },
-  { name: 'Петр В.', avatar: '/icons/Boy_avatar.png' },
-];
 
 const BONUS_GLYPH = { attempt: '↻', hint: '💡', skip: '?' };
 
@@ -16,6 +11,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { groupId, loading: profileLoading } = useStudentProfile();
   const { tests, loading: testsLoading } = useStudentTests(groupId);
+  const { all: leaders, loading: leadersLoading } = useLeaderboard(groupId);
 
   const [shopItems, setShopItems] = useState([]);
   const [shopPreviewLoading, setShopPreviewLoading] = useState(true);
@@ -153,15 +149,31 @@ export default function HomePage() {
 
           <aside className="student-card home-layout__aside">
             <h2 className="home-section-title">Лидеры</h2>
-            <ul className="home-leaders">
-              {LEADERS.map((u, i) => (
-                <li key={u.name} className={i < LEADERS.length - 1 ? 'home-leaders__row' : 'home-leaders__row home-leaders__row--last'}>
-                  <img src={u.avatar} alt="" width={48} height={48} style={{ borderRadius: '50%' }} />
-                  <span className="home-leaders__name">{u.name}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="home-leaders__footer">Рейтинг среди курса</div>
+            {leadersLoading ? (
+              <div className="home-leaders__loading">Загрузка…</div>
+            ) : leaders.length === 0 ? (
+              <p className="home-leaders__empty">Нет данных</p>
+            ) : (
+              <ul className="home-leaders">
+                {leaders.slice(0, 3).map((u, i, arr) => (
+                  <li
+                    key={u.id}
+                    className={i < arr.length - 1 ? 'home-leaders__row' : 'home-leaders__row home-leaders__row--last'}
+                  >
+                    <img
+                      src={u.avatarUrl || '/icons/Standard_avatar.png'}
+                      alt=""
+                      width={48}
+                      height={48}
+                      style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                      onError={(e) => { e.currentTarget.src = '/icons/Standard_avatar.png'; }}
+                    />
+                    <span className="home-leaders__name">{u.name}</span>
+                    <span className="home-leaders__score">{u.totalScore} очк.</span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <button type="button" className="qf-btn-primary home-leaders__btn" onClick={() => navigate('/leaderboard')}>
               Доска лидеров
             </button>
@@ -293,12 +305,6 @@ export default function HomePage() {
         .home-shop-grid__price-txt {
           font-weight: var(--qf-fw-semibold);
         }
-        .home-leaders__name {
-          font-size: 18px;
-          font-weight: var(--qf-fw-bold);
-          font-family: var(--qf-font);
-          color: #000;
-        }
         .home-leaders {
           list-style: none;
           padding: 0;
@@ -309,20 +315,35 @@ export default function HomePage() {
           align-items: center;
           gap: 12px;
           padding: 10px 0;
-          border-bottom: 2px solid #838383;
+          border-bottom: 2px solid #e5e7eb;
         }
         .home-leaders__row--last {
           border-bottom: none;
         }
-        .home-leaders__footer {
-          margin-top: 16px;
-          padding-top: 16px;
-          border-top: 2px solid #838383;
-          font-size: 14px;
+        .home-leaders__name {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 16px;
           font-weight: var(--qf-fw-bold);
           font-family: var(--qf-font);
           color: #000;
-          text-align: center;
+        }
+        .home-leaders__score {
+          font-size: 14px;
+          font-weight: var(--qf-fw-black);
+          font-family: var(--qf-font);
+          color: #338ff9;
+          white-space: nowrap;
+        }
+        .home-leaders__loading,
+        .home-leaders__empty {
+          font-size: 14px;
+          color: var(--qf-text-muted);
+          font-family: var(--qf-font);
+          padding: 8px 0;
         }
         .home-leaders__btn {
           width: 100%;
