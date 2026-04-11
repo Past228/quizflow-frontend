@@ -12,11 +12,12 @@ const NAV = [
   { to: '/help', icon: 'Help_icon.png', iconActive: 'Help_icon_active.png', label: 'Помощь' },
 ];
 
-// Rendered inside StudentProfileProvider so it can read the live avatar_url
+// Rendered inside StudentProfileProvider so it can read live avatar + active cosmetics
 function SidebarAvatar() {
   const navigate = useNavigate();
   const { profile } = useStudentProfile();
   const src = profile?.avatar_url || '/icons/Standard_avatar.png';
+  const frameUrl = profile?.active_frame?.image_url ?? null;
 
   return (
     <button
@@ -25,7 +26,23 @@ function SidebarAvatar() {
       onClick={() => navigate('/profile')}
       title="Профиль"
     >
-      <img src={src} alt="Аватар" />
+      <img src={src} alt="Аватар" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      {frameUrl && (
+        <img
+          src={frameUrl}
+          alt=""
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            pointerEvents: 'none',
+            display: 'block',
+          }}
+        />
+      )}
     </button>
   );
 }

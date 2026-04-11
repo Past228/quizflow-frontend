@@ -47,6 +47,18 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                     await handleUpdateAvatar(data.avatarUrl);
                     break;
 
+                case 'LOAD_INVENTORY_REQUEST':
+                    await handleLoadInventory(data.profileId);
+                    break;
+
+                case 'APPLY_ITEM_REQUEST':
+                    await handleApplyItem(data.itemType, data.itemId);
+                    break;
+
+                case 'REMOVE_ITEM_REQUEST':
+                    await handleRemoveItem(data.itemType);
+                    break;
+
                 default:
                     console.log('Unknown message type:', type);
             }
@@ -372,6 +384,83 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                 type: 'ERROR_STATE',
                 data: { error: 'Не удалось обновить аватар: ' + error.message }
             });
+        }
+    };
+
+    const handleLoadInventory = async (profileId) => {
+        try {
+            const [invRes, purchasesRes, profileRes] = await Promise.all([
+                supabase.from('user_inventory').select('*').eq('profile_id', profileId),
+                supabase.from('user_purchases').select('bonus_id, amount').eq('profile_id', profileId),
+                supabase.from('profiles').select('active_frame_id, active_color_id, active_prefix_id').eq('id', profileId).single(),
+            ]);
+
+            const inv = invRes.data || [];
+            const activeIds = profileRes.data || {};
+
+            const frameIds  = inv.filter(i => i.frame_id).map(i => i.frame_id);
+            const colorIds  = inv.filter(i => i.name_color_id).map(i => i.name_color_id);
+            const prefixIds = inv.filter(i => i.prefix_id).map(i => i.prefix_id);
+
+            const [framesRes, colorsRes, prefixesRes] = await Promise.all([
+                frameIds.length  ? supabase.from('items_frames').select('*').in('id', frameIds)        : { data: [] },
+                colorIds.length  ? supabase.from('items_name_colors').select('*').in('id', colorIds)   : { data: [] },
+                prefixIds.length ? supabase.from('items_prefixes').select('*').in('id', prefixIds)     : { data: [] },
+            ]);
+
+            const cosmetics = [];
+            (framesRes.data  || []).forEach(f => cosmetics.push({ type: 'frame',      item_id: f.id, name: f.name,    image_url: f.image_url, price: f.price, is_active: activeIds.active_frame_id  === f.id }));
+            (colorsRes.data  || []).forEach(c => cosmetics.push({ type: 'name_color', item_id: c.id, name: c.name,    hex_code:  c.hex_code,  price: c.price, is_active: activeIds.active_color_id  === c.id }));
+            (prefixesRes.data|| []).forEach(p => cosmetics.push({ type: 'prefix',     item_id: p.id, name: p.title,                           price: p.price, is_active: activeIds.active_prefix_id === p.id }));
+
+            // Group bonuses by type and sum quantity
+            const bonusMap = {};
+            (purchasesRes.data || []).forEach(p => {
+                bonusMap[p.bonus_id] = (bonusMap[p.bonus_id] || 0) + (p.amount ?? 1);
+            });
+            const bonusIds = Object.keys(bonusMap);
+            let bonuses = [];
+            if (bonusIds.length) {
+                const { data: bonusData } = await supabase.from('shop_bonuses').select('id, name, description').in('id', bonusIds);
+                bonuses = (bonusData || []).map(b => ({ bonus_id: b.id, name: b.name, description: b.description, quantity: bonusMap[b.id] }));
+            }
+
+            sendMessageToIframe({ type: 'INVENTORY_LOADED', data: { cosmetics, bonuses } });
+        } catch (err) {
+            console.error('Inventory loading error:', err);
+            sendMessageToIframe({ type: 'INVENTORY_LOADED', data: { cosmetics: [], bonuses: [] } });
+        }
+    };
+
+    const handleApplyItem = async (itemType, itemId) => {
+        try {
+            const patch = itemType === 'frame' ? { active_frame_id: itemId }
+                : itemType === 'name_color'    ? { active_color_id: itemId }
+                : itemType === 'prefix'        ? { active_prefix_id: itemId }
+                : null;
+            if (!patch) return;
+            const { error } = await supabase.from('profiles').update(patch).eq('id', session.user.id);
+            if (error) throw error;
+            if (onAvatarUpdated) onAvatarUpdated();
+            sendMessageToIframe({ type: 'ITEM_APPLIED', data: { itemType, itemId } });
+        } catch (err) {
+            console.error('Apply item error:', err);
+        }
+    };
+
+    const handleRemoveItem = async (itemType) => {
+        try {
+            const patch = itemType === 'frame' ? { active_frame_id: null }
+                : itemType === 'name_color'    ? { active_color_id: null }
+                : itemType === 'prefix'        ? { active_prefix_id: null }
+                : null;
+            if (!patch) return;
+            const { error } = await supabase.from('profiles').update(patch).eq('id', session.user.id);
+            if (error) throw error;
+            if (onAvatarUpdated) onAvatarUpdated();
+            sendMessageToIframe({ type: 'ITEM_REMOVED', data: { itemType } });
+        } catch (err) {
+            console.error('Remove item error:', err);
         }
     };
 

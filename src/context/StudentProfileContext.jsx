@@ -23,10 +23,10 @@ export function StudentProfileProvider({ session, children }) {
         setLoading(false);
         return;
       }
+
       const { data, error: qErr } = await supabase
         .from('profiles')
-        .select(
-          `
+        .select(`
           *,
           student_groups (
             id,
@@ -36,13 +36,31 @@ export function StudentProfileProvider({ session, children }) {
               buildings ( name )
             )
           )
-        `
-        )
+        `)
         .eq('id', session.user.id)
         .single();
 
       if (qErr) throw qErr;
-      setProfile(data);
+
+      // Fetch active cosmetic item details in parallel
+      const [frameRes, colorRes, prefixRes] = await Promise.all([
+        data.active_frame_id
+          ? supabase.from('items_frames').select('id, name, image_url').eq('id', data.active_frame_id).single()
+          : Promise.resolve({ data: null }),
+        data.active_color_id
+          ? supabase.from('items_name_colors').select('id, name, hex_code').eq('id', data.active_color_id).single()
+          : Promise.resolve({ data: null }),
+        data.active_prefix_id
+          ? supabase.from('items_prefixes').select('id, title').eq('id', data.active_prefix_id).single()
+          : Promise.resolve({ data: null }),
+      ]);
+
+      setProfile({
+        ...data,
+        active_frame:  frameRes.data  ?? null,
+        active_color:  colorRes.data  ?? null,
+        active_prefix: prefixRes.data ?? null,
+      });
     } catch (e) {
       console.error(e);
       setError(e.message || 'Ошибка загрузки профиля');

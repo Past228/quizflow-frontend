@@ -216,6 +216,7 @@ body {
 
 /* Аватар: 100×100 px */
 .student-sidebar__avatar-btn {
+  position: relative;
   width: var(--qf-sidebar-avatar);
   height: var(--qf-sidebar-avatar);
   border-radius: 50%;

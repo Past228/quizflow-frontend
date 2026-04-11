@@ -23,6 +23,11 @@ let state = {
     profileNotFound: false,
     selectedAvatar: null,
     avatarOptions: AVATAR_OPTIONS_STUDENT,
+    // Active cosmetics (populated when INVENTORY_LOADED arrives)
+    activeFrame:  null,
+    activeColor:  null,
+    activePrefix: null,
+    inventory:    null,
 };
 
 // DOM Elements
@@ -69,6 +74,12 @@ const elements = {
     testsLoading: document.getElementById('testsLoading'),
     testsGrid: document.getElementById('testsGrid'),
     emptyTests: document.getElementById('emptyTests'),
+
+    // Inventory elements
+    inventoryLoading: document.getElementById('inventoryLoading'),
+    inventoryGrid: document.getElementById('inventoryGrid'),
+    inventoryEmpty: document.getElementById('inventoryEmpty'),
+    userAvatarFrame: document.getElementById('userAvatarFrame'),
 
     // Teacher elements
     teacherInterface: document.getElementById('teacherInterface'),
@@ -177,6 +188,18 @@ window.addEventListener('message', function (event) {
         case 'TEST_DELETED':
             handleTestDeleted(data.testId);
             break;
+
+        case 'INVENTORY_LOADED':
+            handleInventoryLoaded(data.cosmetics, data.bonuses);
+            break;
+
+        case 'ITEM_APPLIED':
+            handleItemApplied(data.itemType, data.itemId);
+            break;
+
+        case 'ITEM_REMOVED':
+            handleItemRemoved(data.itemType);
+            break;
     }
 });
 
@@ -262,12 +285,13 @@ function handleProfileLoaded(profile, role) {
     } else {
         showStudentInterface();
         updateStudentProfileUI(profile);
-        // Запрашиваем тесты для студента
+        showInventoryLoading();
         if (profile.group_id) {
             sendMessageToParent({ type: 'LOAD_TESTS_REQUEST', data: { groupId: profile.group_id } });
         } else {
             showEmptyTests();
         }
+        sendMessageToParent({ type: 'LOAD_INVENTORY_REQUEST', data: { profileId: profile.id } });
     }
 }
 
@@ -438,18 +462,16 @@ function updateStudentProfileUI(profile) {
     const lastName = profile.last_name || 'Не указано';
     const email = profile.email || 'Не указано';
 
-    // Avatar
     updateStudentAvatarUI();
 
-    // User info
-    elements.userName.textContent = `${firstName} ${lastName}`;
+    // Name and email
     elements.userEmail.textContent = email;
     elements.userEmailValue.textContent = email;
     elements.userFirstName.textContent = firstName;
     elements.userLastName.textContent = lastName;
     elements.userRole.textContent = 'Студент';
 
-    // Study info
+    refreshNameDisplay();
     updateStudyInfoUI(profile);
 }
 
@@ -475,6 +497,8 @@ function updateStudentAvatarUI() {
     } else {
         showDefaultStudentAvatar();
     }
+
+    refreshAvatarFrame();
 }
 
 function showDefaultStudentAvatar() {
@@ -858,3 +882,202 @@ document.addEventListener('DOMContentLoaded', function () {
         cancelCreateTestBtn.addEventListener('click', hideCreateTestModal);
     }
 });
+
+// ─── Inventory ──────────────────────────────────────────────────────────────
+
+function showInventoryLoading() {
+    if (elements.inventoryLoading) elements.inventoryLoading.style.display = 'flex';
+    if (elements.inventoryGrid)    elements.inventoryGrid.style.display    = 'none';
+    if (elements.inventoryEmpty)   elements.inventoryEmpty.style.display   = 'none';
+}
+
+function handleInventoryLoaded(cosmetics, bonuses) {
+    cosmetics = cosmetics || [];
+    bonuses   = bonuses   || [];
+
+    state.activeFrame  = cosmetics.find(c => c.type === 'frame'      && c.is_active) || null;
+    state.activeColor  = cosmetics.find(c => c.type === 'name_color' && c.is_active) || null;
+    state.activePrefix = cosmetics.find(c => c.type === 'prefix'     && c.is_active) || null;
+    state.inventory    = { cosmetics, bonuses };
+
+    refreshAvatarFrame();
+    refreshNameDisplay();
+    renderInventoryGrid(cosmetics, bonuses);
+}
+
+function handleItemApplied(itemType, itemId) {
+    if (!state.inventory) return;
+
+    // Only one active per type at a time
+    state.inventory.cosmetics = state.inventory.cosmetics.map(c =>
+        c.type === itemType ? { ...c, is_active: c.item_id === itemId } : c
+    );
+
+    state.activeFrame  = state.inventory.cosmetics.find(c => c.type === 'frame'      && c.is_active) || null;
+    state.activeColor  = state.inventory.cosmetics.find(c => c.type === 'name_color' && c.is_active) || null;
+    state.activePrefix = state.inventory.cosmetics.find(c => c.type === 'prefix'     && c.is_active) || null;
+
+    refreshAvatarFrame();
+    refreshNameDisplay();
+    renderInventoryGrid(state.inventory.cosmetics, state.inventory.bonuses);
+}
+
+function handleItemRemoved(itemType) {
+    if (!state.inventory) return;
+
+    state.inventory.cosmetics = state.inventory.cosmetics.map(c =>
+        c.type === itemType ? { ...c, is_active: false } : c
+    );
+
+    if (itemType === 'frame')      state.activeFrame  = null;
+    else if (itemType === 'name_color') state.activeColor  = null;
+    else if (itemType === 'prefix')     state.activePrefix = null;
+
+    refreshAvatarFrame();
+    refreshNameDisplay();
+    renderInventoryGrid(state.inventory.cosmetics, state.inventory.bonuses);
+}
+
+// ─── Cosmetic display helpers ────────────────────────────────────────────────
+
+function refreshAvatarFrame() {
+    const frameEl = elements.userAvatarFrame;
+    if (!frameEl) return;
+    if (state.activeFrame && state.activeFrame.image_url) {
+        frameEl.src = state.activeFrame.image_url;
+        frameEl.style.display = 'block';
+    } else {
+        frameEl.style.display = 'none';
+        frameEl.src = '';
+    }
+}
+
+function refreshNameDisplay() {
+    if (!state.profile) return;
+    const firstName = state.profile.first_name || 'Не указано';
+    const lastName  = state.profile.last_name  || 'Не указано';
+    const nameEl    = elements.userName;
+
+    if (state.activePrefix) {
+        nameEl.innerHTML = `<span style="color:#6b7280;font-size:0.78em;font-weight:600;margin-right:6px;letter-spacing:0.02em;">${escapeHtml(state.activePrefix.name)}</span>${escapeHtml(firstName + ' ' + lastName)}`;
+    } else {
+        nameEl.textContent = `${firstName} ${lastName}`;
+    }
+
+    nameEl.style.color = (state.activeColor && state.activeColor.hex_code) ? state.activeColor.hex_code : '';
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// ─── Inventory grid renderer ─────────────────────────────────────────────────
+
+function renderInventoryGrid(cosmetics, bonuses) {
+    const grid    = elements.inventoryGrid;
+    const loading = elements.inventoryLoading;
+    const empty   = elements.inventoryEmpty;
+    if (!grid) return;
+
+    if (loading) loading.style.display = 'none';
+
+    if (!cosmetics.length && !bonuses.length) {
+        grid.style.display  = 'none';
+        empty.style.display = 'block';
+        return;
+    }
+
+    empty.style.display = 'none';
+    grid.innerHTML = '';
+    const frag = document.createDocumentFragment();
+
+    // Cosmetic cards
+    cosmetics.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'inv-card' + (item.is_active ? ' is-active' : '');
+
+        const preview = buildCosmeticPreview(item);
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'inv-card__name';
+        nameEl.textContent = item.name;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'inv-card__btn ' + (item.is_active ? 'inv-card__btn--remove' : 'inv-card__btn--apply');
+        btn.textContent = item.is_active ? 'Убрать' : 'Применить';
+        btn.addEventListener('click', () => {
+            if (item.is_active) {
+                sendMessageToParent({ type: 'REMOVE_ITEM_REQUEST', data: { itemType: item.type } });
+            } else {
+                sendMessageToParent({ type: 'APPLY_ITEM_REQUEST', data: { itemType: item.type, itemId: item.item_id } });
+            }
+        });
+
+        card.appendChild(preview);
+        card.appendChild(nameEl);
+        card.appendChild(btn);
+        frag.appendChild(card);
+    });
+
+    // Bonus cards
+    bonuses.forEach(bonus => {
+        const card = document.createElement('div');
+        card.className = 'inv-card';
+
+        const preview = document.createElement('div');
+        preview.className = 'inv-card__preview';
+        preview.innerHTML = `<span style="font-size:36px;line-height:1;display:block;">${getBonusIcon(bonus.name, bonus.bonus_id)}</span>`;
+
+        const badge = document.createElement('div');
+        badge.className = 'inv-card__badge';
+        badge.textContent = bonus.quantity > 99 ? '99+' : bonus.quantity;
+        preview.appendChild(badge);
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'inv-card__name';
+        nameEl.textContent = bonus.name;
+
+        card.appendChild(preview);
+        card.appendChild(nameEl);
+        frag.appendChild(card);
+    });
+
+    grid.appendChild(frag);
+    grid.style.display = 'grid';
+}
+
+function buildCosmeticPreview(item) {
+    const preview = document.createElement('div');
+    preview.className = 'inv-card__preview';
+
+    if (item.type === 'frame' && item.image_url) {
+        const img = document.createElement('img');
+        img.src = item.image_url;
+        img.alt = item.name;
+        preview.appendChild(img);
+
+    } else if (item.type === 'name_color' && item.hex_code) {
+        preview.style.cssText = `width:64px;height:64px;border-radius:50%;background:${item.hex_code};border:3px solid #e5e7eb;`;
+        preview.innerHTML = `<span style="color:white;font-weight:700;font-size:20px;text-shadow:0 1px 3px rgba(0,0,0,.5);">А</span>`;
+
+    } else if (item.type === 'prefix') {
+        preview.style.cssText = 'width:auto;height:auto;padding:8px 14px;border-radius:20px;background:#f3f4f6;';
+        preview.innerHTML = `<span style="font-size:13px;font-weight:700;color:#374151;">${escapeHtml(item.name)}</span>`;
+    }
+
+    return preview;
+}
+
+function getBonusIcon(name, id) {
+    const n = (name || '').toLowerCase();
+    const i = (id   || '').toLowerCase();
+    if (n.includes('попытк') || i.includes('attempt')) return '↩️';
+    if (n.includes('подсказк') || i.includes('hint'))  return '💡';
+    if (n.includes('пропус') || i.includes('skip'))    return '⏭️';
+    return '🎁';
+}
