@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useStudentProfile } from '../context/StudentProfileContext';
 
@@ -53,7 +52,6 @@ function ShopCard({ preview, name, description, price, btnLabel, btnDisabled, bt
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function ShopPage() {
-  const { session } = useOutletContext();
   const { profile, refreshProfile } = useStudentProfile();
 
   const [frames, setFrames] = useState([]);
@@ -63,13 +61,15 @@ export default function ShopPage() {
   const [inventory, setInventory] = useState([]);
   const [userPurchases, setUserPurchases] = useState([]);
   const [shopLoading, setShopLoading] = useState(true);
+  const [shopError, setShopError] = useState(null);
   const [purchasing, setPurchasing] = useState(null);
   const [toast, setToast] = useState(null);
 
-  // Wait for auth before loading catalogue
+  // getSession() waits for the Supabase client to restore its auth token from
+  // localStorage before we fire any queries, preventing silent RLS empty results.
   useEffect(() => {
-    if (session?.user?.id) loadShopData();
-  }, [session?.user?.id]);
+    loadShopData();
+  }, []);
 
   useEffect(() => {
     if (profile?.id) {
@@ -82,16 +82,31 @@ export default function ShopPage() {
 
   async function loadShopData() {
     setShopLoading(true);
+    setShopError(null);
+
+    // Ensure the Supabase client has restored its session before querying.
+    // Without this await the first requests may go out as anon (no bearer token)
+    // and RLS silently returns [].
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setShopError('Необходимо войти в систему для просмотра магазина.');
+      setShopLoading(false);
+      return;
+    }
+
     const [a, b, c, d] = await Promise.all([
       supabase.from('items_frames').select('*').order('price'),
       supabase.from('items_name_colors').select('*').order('price'),
       supabase.from('items_prefixes').select('*').order('price'),
       supabase.from('shop_bonuses').select('*').order('price'),
     ]);
-    if (a.error) console.error('items_frames:', a.error.message);
-    if (b.error) console.error('items_name_colors:', b.error.message);
-    if (c.error) console.error('items_prefixes:', c.error.message);
-    if (d.error) console.error('shop_bonuses:', d.error.message);
+
+    const firstError = a.error || b.error || c.error || d.error;
+    if (firstError) {
+      console.error('Shop query error:', firstError);
+      setShopError(`Ошибка загрузки: ${firstError.message}`);
+    }
+
     setFrames(a.data || []);
     setNameColors(b.data || []);
     setPrefixes(c.data || []);
@@ -267,6 +282,7 @@ export default function ShopPage() {
         </div>
 
         {toast && <div className={`shop-toast shop-toast--${toast.type}`}>{toast.text}</div>}
+        {shopError && <div className="shop-toast shop-toast--error">{shopError}</div>}
 
         <div className="shop-columns">
           {/* ── Frames ─────────────────────────────────────────────── */}
