@@ -136,6 +136,9 @@
         .avatar-container {
             position: relative;
             cursor: pointer;
+            width: 80px;
+            height: 80px;
+            flex-shrink: 0;
         }
 
         .user-avatar {
@@ -805,11 +808,7 @@
         /* ── Avatar frame overlay ───────────────────────── */
         .user-avatar-frame {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: calc(100% + 20px);
-            height: calc(100% + 20px);
+            inset: -20px;   /* extends 20px outside the 80 × 80 avatar on every side */
             object-fit: contain;
             pointer-events: none;
             z-index: 3;
