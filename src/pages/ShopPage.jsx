@@ -276,7 +276,7 @@ export default function ShopPage() {
         <div className="shop-header-balance">
           <span className="shop-header-balance__label">Монеты</span>
           <span className="shop-header-balance__value">
-            <img src="/icons/sp_coins.png" alt="" width={50} height={50} style={{ display: 'block' }} />
+            <img src="/icons/sp_coins.png" alt="" width={50} height={50} style={{ display: 'inline-block', verticalAlign: 'middle' }} />
             <span className="shop-balance-num">{coins}</span>
           </span>
         </div>
@@ -389,11 +389,15 @@ export default function ShopPage() {
           font-size: 18px;
           font-weight: var(--qf-fw-semibold);
           font-family: var(--qf-font);
+          color: var(--qf-text-body);
+          line-height: 1;
         }
         .shop-balance-num {
           font-size: 28px;
           font-weight: var(--qf-fw-black);
           font-family: var(--qf-font);
+          color: var(--qf-text-body);
+          line-height: 1;
         }
         .shop-header-balance {
           display: flex;
@@ -478,6 +482,7 @@ export default function ShopPage() {
           display: flex;
           flex-direction: column;
           align-items: center;
+          justify-content: space-between;
           text-align: center;
           padding: 18px 14px 16px;
         }
@@ -510,6 +515,7 @@ export default function ShopPage() {
           gap: 6px;
           font-weight: var(--qf-fw-semibold);
           font-family: var(--qf-font);
+          color: var(--qf-text-body);
           margin-bottom: 14px;
         }
         /* Button variants */

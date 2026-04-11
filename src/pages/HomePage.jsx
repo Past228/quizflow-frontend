@@ -275,6 +275,10 @@ export default function HomePage() {
           }
         }
         .home-shop-grid__item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
           border: 2px solid var(--qf-accent-border-soft);
           border-radius: 14px;
           padding: 16px;
