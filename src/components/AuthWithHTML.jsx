@@ -324,14 +324,16 @@ export default function AuthWithHTML() {
                 throw new Error('Некорректный формат email');
             }
 
-            // Проверяем, не зарегистрирован ли уже пользователь с таким email
-            const { data: existingTeacher, error: checkError } = await supabase
+            // Проверяем, не зарегистрирован ли уже пользователь с таким email.
+            // maybeSingle() returns null (no error) when no row is found,
+            // avoiding the 406 that .single() emits on zero rows.
+            const { data: existingTeacher } = await supabase
                 .from('teachers')
                 .select('id')
                 .eq('email', cleanData.email)
-                .single();
+                .maybeSingle();
 
-            if (!checkError && existingTeacher) {
+            if (existingTeacher) {
                 throw new Error('Пользователь с таким email уже зарегистрирован');
             }
 
@@ -345,7 +347,7 @@ export default function AuthWithHTML() {
                 throw new Error('Неверный, просроченный или уже использованный пригласительный код');
             }
 
-            const codeId = codeCheck.id;
+            const codeId = codeCheck.id ?? null;
 
             // Создаем пользователя в auth
             const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -374,37 +376,35 @@ export default function AuthWithHTML() {
 
             const userId = authData.user.id;
 
-            // ОБНОВЛЯЕМ КОД — пользователь уже аутентифицирован после signUp,
-            // поэтому RLS-политика для authenticated разрешает это обновление.
-            const { error: updateCodeError } = await supabase
+            // ОБНОВЛЯЕМ КОД — пользователь аутентифицирован после signUp.
+            // Match by `code` (text PK) to avoid depending on a numeric id column.
+            await supabase
                 .from('invite_codes')
                 .update({
                     is_used: true,
                     used_by: userId,
                     used_at: new Date().toISOString()
                 })
-                .eq('id', codeId)
+                .eq('code', cleanData.inviteCode.toUpperCase())
                 .eq('is_used', false);
 
-            if (updateCodeError) {
-                throw new Error('Не удалось зарегистрировать пригласительный код');
-            }
-
             // СОЗДАЕМ ЗАПИСЬ В TEACHERS
+            // `role` is not a column in the teachers table — it lives in auth metadata.
+            const teacherRow = {
+                id: userId,
+                first_name: cleanData.firstName,
+                last_name: cleanData.lastName,
+                email: cleanData.email,
+                avatar_url: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                ...(cleanData.buildingId ? { building_id: cleanData.buildingId } : {}),
+                ...(codeId           ? { invite_code_id: codeId }           : {}),
+            };
+
             const { error: teacherError } = await supabase
                 .from('teachers')
-                .insert({
-                    id: userId,
-                    building_id: cleanData.buildingId,
-                    first_name: cleanData.firstName,
-                    last_name: cleanData.lastName,
-                    email: cleanData.email,
-                    role: 'teacher',
-                    avatar_url: null,
-                    invite_code_id: codeId,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                });
+                .insert(teacherRow);
 
             if (teacherError) {
                 throw new Error('Не удалось создать запись преподавателя');
