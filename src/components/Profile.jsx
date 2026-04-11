@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-export default function Profile({ session, embedded = false }) {
+export default function Profile({ session, embedded = false, onAvatarUpdated }) {
     const iframeRef = useRef(null);
 
     useEffect(() => {
@@ -178,7 +178,6 @@ export default function Profile({ session, embedded = false }) {
                         title,
                         description,
                         created_at,
-                        time_limit,
                         questions_count
                     )
                 `)
@@ -245,7 +244,6 @@ export default function Profile({ session, embedded = false }) {
                 .insert({
                     title: testData.title,
                     description: testData.description,
-                    time_limit: testData.timeLimit,
                     max_attempts: testData.maxAttempts,
                     questions_count: 0,
                     created_by: session.user.id,
@@ -363,6 +361,10 @@ export default function Profile({ session, embedded = false }) {
                 type: 'AVATAR_UPDATED',
                 data: { avatarUrl: avatarUrl }
             });
+
+            // Immediately refresh the StudentProfileContext so the sidebar
+            // avatar updates without waiting for a full page reload.
+            if (onAvatarUpdated) onAvatarUpdated();
 
         } catch (error) {
             console.error('Avatar update error:', error);
