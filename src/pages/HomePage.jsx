@@ -135,10 +135,8 @@ export default function HomePage() {
                       </div>
                       <div className="home-shop-grid__title">{item.name || item.title}</div>
                       <div className="home-shop-grid__price">
-                        <img src="/icons/sp_coins.png" alt="" width={18} height={18} />
-                        <span className="home-shop-grid__price-txt">
-                          SP <span className="qf-num">{item.price}</span>
-                        </span>
+                        <img src="/icons/sp_coins.png" alt="" width={18} height={18} style={{ display: 'block' }} />
+                        <span className="home-shop-grid__price-txt">SP {item.price}</span>
                       </div>
                     </button>
                   ))}
@@ -215,13 +213,6 @@ export default function HomePage() {
       </div>
 
       <style>{`
-        .qf-num {
-          line-height: 1;
-          display: inline-flex;
-          align-items: center;
-          height: 1em;
-          vertical-align: middle;
-        }
         .home-layout {
           display: grid;
           grid-template-columns: 1fr;
@@ -337,6 +328,8 @@ export default function HomePage() {
         }
         .home-shop-grid__price-txt {
           font-weight: var(--qf-fw-semibold);
+          font-family: var(--qf-font);
+          line-height: 1;
         }
         .home-leaders {
           list-style: none;

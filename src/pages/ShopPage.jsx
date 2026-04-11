@@ -34,8 +34,8 @@ function ShopCard({ preview, name, description, price, btnLabel, btnDisabled, bt
       <h3 className="shop-card__title">{name}</h3>
       {description && <p className="shop-card__desc">{description}</p>}
       <div className="shop-card__price">
-        <img src="/icons/sp_coins.png" alt="" width={22} height={22} />
-        <span className="qf-num" style={{ fontSize: 18 }}>{price}</span>
+        <img src="/icons/sp_coins.png" alt="" width={22} height={22} style={{ display: 'block' }} />
+        <span className="shop-card__price-num">{price}</span>
       </div>
       <button
         type="button"
@@ -276,8 +276,8 @@ export default function ShopPage() {
         <div className="shop-header-balance">
           <span className="shop-header-balance__label">Монеты</span>
           <span className="shop-header-balance__value">
-            <img src="/icons/sp_coins.png" alt="" width={50} height={50} />
-            <span className="qf-num" style={{ fontSize: 28 }}>{coins}</span>
+            <img src="/icons/sp_coins.png" alt="" width={50} height={50} style={{ display: 'block' }} />
+            <span className="shop-balance-num">{coins}</span>
           </span>
         </div>
 
@@ -385,12 +385,17 @@ export default function ShopPage() {
       </div>
 
       <style>{`
-        .qf-num {
+        .shop-card__price-num {
+          font-size: 18px;
+          font-weight: var(--qf-fw-semibold);
+          font-family: var(--qf-font);
           line-height: 1;
-          display: inline-flex;
-          align-items: center;
-          height: 1em;
-          vertical-align: middle;
+        }
+        .shop-balance-num {
+          font-size: 28px;
+          font-weight: var(--qf-fw-black);
+          font-family: var(--qf-font);
+          line-height: 1;
         }
         .shop-header-balance {
           display: flex;
