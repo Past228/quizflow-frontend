@@ -134,24 +134,18 @@ export default function AuthWithHTML() {
             if (!cleanCode || cleanCode.length < 3) {
                 sendMessageToIframe({
                     type: 'INVITE_CODE_VALIDATION_RESULT',
-                    data: {
-                        valid: false,
-                        message: 'Код слишком короткий'
-                    }
+                    data: { valid: false, message: 'Код слишком короткий' }
                 });
                 return;
             }
 
-            // Проверяем код в базе данных
-            const { data: codeData, error } = await supabase
-                .from('invite_codes')
-                .select('*')
-                .eq('code', cleanCode.toUpperCase())
-                .eq('is_used', false)
-                .gte('expires_at', new Date().toISOString())
-                .single();
+            // Use a SECURITY DEFINER RPC so the anon key can validate the code
+            // without needing direct table access (bypasses RLS).
+            const { data, error } = await supabase.rpc('validate_invite_code', {
+                code_input: cleanCode.toUpperCase()
+            });
 
-            if (error || !codeData) {
+            if (error || !data?.valid) {
                 sendMessageToIframe({
                     type: 'INVITE_CODE_VALIDATION_RESULT',
                     data: {
@@ -164,20 +158,14 @@ export default function AuthWithHTML() {
 
             sendMessageToIframe({
                 type: 'INVITE_CODE_VALIDATION_RESULT',
-                data: {
-                    valid: true,
-                    message: '✅ Код действителен и доступен'
-                }
+                data: { valid: true, message: '✅ Код действителен и доступен' }
             });
 
         } catch (error) {
             console.error('Error validating invite code:', error);
             sendMessageToIframe({
                 type: 'INVITE_CODE_VALIDATION_RESULT',
-                data: {
-                    valid: false,
-                    message: 'Ошибка проверки кода'
-                }
+                data: { valid: false, message: 'Ошибка проверки кода' }
             });
         }
     };
@@ -347,18 +335,17 @@ export default function AuthWithHTML() {
                 throw new Error('Пользователь с таким email уже зарегистрирован');
             }
 
-            // ПРОВЕРЯЕМ КОД
-            const { data: codeData, error: codeError } = await supabase
-                .from('invite_codes')
-                .select('*')
-                .eq('code', cleanData.inviteCode.toUpperCase())
-                .eq('is_used', false)
-                .gte('expires_at', new Date().toISOString())
-                .single();
+            // ПРОВЕРЯЕМ КОД через SECURITY DEFINER RPC (работает без авторизации)
+            const { data: codeCheck, error: codeCheckError } = await supabase.rpc(
+                'validate_invite_code',
+                { code_input: cleanData.inviteCode.toUpperCase() }
+            );
 
-            if (codeError || !codeData) {
+            if (codeCheckError || !codeCheck?.valid) {
                 throw new Error('Неверный, просроченный или уже использованный пригласительный код');
             }
+
+            const codeId = codeCheck.id;
 
             // Создаем пользователя в auth
             const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -387,7 +374,8 @@ export default function AuthWithHTML() {
 
             const userId = authData.user.id;
 
-            // ОБНОВЛЯЕМ КОД
+            // ОБНОВЛЯЕМ КОД — пользователь уже аутентифицирован после signUp,
+            // поэтому RLS-политика для authenticated разрешает это обновление.
             const { error: updateCodeError } = await supabase
                 .from('invite_codes')
                 .update({
@@ -395,7 +383,7 @@ export default function AuthWithHTML() {
                     used_by: userId,
                     used_at: new Date().toISOString()
                 })
-                .eq('id', codeData.id)
+                .eq('id', codeId)
                 .eq('is_used', false);
 
             if (updateCodeError) {

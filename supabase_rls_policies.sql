@@ -3,6 +3,51 @@
 -- Safe to run multiple times — drops existing policies first.
 -- ============================================================
 
+-- ── invite_codes ───────────────────────────────────────────
+-- Anonymous users cannot read the table directly (RLS blocks it),
+-- but they can call the SECURITY DEFINER function below, which
+-- runs with elevated privileges and only exposes whether a code
+-- is valid — never the raw row data.
+
+ALTER TABLE invite_codes ENABLE ROW LEVEL SECURITY;
+
+-- Authenticated users (newly signed-up teacher) can mark a code as used.
+DROP POLICY IF EXISTS "Authenticated users can use invite codes" ON invite_codes;
+CREATE POLICY "Authenticated users can use invite codes"
+  ON invite_codes FOR UPDATE TO authenticated
+  USING  (is_used = false)
+  WITH CHECK (used_by = auth.uid());
+
+-- Function callable by anon: validates a code without exposing table data.
+CREATE OR REPLACE FUNCTION validate_invite_code(code_input TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  rec RECORD;
+BEGIN
+  SELECT id
+  INTO   rec
+  FROM   invite_codes
+  WHERE  code       = UPPER(TRIM(code_input))
+    AND  is_used    = FALSE
+    AND  expires_at >= NOW()
+  LIMIT  1;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('valid', false, 'id', NULL);
+  END IF;
+
+  RETURN jsonb_build_object('valid', true, 'id', rec.id);
+END;
+$$;
+
+-- Revoke the default PUBLIC grant, then explicitly allow anon + authenticated.
+REVOKE ALL ON FUNCTION validate_invite_code(TEXT) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION validate_invite_code(TEXT) TO anon, authenticated;
+
 -- ── Enable RLS (idempotent) ───────────────────────────────────
 
 ALTER TABLE items_frames       ENABLE ROW LEVEL SECURITY;
