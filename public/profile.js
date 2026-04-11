@@ -1,7 +1,20 @@
 // profile.js (исправленная версия)
 // State management
+const AVATAR_OPTIONS_STUDENT = [
+    { id: 'standard', type: 'image', url: '/icons/Standard_avatar.png', label: 'По умолчанию' },
+    { id: 'boy',      type: 'image', url: '/icons/Boy_avatar.png',      label: 'Мальчик' },
+    { id: 'girl',     type: 'image', url: '/icons/Girl_avatar.png',     label: 'Девочка' },
+];
+
+const AVATAR_OPTIONS_TEACHER = [
+    { id: 'standard', type: 'image', url: '/icons/Standard_avatar.png', label: 'По умолчанию' },
+    { id: 'men',      type: 'image', url: '/icons/Men_avatar.png',      label: 'Мужской' },
+    { id: 'women',    type: 'image', url: '/icons/Women_avatar.png',    label: 'Женский' },
+];
+
 let state = {
     profile: null,
+    role: null,
     availableTests: [],
     teacherTests: [],
     loading: true,
@@ -9,32 +22,7 @@ let state = {
     error: null,
     profileNotFound: false,
     selectedAvatar: null,
-    avatarOptions: [
-        {
-            id: 'blue',
-            type: 'color',
-            color: '#3b82f6',
-            text: 'ИП'
-        },
-        {
-            id: 'red',
-            type: 'color',
-            color: '#ef4444',
-            text: 'ИП'
-        },
-        {
-            id: 'green',
-            type: 'color',
-            color: '#10b981',
-            text: 'ИП'
-        },
-        {
-            id: 'yellow',
-            type: 'color',
-            color: '#f59e0b',
-            text: 'ИП'
-        }
-    ]
+    avatarOptions: AVATAR_OPTIONS_STUDENT,
 };
 
 // DOM Elements
@@ -219,19 +207,11 @@ function handleSaveAvatar() {
     if (state.selectedAvatar) {
         let avatarUrl = '';
 
-        if (state.selectedAvatar.type === 'color') {
-            // Для цветных аватарок создаем SVG с инициалами пользователя
-            const profile = state.profile;
-            const firstName = profile.first_name || 'И';
-            const lastName = profile.last_name || 'П';
-            const avatarText = (firstName[0] || '') + (lastName[0] || '');
-            avatarUrl = generateColorAvatarURL(state.selectedAvatar.color, avatarText);
+        if (state.selectedAvatar.type === 'image') {
+            avatarUrl = state.selectedAvatar.url;
         } else if (state.selectedAvatar.type === 'custom') {
-            // Для кастомных URL используем введенный URL
             avatarUrl = state.selectedAvatar.url;
         }
-
-        console.log('Saving avatar:', state.selectedAvatar, 'URL:', avatarUrl);
 
         sendMessageToParent({
             type: 'UPDATE_AVATAR_REQUEST',
@@ -267,6 +247,8 @@ function handleCreateTestClick() {
 
 function handleProfileLoaded(profile, role) {
     state.profile = profile;
+    state.role = role;
+    state.avatarOptions = role === 'teacher' ? AVATAR_OPTIONS_TEACHER : AVATAR_OPTIONS_STUDENT;
     state.loading = false;
 
     hideAllStates();
@@ -500,18 +482,8 @@ function updateStudentAvatarUI() {
 }
 
 function showDefaultStudentAvatar() {
-    const profile = state.profile;
-    const firstName = profile.first_name || 'И';
-    const lastName = profile.last_name || 'П';
-    const avatarText = (firstName[0] || '') + (lastName[0] || '');
-
-    elements.userAvatar.innerHTML = '';
-    elements.userAvatar.textContent = avatarText;
-    elements.userAvatar.style.background = '#3b82f6';
-    elements.userAvatar.style.display = 'flex';
-    elements.userAvatar.style.alignItems = 'center';
-    elements.userAvatar.style.justifyContent = 'center';
-    elements.userAvatar.style.lineHeight = '1';
+    elements.userAvatar.innerHTML = '<img src="/icons/Standard_avatar.png" alt="Аватар" class="avatar-image">';
+    elements.userAvatar.style.background = 'transparent';
 }
 
 function updateStudyInfoUI(profile) {
@@ -692,18 +664,8 @@ function updateTeacherAvatarUI() {
 }
 
 function showDefaultTeacherAvatar() {
-    const profile = state.profile;
-    const firstName = profile.first_name || 'И';
-    const lastName = profile.last_name || 'П';
-    const avatarText = (firstName[0] || '') + (lastName[0] || '');
-
-    elements.teacherAvatar.innerHTML = '';
-    elements.teacherAvatar.textContent = avatarText;
-    elements.teacherAvatar.style.background = '#f59e0b';
-    elements.teacherAvatar.style.display = 'flex';
-    elements.teacherAvatar.style.alignItems = 'center';
-    elements.teacherAvatar.style.justifyContent = 'center';
-    elements.teacherAvatar.style.lineHeight = '1';
+    elements.teacherAvatar.innerHTML = '<img src="/icons/Standard_avatar.png" alt="Аватар" class="avatar-image">';
+    elements.teacherAvatar.style.background = 'transparent';
 }
 
 function updateTeacherStatsUI(stats) {
@@ -835,16 +797,15 @@ function handleAssignGroups(testId) {
 function populateAvatarOptions() {
     let optionsHTML = '';
 
-    state.avatarOptions.forEach((option, index) => {
+    state.avatarOptions.forEach((option) => {
         const isSelected = state.selectedAvatar && state.selectedAvatar.id === option.id;
 
-        if (option.type === 'color') {
+        if (option.type === 'image') {
             optionsHTML += `
-                <div class="avatar-option ${isSelected ? 'selected' : ''}" 
-                     data-id="${option.id}">
-                    <div class="avatar-option-color" style="background: ${option.color}">
-                        <span class="avatar-option-initials">${option.text}</span>
-                    </div>
+                <div class="avatar-option ${isSelected ? 'selected' : ''}"
+                     data-id="${option.id}"
+                     title="${option.label}">
+                    <img src="${option.url}" alt="${option.label}" class="avatar-option-image">
                 </div>
             `;
         }
@@ -852,7 +813,6 @@ function populateAvatarOptions() {
 
     elements.avatarOptions.innerHTML = optionsHTML;
 
-    // Add event listeners to avatar options
     elements.avatarOptions.querySelectorAll('.avatar-option').forEach(option => {
         option.addEventListener('click', function () {
             const id = this.getAttribute('data-id');
@@ -860,7 +820,7 @@ function populateAvatarOptions() {
             if (selectedOption) {
                 state.selectedAvatar = { ...selectedOption };
                 updateSelectedAvatarInModal();
-                elements.avatarUrlInput.value = ''; // Clear URL input when selecting predefined avatar
+                elements.avatarUrlInput.value = '';
             }
         });
     });
