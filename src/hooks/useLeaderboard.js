@@ -33,15 +33,31 @@ export function useLeaderboard(currentGroupId) {
           testsMap[r.student_id] = (testsMap[r.student_id] || 0) + 1;
         });
 
-        // Step 2 — get all student profiles
+        // Step 2 — get all student profiles (including active cosmetic IDs)
         const { data: profiles, error: profilesErr } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, avatar_url, group_id, sp_coins')
+          .select('id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id')
           .eq('role', 'student');
 
         if (profilesErr) throw profilesErr;
 
-        // Step 3 — combine, sort, assign ranks
+        // Step 3 — batch-load all referenced cosmetic items in parallel
+        const unique = (arr) => [...new Set(arr.filter(Boolean))];
+        const frameIds  = unique((profiles || []).map((p) => p.active_frame_id));
+        const colorIds  = unique((profiles || []).map((p) => p.active_color_id));
+        const prefixIds = unique((profiles || []).map((p) => p.active_prefix_id));
+
+        const [framesRes, colorsRes, prefixesRes] = await Promise.all([
+          frameIds.length  ? supabase.from('items_frames').select('id, image_url').in('id', frameIds)            : { data: [] },
+          colorIds.length  ? supabase.from('items_name_colors').select('id, hex_code').in('id', colorIds)        : { data: [] },
+          prefixIds.length ? supabase.from('items_prefixes').select('id, title').in('id', prefixIds)             : { data: [] },
+        ]);
+
+        const frameMap  = Object.fromEntries((framesRes.data  || []).map((f) => [f.id, f]));
+        const colorMap  = Object.fromEntries((colorsRes.data  || []).map((c) => [c.id, c]));
+        const prefixMap = Object.fromEntries((prefixesRes.data|| []).map((p) => [p.id, p]));
+
+        // Step 4 — combine, sort, assign ranks
         const ranked = (profiles || [])
           .map((p) => ({
             id: p.id,
@@ -50,6 +66,9 @@ export function useLeaderboard(currentGroupId) {
             groupId: p.group_id,
             totalScore: scoreMap[p.id] || 0,
             testsCompleted: testsMap[p.id] || 0,
+            activeFrame:  p.active_frame_id  ? (frameMap[p.active_frame_id]   ?? null) : null,
+            activeColor:  p.active_color_id  ? (colorMap[p.active_color_id]   ?? null) : null,
+            activePrefix: p.active_prefix_id ? (prefixMap[p.active_prefix_id] ?? null) : null,
           }))
           // Primary sort: total score. Tie-break: tests completed.
           .sort((a, b) => b.totalScore - a.totalScore || b.testsCompleted - a.testsCompleted);

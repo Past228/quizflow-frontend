@@ -160,15 +160,48 @@ export default function HomePage() {
                     key={u.id}
                     className={i < arr.length - 1 ? 'home-leaders__row' : 'home-leaders__row home-leaders__row--last'}
                   >
-                    <img
-                      src={u.avatarUrl || '/icons/Standard_avatar.png'}
-                      alt=""
-                      width={48}
-                      height={48}
-                      style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                      onError={(e) => { e.currentTarget.src = '/icons/Standard_avatar.png'; }}
-                    />
-                    <span className="home-leaders__name">{u.name}</span>
+                    {/* Avatar with optional frame */}
+                    <div style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}>
+                      <img
+                        src={u.avatarUrl || '/icons/Standard_avatar.png'}
+                        alt=""
+                        width={48}
+                        height={48}
+                        style={{ borderRadius: '50%', objectFit: 'cover', width: 48, height: 48 }}
+                        onError={(e) => { e.currentTarget.src = '/icons/Standard_avatar.png'; }}
+                      />
+                      {u.activeFrame?.image_url && (
+                        <img
+                          src={u.activeFrame.image_url}
+                          alt=""
+                          style={{
+                            position: 'absolute', top: '50%', left: '50%',
+                            transform: 'translate(-50%,-50%)',
+                            width: 66, height: 66,
+                            objectFit: 'contain', pointerEvents: 'none', zIndex: 1,
+                          }}
+                        />
+                      )}
+                    </div>
+                    {/* Prefix + colored name */}
+                    <span style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
+                      {u.activePrefix?.title && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: '1px 7px',
+                          borderRadius: 20, background: '#f3f4f6', color: '#374151',
+                          whiteSpace: 'nowrap', flexShrink: 0,
+                        }}>
+                          {u.activePrefix.title}
+                        </span>
+                      )}
+                      <span style={{
+                        fontSize: 16, fontWeight: 700, fontFamily: 'var(--qf-font)',
+                        color: u.activeColor?.hex_code || '#000',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {u.name}
+                      </span>
+                    </span>
                     <span className="home-leaders__score">{u.totalScore} очк.</span>
                   </li>
                 ))}

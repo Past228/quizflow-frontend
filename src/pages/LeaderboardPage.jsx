@@ -53,9 +53,9 @@ export default function LeaderboardPage() {
                   className={`student-card lb-top-card${row.id === profile?.id ? ' lb-card--me' : ''}`}
                 >
                   <Medal rank={row.rank} variant={MEDAL_VARIANTS[i]} />
-                  <Avatar url={row.avatarUrl} size={52} />
+                  <Avatar url={row.avatarUrl} size={52} frame={row.activeFrame} />
                   <div className="lb-name-block">
-                    <div className="lb-name">{row.name}</div>
+                    <PlayerName name={row.name} prefix={row.activePrefix} color={row.activeColor} size={18} />
                   </div>
                   <div className="lb-tests-count">{row.testsCompleted} тест.</div>
                   <div className="lb-xp">{row.totalScore} очков</div>
@@ -80,8 +80,8 @@ export default function LeaderboardPage() {
                           .join(' ')}
                       >
                         <span className="lb-rank-num">{row.rank}</span>
-                        <Avatar url={row.avatarUrl} size={40} />
-                        <span className="lb-row-name">{row.name}</span>
+                        <Avatar url={row.avatarUrl} size={40} frame={row.activeFrame} />
+                        <PlayerName name={row.name} prefix={row.activePrefix} color={row.activeColor} size={16} />
                         <span className="lb-tests-count">{row.testsCompleted} тест.</span>
                         <span className="lb-row-xp">{row.totalScore} очков</span>
                       </div>
@@ -108,9 +108,9 @@ export default function LeaderboardPage() {
                       className={`lb-aside-item${r.id === profile?.id ? ' lb-aside-item--me' : ''}`}
                     >
                       <span className="lb-aside-rank">{r.rank}</span>
-                      <Avatar url={r.avatarUrl} size={34} />
-                      <span className="lb-aside-name">{r.name}</span>
-                      <span className="lb-aside-score">{r.totalScore}</span>
+                      <Avatar url={r.avatarUrl} size={34} frame={r.activeFrame} />
+                      <PlayerName name={r.name} prefix={r.activePrefix} color={r.activeColor} size={13} />
+                      <span className="lb-aside-score">{r.totalScore} очк.</span>
                     </li>
                   ))}
                 </ul>
@@ -248,7 +248,7 @@ export default function LeaderboardPage() {
           grid-template-columns: 28px 38px 1fr auto;
           align-items: center;
           gap: 8px;
-          padding: 7px 0;
+          padding: 7px 12px 7px 0;
           border-bottom: 1px solid var(--qf-border-subtle);
         }
         .lb-aside-item:last-child { border-bottom: none; }
@@ -301,15 +301,67 @@ function Medal({ rank, variant }) {
   );
 }
 
-function Avatar({ url, size }) {
+function Avatar({ url, size, frame }) {
+  const extra = Math.round(size * 0.38); // frame extends beyond the avatar edge
   return (
-    <img
-      src={url || '/icons/Standard_avatar.png'}
-      alt=""
-      width={size}
-      height={size}
-      className="lb-av"
-      onError={(e) => { e.currentTarget.src = '/icons/Standard_avatar.png'; }}
-    />
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <img
+        src={url || '/icons/Standard_avatar.png'}
+        alt=""
+        width={size}
+        height={size}
+        className="lb-av"
+        onError={(e) => { e.currentTarget.src = '/icons/Standard_avatar.png'; }}
+      />
+      {frame?.image_url && (
+        <img
+          src={frame.image_url}
+          alt=""
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: size + extra,
+            height: size + extra,
+            objectFit: 'contain',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PlayerName({ name, prefix, color, size }) {
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
+      {prefix?.title && (
+        <span style={{
+          fontSize: Math.max(10, size - 3),
+          fontWeight: 700,
+          padding: '1px 7px',
+          borderRadius: 20,
+          background: '#f3f4f6',
+          color: '#374151',
+          whiteSpace: 'nowrap',
+          flexShrink: 0,
+        }}>
+          {prefix.title}
+        </span>
+      )}
+      <span style={{
+        fontSize: size,
+        fontWeight: 700,
+        fontFamily: 'var(--qf-font)',
+        color: color?.hex_code || '#111',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}>
+        {name}
+      </span>
+    </span>
   );
 }

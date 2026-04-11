@@ -1062,11 +1062,15 @@ function buildCosmeticPreview(item) {
         preview.appendChild(img);
 
     } else if (item.type === 'name_color' && item.hex_code) {
-        preview.style.cssText = `width:64px;height:64px;border-radius:50%;background:${item.hex_code};border:3px solid #e5e7eb;`;
-        preview.innerHTML = `<span style="color:white;font-weight:700;font-size:20px;text-shadow:0 1px 3px rgba(0,0,0,.5);">А</span>`;
+        // Show the letter in the chosen colour on a neutral background — same
+        // visual language as the shop card where the user's name appears coloured.
+        preview.style.cssText = `width:64px;height:64px;border-radius:50%;background:#f0f4f8;border:3px solid ${item.hex_code};`;
+        preview.innerHTML = `<span style="color:${item.hex_code};font-weight:900;font-size:26px;font-family:sans-serif;line-height:1;">А</span>`;
 
     } else if (item.type === 'prefix') {
-        preview.innerHTML = `<span style="display:inline-block;padding:5px 10px;border-radius:20px;background:#f3f4f6;font-size:11px;font-weight:700;color:#374151;max-width:100%;word-break:break-word;text-align:center;line-height:1.3;">${escapeHtml(item.name)}</span>`;
+        // white-space:nowrap so the badge never wraps; the card is wide enough to
+        // hold the full text since the grid column is minmax(130px, 1fr).
+        preview.innerHTML = `<span style="display:inline-block;padding:3px 10px;border-radius:20px;background:#f3f4f6;font-size:11px;font-weight:700;color:#374151;white-space:nowrap;">${escapeHtml(item.name)}</span>`;
     }
 
     return preview;
