@@ -4,6 +4,7 @@ import { supabase } from './lib/supabaseClient';
 import AuthWithHTML from './components/AuthWithHTML';
 import Profile from './components/Profile';
 import TeacherLayout from './components/teacher/TeacherLayout';
+import TeacherHomePage from './pages/TeacherHomePage';
 import StudentLayout from './components/student/StudentLayout';
 import HomePage from './pages/HomePage';
 import CatalogPage from './pages/CatalogPage';
@@ -19,7 +20,7 @@ function TeacherApp({ session }) {
 
   return (
     <TeacherLayout session={session} activeTab={tab} onTabChange={setTab}>
-      {tab === 'home' && <Profile key={session.user.id} session={session} />}
+      {tab === 'home' && <TeacherHomePage session={session} onTabChange={setTab} />}
       {tab === 'tests' && <Profile key={session.user.id} session={session} />}
       {tab === 'settings' && <TeacherSettingsPane />}
       {tab === 'help' && <TeacherHelpPane />}
