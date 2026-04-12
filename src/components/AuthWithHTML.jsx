@@ -129,7 +129,7 @@ export default function AuthWithHTML() {
 
     const handleValidateInviteCode = async (code) => {
         try {
-            const cleanCode = sanitizeInput(code);
+            const cleanCode = sanitizeInput(code).toUpperCase();
 
             if (!cleanCode || cleanCode.length < 3) {
                 sendMessageToIframe({
@@ -139,26 +139,35 @@ export default function AuthWithHTML() {
                 return;
             }
 
-            // Use a SECURITY DEFINER RPC so the anon key can validate the code
-            // without needing direct table access (bypasses RLS).
-            const { data, error } = await supabase.rpc('validate_invite_code', {
-                code_input: cleanCode.toUpperCase()
-            });
+            // Try SECURITY DEFINER RPC first; fall back to direct query
+            let valid = false;
+            try {
+                const { data: rpcData, error: rpcErr } = await supabase.rpc(
+                    'validate_invite_code',
+                    { code_input: cleanCode }
+                );
+                if (!rpcErr && rpcData?.valid) valid = true;
+            } catch { /* RPC may not exist */ }
 
-            if (error || !data?.valid) {
-                sendMessageToIframe({
-                    type: 'INVITE_CODE_VALIDATION_RESULT',
-                    data: {
-                        valid: false,
-                        message: 'Неверный, просроченный или уже использованный код'
-                    }
-                });
-                return;
+            if (!valid) {
+                const { data: row } = await supabase
+                    .from('invite_codes')
+                    .select('id, code, is_used, expires_at')
+                    .eq('code', cleanCode)
+                    .eq('is_used', false)
+                    .maybeSingle();
+
+                if (row) {
+                    const expired = row.expires_at && new Date(row.expires_at) < new Date();
+                    valid = !expired;
+                }
             }
 
             sendMessageToIframe({
                 type: 'INVITE_CODE_VALIDATION_RESULT',
-                data: { valid: true, message: '✅ Код действителен и доступен' }
+                data: valid
+                    ? { valid: true, message: '✅ Код действителен и доступен' }
+                    : { valid: false, message: 'Неверный, просроченный или уже использованный код' }
             });
 
         } catch (error) {
@@ -300,10 +309,8 @@ export default function AuthWithHTML() {
         setLoading(true);
 
         try {
-            // Проверка rate limit
             checkRateLimit(formData.email);
 
-            // Валидация и санитизация
             const errors = validateTeacherSignUpForm(formData);
             if (Object.keys(errors).length > 0) {
                 sendMessageToIframe({
@@ -318,41 +325,55 @@ export default function AuthWithHTML() {
                 password: formData.password,
                 firstName: sanitizeInput(formData.firstName),
                 lastName: sanitizeInput(formData.lastName),
-                inviteCode: sanitizeInput(formData.inviteCode),
+                inviteCode: sanitizeInput(formData.inviteCode).toUpperCase(),
                 buildingId: parseInt(formData.buildingId) || null
             };
 
-            // Дополнительная валидация
             if (!isValidEmail(cleanData.email)) {
                 throw new Error('Некорректный формат email');
             }
 
-            // Проверяем, не зарегистрирован ли уже пользователь с таким email.
-            // maybeSingle() returns null (no error) when no row is found,
-            // avoiding the 406 that .single() emits on zero rows.
-            const { data: existingTeacher } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', cleanData.email)
-                .maybeSingle();
+            // Validate the invite code. Try the SECURITY DEFINER RPC first;
+            // if it doesn't exist (403/404) fall back to a direct table query.
+            let codeValid = false;
+            let codeId = null;
 
-            if (existingTeacher) {
-                throw new Error('Пользователь с таким email уже зарегистрирован');
+            try {
+                const { data: codeCheck, error: rpcErr } = await supabase.rpc(
+                    'validate_invite_code',
+                    { code_input: cleanData.inviteCode }
+                );
+                if (!rpcErr && codeCheck?.valid) {
+                    codeValid = true;
+                    codeId = codeCheck.id ?? null;
+                }
+            } catch { /* RPC may not exist */ }
+
+            if (!codeValid) {
+                // Fallback: query invite_codes directly
+                const { data: row } = await supabase
+                    .from('invite_codes')
+                    .select('id, code, is_used, expires_at')
+                    .eq('code', cleanData.inviteCode)
+                    .eq('is_used', false)
+                    .maybeSingle();
+
+                if (row) {
+                    const expired = row.expires_at && new Date(row.expires_at) < new Date();
+                    if (!expired) {
+                        codeValid = true;
+                        codeId = row.id ?? null;
+                    }
+                }
             }
 
-            // ПРОВЕРЯЕМ КОД через SECURITY DEFINER RPC (работает без авторизации)
-            const { data: codeCheck, error: codeCheckError } = await supabase.rpc(
-                'validate_invite_code',
-                { code_input: cleanData.inviteCode.toUpperCase() }
-            );
-
-            if (codeCheckError || !codeCheck?.valid) {
+            if (!codeValid) {
                 throw new Error('Неверный, просроченный или уже использованный пригласительный код');
             }
 
-            const codeId = codeCheck.id ?? null;
-
-            // Создаем пользователя в auth
+            // Store everything we need in user_metadata so the first-login
+            // handler can create the teacher row and mark the code as used
+            // (at that point we'll have an authenticated session).
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: cleanData.email,
                 password: cleanData.password,
@@ -361,7 +382,9 @@ export default function AuthWithHTML() {
                         first_name: cleanData.firstName,
                         last_name: cleanData.lastName,
                         role: 'teacher',
-                        invite_code: cleanData.inviteCode.toUpperCase()
+                        invite_code: cleanData.inviteCode,
+                        invite_code_id: codeId,
+                        building_id: cleanData.buildingId,
                     }
                 }
             });
@@ -371,7 +394,7 @@ export default function AuthWithHTML() {
                     throw new Error('Пользователь с таким email уже зарегистрирован в системе');
                 }
                 if (authError.status === 429 || authError.message.toLowerCase().includes('rate limit')) {
-                    throw new Error('Supabase ограничивает отправку email-писем для всего проекта (не только для одного адреса). Отключите подтверждение email: Supabase Dashboard → Authentication → Settings → выключите «Enable email confirmations».');
+                    throw new Error('Supabase ограничивает отправку email-писем. Отключите подтверждение email: Dashboard → Authentication → Settings → выключите «Enable email confirmations».');
                 }
                 throw new Error('Ошибка регистрации: ' + authError.message);
             }
@@ -382,47 +405,12 @@ export default function AuthWithHTML() {
 
             const userId = authData.user.id;
 
-            // ОБНОВЛЯЕМ КОД — пользователь аутентифицирован после signUp.
-            // Match by `code` (text PK) to avoid depending on a numeric id column.
-            await supabase
-                .from('invite_codes')
-                .update({
-                    is_used: true,
-                    used_by: userId,
-                    used_at: new Date().toISOString()
-                })
-                .eq('code', cleanData.inviteCode.toUpperCase())
-                .eq('is_used', false);
-
-            // СОЗДАЕМ ЗАПИСЬ В TEACHERS
-            // `role` is not a column in the teachers table — it lives in auth metadata.
-            const teacherRow = {
-                id: userId,
-                first_name: cleanData.firstName,
-                last_name: cleanData.lastName,
-                email: cleanData.email,
-                avatar_url: null,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                ...(cleanData.buildingId ? { building_id: cleanData.buildingId } : {}),
-                ...(codeId           ? { invite_code_id: codeId }           : {}),
-            };
-
-            // If email confirmation is enabled, authData.session may be null right after
-            // signUp — the anon key would then be rejected by RLS (401). We attempt the
-            // insert only when we have an authenticated session; otherwise the row will
-            // be created automatically on the teacher's first successful login below.
+            // If we have a session right away (email confirmation disabled),
+            // create the teacher row and mark the code immediately.
             if (authData.session) {
-                const { error: teacherError } = await supabase
-                    .from('teachers')
-                    .insert(teacherRow);
-
-                if (teacherError) {
-                    // Don't block the user — the auth account was created successfully.
-                    // The teacher row will be created at first login.
-                    console.warn('Teacher row insert failed at signup (will retry at first login):', teacherError);
-                }
+                await finalizeTeacherRegistration(userId, cleanData, codeId);
             }
+            // Otherwise these will happen at first login (see handleSignIn).
 
             sendMessageToIframe({
                 type: 'AUTH_SUCCESS',
@@ -430,7 +418,6 @@ export default function AuthWithHTML() {
                     message: 'Регистрация преподавателя успешна! Проверьте вашу электронную почту для подтверждения.'
                 }
             });
-            // Добавляем автоматический переход через 3 секунды
             setTimeout(() => {
                 setIsSignUp(false);
                 setIsTeacherSignUp(false);
@@ -446,6 +433,46 @@ export default function AuthWithHTML() {
             });
         } finally {
             setLoading(false);
+        }
+    };
+
+    /** Shared helper: creates the teachers row + marks the invite code as used.
+     *  Called either right after signUp (if session exists) or at first login. */
+    const finalizeTeacherRegistration = async (userId, cleanData, codeId) => {
+        // 1. Mark invite code as used
+        if (cleanData.inviteCode) {
+            const { error: codeErr } = await supabase
+                .from('invite_codes')
+                .update({
+                    is_used: true,
+                    used_by: userId,
+                    used_at: new Date().toISOString()
+                })
+                .eq('code', cleanData.inviteCode)
+                .eq('is_used', false);
+
+            if (codeErr) console.warn('invite_codes update failed:', codeErr);
+        }
+
+        // 2. Create teachers row
+        const teacherRow = {
+            id: userId,
+            first_name: cleanData.firstName,
+            last_name: cleanData.lastName,
+            email: cleanData.email,
+            avatar_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        };
+        if (cleanData.buildingId) teacherRow.building_id = cleanData.buildingId;
+        if (codeId) teacherRow.invite_code_id = codeId;
+
+        const { error: teacherErr } = await supabase
+            .from('teachers')
+            .insert(teacherRow);
+
+        if (teacherErr) {
+            console.warn('Teacher row insert failed:', teacherErr);
         }
     };
 
@@ -488,9 +515,8 @@ export default function AuthWithHTML() {
                 const userRole = data.user.user_metadata?.role;
 
                 if (userRole === 'teacher') {
-                    // Для преподавателей
-                    // maybeSingle() returns null (no error) when the row is missing,
-                    // avoiding the 406 that .single() emits on zero rows.
+                    const meta = data.user.user_metadata || {};
+
                     const { data: teacherData, error: teacherError } = await supabase
                         .from('teachers')
                         .select('*')
@@ -498,23 +524,18 @@ export default function AuthWithHTML() {
                         .maybeSingle();
 
                     if (!teacherData && !teacherError) {
-                        // Создаем запись преподавателя если ее нет.
-                        // NOTE: `role` is NOT a column in teachers — it lives in auth metadata.
-                        const { error: createError } = await supabase
-                            .from('teachers')
-                            .insert({
-                                id: data.user.id,
-                                email: data.user.email,
-                                first_name: data.user.user_metadata?.first_name || 'Преподаватель',
-                                last_name: data.user.user_metadata?.last_name || '',
-                                avatar_url: null,
-                                created_at: new Date().toISOString(),
-                                updated_at: new Date().toISOString()
-                            });
+                        // First login — create teacher row using metadata saved during signup.
+                        // This runs with an authenticated session so RLS allows the writes.
+                        const cleanData = {
+                            firstName: meta.first_name || 'Преподаватель',
+                            lastName: meta.last_name || '',
+                            email: data.user.email,
+                            inviteCode: meta.invite_code || null,
+                            buildingId: meta.building_id ? parseInt(meta.building_id) : null,
+                        };
+                        const codeId = meta.invite_code_id || null;
 
-                        if (createError) {
-                            console.error('Error creating teacher record:', createError);
-                        }
+                        await finalizeTeacherRegistration(data.user.id, cleanData, codeId);
                     }
 
                 } else {
