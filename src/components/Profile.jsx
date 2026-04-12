@@ -540,18 +540,41 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
         }
     };
 
+    const getTeacherBuildingId = async () => {
+        const { data } = await supabase
+            .from('teachers')
+            .select('building_id')
+            .eq('id', session.user.id)
+            .maybeSingle();
+        return data?.building_id || null;
+    };
+
     const handleLoadStatsParamOptions = async (paramType) => {
         try {
+            const buildingId = await getTeacherBuildingId();
             let options = [];
             if (paramType === 'course') {
-                const { data, error } = await supabase.from('courses').select('id, course_number, buildings(name)');
+                let query = supabase.from('courses').select('id, course_number, buildings(name)');
+                if (buildingId) query = query.eq('building_id', buildingId);
+                const { data, error } = await query;
                 if (error) throw error;
                 options = (data || []).map(c => ({
                     id: c.id,
                     name: `${c.course_number} курс` + (c.buildings ? ` — ${c.buildings.name}` : ''),
                 }));
             } else if (paramType === 'group') {
-                const { data, error } = await supabase.from('student_groups').select('id, group_number, courses(course_number, buildings(name))');
+                let courseIds = [];
+                if (buildingId) {
+                    const { data: courses } = await supabase.from('courses').select('id').eq('building_id', buildingId);
+                    courseIds = (courses || []).map(c => c.id);
+                    if (courseIds.length === 0) {
+                        sendMessageToIframe({ type: 'STATS_PARAM_OPTIONS_LOADED', data: { options: [], paramType } });
+                        return;
+                    }
+                }
+                let query = supabase.from('student_groups').select('id, group_number, courses(course_number, buildings(name))');
+                if (courseIds.length > 0) query = query.in('course_id', courseIds);
+                const { data, error } = await query;
                 if (error) throw error;
                 options = (data || []).map(g => ({
                     id: g.id,

@@ -141,11 +141,17 @@ function initializeEventListeners() {
     // Recreate profile button
     elements.recreateProfileBtn.addEventListener('click', handleRecreateProfile);
 
-    // Avatar functionality
+    // Avatar functionality (student)
     elements.avatarContainer.addEventListener('click', handleAvatarClick);
     elements.cancelAvatarBtn.addEventListener('click', handleCancelAvatar);
     elements.saveAvatarBtn.addEventListener('click', handleSaveAvatar);
     elements.useUrlBtn.addEventListener('click', handleUseUrl);
+
+    // Avatar functionality (teacher)
+    var teacherAvatarContainer = document.getElementById('teacherAvatarContainer');
+    if (teacherAvatarContainer) {
+        teacherAvatarContainer.addEventListener('click', handleAvatarClick);
+    }
 
     // Statistics functionality
     const statsByTestBtn = document.getElementById('statsByTestBtn');
@@ -469,7 +475,7 @@ function handleProfileRecreated() {
 function handleAvatarUpdated(avatarUrl) {
     if (state.profile) {
         state.profile.avatar_url = avatarUrl;
-        if (state.profile.role === 'teacher') {
+        if (state.role === 'teacher') {
             updateTeacherAvatarUI();
         } else {
             updateStudentAvatarUI();
