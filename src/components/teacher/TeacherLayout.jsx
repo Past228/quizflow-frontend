@@ -4,12 +4,12 @@ import { hydrateStudentSettings } from '../../lib/studentSettings';
 
 const NAV = [
   { id: 'home',     icon: 'Home_icon.png',     iconActive: 'Home_icon_active.png',     label: 'Личный кабинет' },
-  { id: 'tests',    icon: 'Test_icon.png',      iconActive: 'Test_icon_active.png',      label: 'Мои тесты' },
+  { id: 'tests',    icon: 'Test_icon.png',      iconActive: 'Test_icon_active.png',      label: 'Панель управления' },
   { id: 'settings', icon: 'Settings_icon.png', iconActive: 'Settings_icon_active.png', label: 'Настройки' },
   { id: 'help',     icon: 'Help_icon.png',     iconActive: 'Help_icon_active.png',     label: 'Помощь' },
 ];
 
-function TeacherSidebarAvatar({ session }) {
+function TeacherSidebarAvatar({ session, onTabChange }) {
   const [avatarUrl, setAvatarUrl] = useState(null);
 
   useEffect(() => {
@@ -27,7 +27,12 @@ function TeacherSidebarAvatar({ session }) {
   const src = avatarUrl || '/icons/Standard_avatar.png';
 
   return (
-    <div className="student-sidebar__avatar-btn" style={{ cursor: 'default' }}>
+    <button
+      type="button"
+      className="student-sidebar__avatar-btn"
+      onClick={() => onTabChange('home')}
+      title="Личный кабинет"
+    >
       <img
         src={src}
         alt="Аватар"
@@ -39,7 +44,7 @@ function TeacherSidebarAvatar({ session }) {
           borderRadius: '50%',
         }}
       />
-    </div>
+    </button>
   );
 }
 
@@ -84,7 +89,7 @@ export default function TeacherLayout({ session, activeTab, onTabChange, childre
           </nav>
 
           <div className="student-sidebar__avatar">
-            <TeacherSidebarAvatar session={session} />
+            <TeacherSidebarAvatar session={session} onTabChange={onTabChange} />
           </div>
         </aside>
 

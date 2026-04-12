@@ -78,6 +78,22 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                     await handleRemoveItem(data.itemType);
                     break;
 
+                case 'LOAD_STATS_TESTS_LIST_REQUEST':
+                    await handleLoadStatsTestsList();
+                    break;
+
+                case 'LOAD_STATS_BY_TEST_REQUEST':
+                    await handleLoadStatsByTest(data.testId);
+                    break;
+
+                case 'LOAD_STATS_PARAM_OPTIONS_REQUEST':
+                    await handleLoadStatsParamOptions(data.paramType);
+                    break;
+
+                case 'LOAD_STATS_BY_PARAM_REQUEST':
+                    await handleLoadStatsByParam(data.paramType, data.paramValue);
+                    break;
+
                 default:
                     console.log('Unknown message type:', type);
             }
@@ -484,6 +500,138 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             sendMessageToIframe({ type: 'ITEM_REMOVED', data: { itemType } });
         } catch (err) {
             console.error('Remove item error:', err);
+        }
+    };
+
+    const handleLoadStatsTestsList = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('tests')
+                .select('id, title')
+                .eq('created_by', session.user.id)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            sendMessageToIframe({ type: 'STATS_TESTS_LIST_LOADED', data: { tests: data || [] } });
+        } catch (err) {
+            console.error('Stats tests list error:', err);
+            sendMessageToIframe({ type: 'STATS_TESTS_LIST_LOADED', data: { tests: [] } });
+        }
+    };
+
+    const handleLoadStatsByTest = async (testId) => {
+        try {
+            const { data, error } = await supabase
+                .from('test_attempts')
+                .select('id, score, completed')
+                .eq('test_id', testId);
+            if (error) throw error;
+            const attempts = (data || []).length;
+            const completed = (data || []).filter(a => a.completed).length;
+            const scores = (data || []).filter(a => a.score != null).map(a => a.score);
+            const avgScore = scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : null;
+            const bestScore = scores.length > 0 ? Math.max(...scores) : null;
+            sendMessageToIframe({
+                type: 'STATS_BY_TEST_LOADED',
+                data: { stats: { attempts, completed, avgScore, bestScore } }
+            });
+        } catch (err) {
+            console.error('Stats by test error:', err);
+            sendMessageToIframe({ type: 'STATS_BY_TEST_LOADED', data: { stats: null } });
+        }
+    };
+
+    const handleLoadStatsParamOptions = async (paramType) => {
+        try {
+            let options = [];
+            if (paramType === 'course') {
+                const { data, error } = await supabase.from('courses').select('id, course_number, buildings(name)');
+                if (error) throw error;
+                options = (data || []).map(c => ({
+                    id: c.id,
+                    name: `${c.course_number} курс` + (c.buildings ? ` — ${c.buildings.name}` : ''),
+                }));
+            } else if (paramType === 'group') {
+                const { data, error } = await supabase.from('student_groups').select('id, group_number, courses(course_number, buildings(name))');
+                if (error) throw error;
+                options = (data || []).map(g => ({
+                    id: g.id,
+                    name: `${g.group_number}` + (g.courses ? ` (${g.courses.course_number} курс${g.courses.buildings ? ', ' + g.courses.buildings.name : ''})` : ''),
+                }));
+            }
+            sendMessageToIframe({ type: 'STATS_PARAM_OPTIONS_LOADED', data: { options, paramType } });
+        } catch (err) {
+            console.error('Stats param options error:', err);
+            sendMessageToIframe({ type: 'STATS_PARAM_OPTIONS_LOADED', data: { options: [], paramType } });
+        }
+    };
+
+    const handleLoadStatsByParam = async (paramType, paramValue) => {
+        try {
+            let groupIds = [];
+            if (paramType === 'group') {
+                groupIds = [paramValue];
+            } else if (paramType === 'course') {
+                const { data } = await supabase.from('student_groups').select('id').eq('course_id', paramValue);
+                groupIds = (data || []).map(g => g.id);
+            }
+
+            if (groupIds.length === 0) {
+                sendMessageToIframe({ type: 'STATS_BY_PARAM_LOADED', data: { stats: { rows: [] } } });
+                return;
+            }
+
+            const { data: gtData } = await supabase.from('group_tests').select('test_id').in('group_id', groupIds);
+            const testIds = [...new Set((gtData || []).map(r => r.test_id))];
+
+            if (testIds.length === 0) {
+                sendMessageToIframe({ type: 'STATS_BY_PARAM_LOADED', data: { stats: { rows: [] } } });
+                return;
+            }
+
+            const { data: testsData } = await supabase.from('tests').select('id, title').in('id', testIds);
+            const testMap = {};
+            (testsData || []).forEach(t => { testMap[t.id] = t.title; });
+
+            const { data: profilesData } = await supabase.from('profiles').select('id').in('group_id', groupIds);
+            const profileIds = (profilesData || []).map(p => p.id);
+
+            let rows = [];
+            if (profileIds.length > 0) {
+                const { data: attemptsData } = await supabase
+                    .from('test_attempts')
+                    .select('test_id, score, completed')
+                    .in('test_id', testIds)
+                    .in('user_id', profileIds);
+
+                const byTest = {};
+                (attemptsData || []).forEach(a => {
+                    if (!byTest[a.test_id]) byTest[a.test_id] = [];
+                    byTest[a.test_id].push(a);
+                });
+
+                rows = testIds.map(tid => {
+                    const arr = byTest[tid] || [];
+                    const scores = arr.filter(a => a.score != null).map(a => a.score);
+                    return {
+                        testTitle: testMap[tid] || 'Без названия',
+                        attempts: arr.length,
+                        avgScore: scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : null,
+                        completed: arr.filter(a => a.completed).length,
+                    };
+                });
+            } else {
+                rows = testIds.map(tid => ({
+                    testTitle: testMap[tid] || 'Без названия',
+                    attempts: 0,
+                    avgScore: null,
+                    completed: 0,
+                }));
+            }
+
+            sendMessageToIframe({ type: 'STATS_BY_PARAM_LOADED', data: { stats: { rows } } });
+        } catch (err) {
+            console.error('Stats by param error:', err);
+            sendMessageToIframe({ type: 'STATS_BY_PARAM_LOADED', data: { stats: { rows: [] } } });
         }
     };
 

@@ -117,8 +117,6 @@ const elements = {
     teacherTestsCount: document.getElementById('teacherTestsCount'),
     teacherTestsGrid: document.getElementById('teacherTestsGrid'),
     teacherEmptyTests: document.getElementById('teacherEmptyTests'),
-    createTestBtn: document.getElementById('createTestBtn'),
-
     // Buttons
     logoutBtn: document.getElementById('logoutBtn')
 };
@@ -149,9 +147,70 @@ function initializeEventListeners() {
     elements.saveAvatarBtn.addEventListener('click', handleSaveAvatar);
     elements.useUrlBtn.addEventListener('click', handleUseUrl);
 
-    // Teacher functionality
-    if (elements.createTestBtn) {
-        elements.createTestBtn.addEventListener('click', handleCreateTestClick);
+    // Statistics functionality
+    const statsByTestBtn = document.getElementById('statsByTestBtn');
+    const statsByParamBtn = document.getElementById('statsByParamBtn');
+    const statsTestSelect = document.getElementById('statsTestSelect');
+    const statsParamType = document.getElementById('statsParamType');
+    const statsParamValue = document.getElementById('statsParamValue');
+
+    if (statsByTestBtn) {
+        statsByTestBtn.addEventListener('click', () => {
+            const testPanel = document.getElementById('statsByTestPanel');
+            const paramPanel = document.getElementById('statsByParamPanel');
+            paramPanel.style.display = 'none';
+            testPanel.style.display = testPanel.style.display === 'none' ? 'block' : 'none';
+            if (testPanel.style.display === 'block') {
+                sendMessageToParent({ type: 'LOAD_STATS_TESTS_LIST_REQUEST' });
+            }
+        });
+    }
+
+    if (statsByParamBtn) {
+        statsByParamBtn.addEventListener('click', () => {
+            const paramPanel = document.getElementById('statsByParamPanel');
+            const testPanel = document.getElementById('statsByTestPanel');
+            testPanel.style.display = 'none';
+            paramPanel.style.display = paramPanel.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+
+    if (statsTestSelect) {
+        statsTestSelect.addEventListener('change', function () {
+            if (this.value) {
+                sendMessageToParent({ type: 'LOAD_STATS_BY_TEST_REQUEST', data: { testId: this.value } });
+            } else {
+                document.getElementById('statsTestResult').innerHTML = '';
+            }
+        });
+    }
+
+    if (statsParamType) {
+        statsParamType.addEventListener('change', function () {
+            const valueSelect = document.getElementById('statsParamValue');
+            const resultDiv = document.getElementById('statsParamResult');
+            resultDiv.innerHTML = '';
+            if (this.value) {
+                valueSelect.style.display = 'block';
+                sendMessageToParent({ type: 'LOAD_STATS_PARAM_OPTIONS_REQUEST', data: { paramType: this.value } });
+            } else {
+                valueSelect.style.display = 'none';
+            }
+        });
+    }
+
+    if (statsParamValue) {
+        statsParamValue.addEventListener('change', function () {
+            const paramType = document.getElementById('statsParamType').value;
+            if (this.value && paramType) {
+                sendMessageToParent({
+                    type: 'LOAD_STATS_BY_PARAM_REQUEST',
+                    data: { paramType, paramValue: this.value }
+                });
+            } else {
+                document.getElementById('statsParamResult').innerHTML = '';
+            }
+        });
     }
 }
 
@@ -220,6 +279,22 @@ window.addEventListener('message', function (event) {
 
         case 'ITEM_REMOVED':
             handleItemRemoved(data.itemType);
+            break;
+
+        case 'STATS_TESTS_LIST_LOADED':
+            handleStatsTestsListLoaded(data.tests);
+            break;
+
+        case 'STATS_BY_TEST_LOADED':
+            handleStatsByTestLoaded(data.stats);
+            break;
+
+        case 'STATS_PARAM_OPTIONS_LOADED':
+            handleStatsParamOptionsLoaded(data.options, data.paramType);
+            break;
+
+        case 'STATS_BY_PARAM_LOADED':
+            handleStatsByParamLoaded(data.stats);
             break;
 
         case 'THEME_SYNC':
@@ -1109,4 +1184,101 @@ function getBonusIcon(name, id) {
     if (n.includes('подсказк') || i.includes('hint'))  return '💡';
     if (n.includes('пропус') || i.includes('skip'))    return '⏭️';
     return '🎁';
+}
+
+// ─── Statistics handlers ─────────────────────────────────────────────────────
+
+function handleStatsTestsListLoaded(tests) {
+    const sel = document.getElementById('statsTestSelect');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Выберите тест --</option>';
+    (tests || []).forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.title || 'Без названия';
+        sel.appendChild(opt);
+    });
+}
+
+function handleStatsByTestLoaded(stats) {
+    const div = document.getElementById('statsTestResult');
+    if (!div) return;
+
+    if (!stats || (!stats.attempts && !stats.avgScore && stats.avgScore !== 0)) {
+        div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет данных по этому тесту.</p>';
+        return;
+    }
+
+    div.innerHTML = `
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:12px;">
+            <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
+                <div style="font-size:26px; font-weight:900; color:#1e40af;">${stats.attempts ?? 0}</div>
+                <div style="font-size:12px; color:#6b7280; font-weight:600;">Попыток</div>
+            </div>
+            <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
+                <div style="font-size:26px; font-weight:900; color:#1e40af;">${stats.avgScore != null ? stats.avgScore.toFixed(1) + '%' : '—'}</div>
+                <div style="font-size:12px; color:#6b7280; font-weight:600;">Средний балл</div>
+            </div>
+            <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
+                <div style="font-size:26px; font-weight:900; color:#1e40af;">${stats.completed ?? 0}</div>
+                <div style="font-size:12px; color:#6b7280; font-weight:600;">Завершено</div>
+            </div>
+            <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
+                <div style="font-size:26px; font-weight:900; color:#1e40af;">${stats.bestScore != null ? stats.bestScore.toFixed(1) + '%' : '—'}</div>
+                <div style="font-size:12px; color:#6b7280; font-weight:600;">Лучший результат</div>
+            </div>
+        </div>
+    `;
+}
+
+function handleStatsParamOptionsLoaded(options, paramType) {
+    const sel = document.getElementById('statsParamValue');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Выберите значение --</option>';
+    (options || []).forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = o.name;
+        sel.appendChild(opt);
+    });
+    sel.style.display = 'block';
+    document.getElementById('statsParamResult').innerHTML = '';
+}
+
+function handleStatsByParamLoaded(stats) {
+    const div = document.getElementById('statsParamResult');
+    if (!div) return;
+
+    if (!stats || !stats.rows || stats.rows.length === 0) {
+        div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет данных по этому параметру.</p>';
+        return;
+    }
+
+    let html = `
+        <div style="overflow-x:auto; margin-top:8px;">
+            <table style="width:100%; border-collapse:collapse; font-size:14px; font-family:inherit;">
+                <thead>
+                    <tr style="border-bottom:2px solid #e5e7eb;">
+                        <th style="text-align:left; padding:10px 12px; font-weight:700; color:#374151;">Тест</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Попыток</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Средний балл</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Завершено</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    stats.rows.forEach(row => {
+        html += `
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:10px 12px; color:#111827; font-weight:500;">${escapeHtml(row.testTitle || 'Без названия')}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.attempts ?? 0}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.avgScore != null ? row.avgScore.toFixed(1) + '%' : '—'}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.completed ?? 0}</td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table></div>';
+    div.innerHTML = html;
 }

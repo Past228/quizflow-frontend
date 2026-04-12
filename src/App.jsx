@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
 import AuthWithHTML from './components/AuthWithHTML';
-import Profile from './components/Profile';
 import TeacherLayout from './components/teacher/TeacherLayout';
 import TeacherHomePage from './pages/TeacherHomePage';
 import StudentLayout from './components/student/StudentLayout';
@@ -15,13 +14,209 @@ import SettingsPage from './pages/SettingsPage';
 import HelpPage from './pages/HelpPage';
 import ProfileRoute from './pages/ProfileRoute';
 
+function TeacherControlPanel({ session }) {
+  const [tests, setTests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const loadTests = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('tests')
+        .select('id, title, description, is_active, questions_count, time_limit_minutes, max_attempts, created_at')
+        .eq('created_by', session.user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setTests(data || []);
+    } catch (err) {
+      console.error('Failed to load tests:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [session]);
+
+  useEffect(() => { loadTests(); }, [loadTests]);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setCreating(true);
+    const fd = new FormData(e.target);
+    try {
+      const { error } = await supabase.from('tests').insert({
+        title: fd.get('title'),
+        description: fd.get('description') || '',
+        max_attempts: Number(fd.get('maxAttempts')) || 1,
+        questions_count: 0,
+        created_by: session.user.id,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      setShowCreateModal(false);
+      loadTests();
+    } catch (err) {
+      alert('Ошибка: ' + err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Удалить этот тест?')) return;
+    try {
+      const { error } = await supabase.from('tests').delete().eq('id', id).eq('created_by', session.user.id);
+      if (error) throw error;
+      loadTests();
+    } catch (err) {
+      alert('Ошибка: ' + err.message);
+    }
+  };
+
+  const handleToggleActive = async (id, currentlyActive) => {
+    try {
+      const { error } = await supabase.from('tests').update({ is_active: !currentlyActive }).eq('id', id);
+      if (error) throw error;
+      loadTests();
+    } catch (err) {
+      alert('Ошибка: ' + err.message);
+    }
+  };
+
+  return (
+    <div style={{ padding: '28px 32px 40px', flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <div className="student-page student-page--wide" style={{ maxWidth: 1100, margin: '0 auto' }}>
+        <h1 className="student-page-title" style={{ color: 'var(--qf-bright-blue)' }}>ПАНЕЛЬ УПРАВЛЕНИЯ</h1>
+
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 28 }}>
+          <button type="button" className="qf-btn-primary" onClick={() => setShowCreateModal(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 20 }}>+</span> Создать тест
+          </button>
+        </div>
+
+        {loading ? (
+          <p style={{ color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>Загрузка…</p>
+        ) : tests.length === 0 ? (
+          <div className="student-card" style={{ textAlign: 'center', padding: 40 }}>
+            <p style={{ fontSize: 18, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>
+              У вас пока нет тестов. Создайте первый тест!
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
+            {tests.map((t) => (
+              <div key={t.id} className="student-card" style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)', margin: 0 }}>
+                    {t.title}
+                  </h3>
+                  <span style={{
+                    fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 999, flexShrink: 0,
+                    background: t.is_active ? 'rgba(16, 185, 129, 0.12)' : 'rgba(148, 163, 184, 0.15)',
+                    color: t.is_active ? '#059669' : 'var(--qf-text-muted)',
+                  }}>
+                    {t.is_active ? 'Активен' : 'Неактивен'}
+                  </span>
+                </div>
+                <p style={{ fontSize: 14, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)', margin: 0 }}>
+                  {t.description || 'Описание отсутствует'}
+                </p>
+                <div style={{ fontSize: 13, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)', display: 'flex', gap: 16 }}>
+                  <span>Вопросов: {t.questions_count || 0}</span>
+                  <span>Попыток: {t.max_attempts || 1}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+                  <button type="button" className="qf-btn-primary" style={{ flex: 1, fontSize: 13, padding: '8px 12px' }}
+                    onClick={() => handleToggleActive(t.id, t.is_active)}>
+                    {t.is_active ? 'Деактивировать' : 'Активировать'}
+                  </button>
+                  <button type="button" style={{
+                    flex: 1, fontSize: 13, padding: '8px 12px', border: '2px solid #ef4444',
+                    borderRadius: 'var(--qf-radius-md, 12px)', background: 'transparent',
+                    color: '#ef4444', fontWeight: 700, fontFamily: 'var(--qf-font)', cursor: 'pointer',
+                  }}
+                    onClick={() => handleDelete(t.id)}>
+                    Удалить
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showCreateModal && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          }} onClick={() => setShowCreateModal(false)}>
+            <div className="student-card" style={{ maxWidth: 480, width: '90%', padding: '28px 32px' }}
+              onClick={(e) => e.stopPropagation()}>
+              <h2 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)', marginBottom: 20 }}>
+                Создать новый тест
+              </h2>
+              <form onSubmit={handleCreate}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', marginBottom: 4, fontSize: 14, fontWeight: 600, color: 'var(--qf-text-body)', fontFamily: 'var(--qf-font)' }}>
+                    Название теста
+                  </label>
+                  <input name="title" required placeholder="Введите название" style={{
+                    width: '100%', padding: '12px 14px', border: '2px solid var(--qf-accent-border-soft)',
+                    borderRadius: 'var(--qf-radius-md, 12px)', fontSize: 15, fontFamily: 'var(--qf-font)',
+                    background: 'var(--qf-card)', color: 'var(--qf-text-body)',
+                  }} />
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', marginBottom: 4, fontSize: 14, fontWeight: 600, color: 'var(--qf-text-body)', fontFamily: 'var(--qf-font)' }}>
+                    Описание
+                  </label>
+                  <textarea name="description" rows={3} placeholder="Описание теста" style={{
+                    width: '100%', padding: '12px 14px', border: '2px solid var(--qf-accent-border-soft)',
+                    borderRadius: 'var(--qf-radius-md, 12px)', fontSize: 15, fontFamily: 'var(--qf-font)',
+                    background: 'var(--qf-card)', color: 'var(--qf-text-body)', resize: 'vertical',
+                  }} />
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', marginBottom: 4, fontSize: 14, fontWeight: 600, color: 'var(--qf-text-body)', fontFamily: 'var(--qf-font)' }}>
+                    Макс. попыток
+                  </label>
+                  <input name="maxAttempts" type="number" min={1} defaultValue={1} style={{
+                    width: '100%', padding: '12px 14px', border: '2px solid var(--qf-accent-border-soft)',
+                    borderRadius: 'var(--qf-radius-md, 12px)', fontSize: 15, fontFamily: 'var(--qf-font)',
+                    background: 'var(--qf-card)', color: 'var(--qf-text-body)',
+                  }} />
+                </div>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                  <button type="button" onClick={() => setShowCreateModal(false)} style={{
+                    padding: '10px 22px', borderRadius: 'var(--qf-radius-md, 12px)', border: '2px solid var(--qf-accent-border-soft)',
+                    background: 'transparent', fontWeight: 700, fontFamily: 'var(--qf-font)', cursor: 'pointer',
+                    color: 'var(--qf-text-body)', fontSize: 15,
+                  }}>
+                    Отмена
+                  </button>
+                  <button type="submit" className="qf-btn-primary" disabled={creating}
+                    style={{ padding: '10px 22px', fontSize: 15 }}>
+                    {creating ? 'Создание…' : 'Создать'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TeacherApp({ session }) {
   const [tab, setTab] = useState('home');
 
   return (
     <TeacherLayout session={session} activeTab={tab} onTabChange={setTab}>
       {tab === 'home' && <TeacherHomePage session={session} onTabChange={setTab} />}
-      {tab === 'tests' && <Profile key={session.user.id} session={session} />}
+      {tab === 'tests' && <TeacherControlPanel session={session} />}
       {tab === 'settings' && <TeacherSettingsPane />}
       {tab === 'help' && <TeacherHelpPane />}
     </TeacherLayout>

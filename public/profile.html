@@ -1070,6 +1070,17 @@
         }
         html.qf-theme-alt .action-text { color: #b2c2d4; }
 
+        html.qf-theme-alt #statsByTestPanel select,
+        html.qf-theme-alt #statsByParamPanel select {
+            background: #1b2333;
+            border-color: rgba(255, 255, 255, 0.12);
+            color: #b2c2d4;
+        }
+        html.qf-theme-alt #statsByTestPanel label,
+        html.qf-theme-alt #statsByParamPanel label {
+            color: #8a9bb0;
+        }
+
         html.qf-theme-alt .teacher-test-card {
             border-color: rgba(255, 255, 255, 0.08);
             background: #1e2c3e;
@@ -1441,28 +1452,43 @@
 
                     <!-- Right Column - Teacher Dashboard -->
                     <div class="right-column">
-                        <!-- Quick Actions -->
+                        <!-- Statistics -->
                         <div class="card">
                             <div class="tests-header">
-                                <h3 class="tests-title">Панель управления</h3>
+                                <h3 class="tests-title">Статистика</h3>
                             </div>
-                            <div class="actions-grid">
-                                <button class="action-btn" id="createTestBtn">
-                                    <div class="action-icon">📝</div>
-                                    <div class="action-text">Создать тест</div>
-                                </button>
-                                <button class="action-btn" id="manageTestsBtn">
-                                    <div class="action-icon">📋</div>
-                                    <div class="action-text">Мои тесты</div>
-                                </button>
-                                <button class="action-btn" id="manageGroupsBtn">
-                                    <div class="action-icon">👥</div>
-                                    <div class="action-text">Назначить группам</div>
-                                </button>
-                                <button class="action-btn" id="viewResultsBtn">
+                            <div class="actions-grid" style="grid-template-columns: 1fr 1fr;">
+                                <button class="action-btn" id="statsByTestBtn">
                                     <div class="action-icon">📊</div>
-                                    <div class="action-text">Результаты</div>
+                                    <div class="action-text">Статистика по тесту</div>
                                 </button>
+                                <button class="action-btn" id="statsByParamBtn">
+                                    <div class="action-icon">📈</div>
+                                    <div class="action-text">Статистика по параметру</div>
+                                </button>
+                            </div>
+
+                            <!-- Stats by Test selector -->
+                            <div id="statsByTestPanel" style="display:none; margin-top: 20px;">
+                                <label style="display:block; margin-bottom:6px; font-size:14px; font-weight:600; color:#374151;">Выберите тест:</label>
+                                <select id="statsTestSelect" style="width:100%; padding:12px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:15px; font-family:inherit; color:#111827; background:white; cursor:pointer;">
+                                    <option value="">-- Выберите тест --</option>
+                                </select>
+                                <div id="statsTestResult" style="margin-top:16px;"></div>
+                            </div>
+
+                            <!-- Stats by Parameter selector -->
+                            <div id="statsByParamPanel" style="display:none; margin-top: 20px;">
+                                <label style="display:block; margin-bottom:6px; font-size:14px; font-weight:600; color:#374151;">Параметр:</label>
+                                <select id="statsParamType" style="width:100%; padding:12px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:15px; font-family:inherit; color:#111827; background:white; cursor:pointer; margin-bottom:12px;">
+                                    <option value="">-- Выберите параметр --</option>
+                                    <option value="course">Курс</option>
+                                    <option value="group">Группа</option>
+                                </select>
+                                <select id="statsParamValue" style="width:100%; padding:12px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:15px; font-family:inherit; color:#111827; background:white; cursor:pointer; display:none;">
+                                    <option value="">-- Выберите значение --</option>
+                                </select>
+                                <div id="statsParamResult" style="margin-top:16px;"></div>
                             </div>
                         </div>
 
