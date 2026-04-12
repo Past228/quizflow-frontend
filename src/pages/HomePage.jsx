@@ -341,6 +341,7 @@ export default function HomePage() {
           display: inline-block;
           vertical-align: middle;
           line-height: 1;
+          transform: translateY(1.2px);
         }
         .home-leaders {
           list-style: none;

@@ -391,6 +391,7 @@ export default function ShopPage() {
           font-family: var(--qf-font);
           color: var(--qf-text-body);
           line-height: 1;
+          transform: translateY(1.6px);
         }
         .shop-balance-num {
           font-size: 28px;
@@ -400,6 +401,7 @@ export default function ShopPage() {
           line-height: 1;
           display: inline-block;
           vertical-align: middle;
+          transform: translateY(3.5px);
         }
         .shop-header-balance {
           display: flex;
