@@ -385,7 +385,10 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             if (userRole === 'teacher') {
                 const { error: updateError } = await supabase
                     .from('teachers')
-                    .update({ avatar_url: avatarUrl })
+                    .update({
+                        avatar_url: avatarUrl,
+                        updated_at: new Date().toISOString(),
+                    })
                     .eq('id', session.user.id);
 
                 if (updateError) throw updateError;

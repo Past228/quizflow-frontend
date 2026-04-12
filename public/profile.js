@@ -402,26 +402,6 @@ function handleProfileLoaded(profile, role) {
     }
 }
 
-// Обновите функцию для преподавателей
-function updateTeacherProfileUI(profile) {
-    const firstName = profile.first_name || 'Не указано';
-    const lastName = profile.last_name || 'Не указано';
-    const email = profile.email || 'Не указано';
-    const building = profile.teachers && profile.teachers[0] && profile.teachers[0].buildings ?
-        profile.teachers[0].buildings.name : 'Не указан';
-
-    // Avatar
-    updateTeacherAvatarUI();
-
-    // User info
-    elements.teacherName.textContent = `${firstName} ${lastName}`;
-    elements.teacherEmail.textContent = email;
-    elements.teacherEmailValue.textContent = email;
-    elements.teacherFirstName.textContent = firstName;
-    elements.teacherLastName.textContent = lastName;
-    elements.teacherBuilding.textContent = building;
-}
-
 function handleTestsLoaded(tests) {
     state.availableTests = tests;
     state.testsLoading = false;

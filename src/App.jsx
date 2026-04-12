@@ -16,6 +16,19 @@ import HelpPage from './pages/HelpPage';
 import ProfileRoute from './pages/ProfileRoute';
 import TeacherLeaderboardPage from './pages/TeacherLeaderboardPage';
 
+const TEACHER_TAB_KEY = 'qf_teacher_active_tab';
+const TEACHER_VALID_TABS = ['home', 'tests', 'leaderboard', 'settings', 'help', 'profile'];
+
+function readTeacherTab() {
+  try {
+    const v = sessionStorage.getItem(TEACHER_TAB_KEY);
+    if (v && TEACHER_VALID_TABS.includes(v)) return v;
+  } catch {
+    /* ignore */
+  }
+  return 'home';
+}
+
 function TeacherControlPanel({ session }) {
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -282,9 +295,18 @@ function TeacherControlPanel({ session }) {
 }
 
 function TeacherApp({ session }) {
-  const [tab, setTab] = useState('home');
+  const [tab, setTabState] = useState(readTeacherTab);
   const [avatarRefreshKey, setAvatarRefreshKey] = useState(0);
-  const refreshAvatar = useCallback(() => setAvatarRefreshKey(k => k + 1), []);
+  const refreshAvatar = useCallback(() => setAvatarRefreshKey((k) => k + 1), []);
+
+  const setTab = useCallback((next) => {
+    setTabState(next);
+    try {
+      sessionStorage.setItem(TEACHER_TAB_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   return (
     <TeacherLayout session={session} activeTab={tab} onTabChange={setTab} avatarRefreshKey={avatarRefreshKey}>

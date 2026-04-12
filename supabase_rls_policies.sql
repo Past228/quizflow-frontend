@@ -131,6 +131,24 @@ CREATE POLICY "Users can update own profile"
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
+-- ── teachers ──────────────────────────────────────────────────
+-- Own row: read/update (avatar_url, etc.). Without these policies,
+-- RLS default-deny blocks UPDATE and the avatar never persists.
+
+ALTER TABLE teachers ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Teachers can read own row" ON teachers;
+DROP POLICY IF EXISTS "Teachers can update own row" ON teachers;
+
+CREATE POLICY "Teachers can read own row"
+  ON teachers FOR SELECT TO authenticated
+  USING (id = auth.uid());
+
+CREATE POLICY "Teachers can update own row"
+  ON teachers FOR UPDATE TO authenticated
+  USING (id = auth.uid())
+  WITH CHECK (id = auth.uid());
+
 -- ── test_results ───────────────────────────────────────────────
 -- Needed for the leaderboard (sum scores per student) and for
 -- students to see their own past results.
