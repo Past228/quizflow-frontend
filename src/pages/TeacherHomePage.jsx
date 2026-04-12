@@ -17,7 +17,7 @@ export default function TeacherHomePage({ session, onTabChange }) {
       const { data, error } = await supabase
         .from('tests')
         .select('id, title, description, is_active, questions_count, created_at')
-        .eq('created_by', session.user.id)
+        .eq('teacher_id', session.user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

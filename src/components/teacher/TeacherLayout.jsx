@@ -25,7 +25,11 @@ function TeacherSidebarAvatar({ session, onTabChange, refreshKey }) {
       });
   }, [session, refreshKey]);
 
-  const src = avatarUrl || '/icons/Standard_avatar.png';
+  const raw = avatarUrl || '/icons/Standard_avatar.png';
+  const src =
+    raw === '/icons/Standard_avatar.png'
+      ? raw
+      : `${raw}${raw.includes('?') ? '&' : '?'}v=${refreshKey ?? 0}`;
 
   return (
     <button
@@ -35,6 +39,7 @@ function TeacherSidebarAvatar({ session, onTabChange, refreshKey }) {
       title="Личный кабинет"
     >
       <img
+        key={`${raw}-${refreshKey ?? 0}`}
         src={src}
         alt="Аватар"
         style={{

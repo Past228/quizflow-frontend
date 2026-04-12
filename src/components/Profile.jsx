@@ -297,10 +297,8 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                     description: testData.description,
                     max_attempts: testData.maxAttempts,
                     questions_count: 0,
-                    created_by: session.user.id,
+                    teacher_id: session.user.id,
                     is_active: true,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
                 })
                 .select()
                 .single();
@@ -327,7 +325,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                 .from('tests')
                 .delete()
                 .eq('id', testId)
-                .eq('created_by', session.user.id); // Защита от удаления чужих тестов
+                .eq('teacher_id', session.user.id);
 
             if (error) throw error;
 
@@ -504,7 +502,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             const { data, error } = await supabase
                 .from('tests')
                 .select('id, title')
-                .eq('created_by', session.user.id)
+                .eq('teacher_id', session.user.id)
                 .order('created_at', { ascending: false });
             if (error) throw error;
             sendMessageToIframe({ type: 'STATS_TESTS_LIST_LOADED', data: { tests: data || [] } });

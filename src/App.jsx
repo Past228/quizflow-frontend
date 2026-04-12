@@ -14,6 +14,7 @@ import ShopPage from './pages/ShopPage';
 import SettingsPage from './pages/SettingsPage';
 import HelpPage from './pages/HelpPage';
 import ProfileRoute from './pages/ProfileRoute';
+import TeacherLeaderboardPage from './pages/TeacherLeaderboardPage';
 
 function TeacherControlPanel({ session }) {
   const [tests, setTests] = useState([]);
@@ -26,8 +27,8 @@ function TeacherControlPanel({ session }) {
     try {
       const { data, error } = await supabase
         .from('tests')
-        .select('id, title, description, is_active, questions_count, time_limit_minutes, max_attempts, created_at')
-        .eq('created_by', session.user.id)
+        .select('id, title, description, is_active, questions_count, created_at')
+        .eq('teacher_id', session.user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
       setTests(data || []);
@@ -50,10 +51,8 @@ function TeacherControlPanel({ session }) {
         description: fd.get('description') || '',
         max_attempts: Number(fd.get('maxAttempts')) || 1,
         questions_count: 0,
-        created_by: session.user.id,
+        teacher_id: session.user.id,
         is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       });
       if (error) throw error;
       setShowCreateModal(false);
@@ -68,7 +67,7 @@ function TeacherControlPanel({ session }) {
   const handleDelete = async (id) => {
     if (!confirm('Удалить этот тест?')) return;
     try {
-      const { error } = await supabase.from('tests').delete().eq('id', id).eq('created_by', session.user.id);
+      const { error } = await supabase.from('tests').delete().eq('id', id).eq('teacher_id', session.user.id);
       if (error) throw error;
       loadTests();
     } catch (err) {
@@ -282,217 +281,6 @@ function TeacherControlPanel({ session }) {
   );
 }
 
-function TeacherLeaderboardPane({ session }) {
-  const [leaders, setLeaders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [buildingName, setBuildingName] = useState('');
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const { data: teacher } = await supabase
-          .from('teachers')
-          .select('building_id, buildings(name)')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        const buildingId = teacher?.building_id;
-        setBuildingName(teacher?.buildings?.name || '');
-
-        if (!buildingId) {
-          setLeaders([]);
-          setLoading(false);
-          return;
-        }
-
-        const { data: courses } = await supabase.from('courses').select('id').eq('building_id', buildingId);
-        const courseIds = (courses || []).map(c => c.id);
-        if (courseIds.length === 0) { setLeaders([]); setLoading(false); return; }
-
-        const { data: groups } = await supabase.from('student_groups').select('id').in('course_id', courseIds);
-        const groupIds = (groups || []).map(g => g.id);
-        if (groupIds.length === 0) { setLeaders([]); setLoading(false); return; }
-
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode')
-          .eq('role', 'student')
-          .or('incognito_mode.is.null,incognito_mode.eq.false')
-          .in('group_id', groupIds);
-
-        const { data: results } = await supabase.from('test_results').select('student_id, score').eq('status', 'completed');
-        const scoreMap = {};
-        const testsMap = {};
-        (results || []).forEach(r => {
-          scoreMap[r.student_id] = (scoreMap[r.student_id] || 0) + (r.score || 0);
-          testsMap[r.student_id] = (testsMap[r.student_id] || 0) + 1;
-        });
-
-        const unique = arr => [...new Set(arr.filter(Boolean))];
-        const frameIds = unique((profiles || []).map(p => p.active_frame_id));
-        const colorIds = unique((profiles || []).map(p => p.active_color_id));
-        const prefixIds = unique((profiles || []).map(p => p.active_prefix_id));
-
-        const [framesRes, colorsRes, prefixesRes] = await Promise.all([
-          frameIds.length ? supabase.from('items_frames').select('id, image_url').in('id', frameIds) : { data: [] },
-          colorIds.length ? supabase.from('items_name_colors').select('id, hex_code').in('id', colorIds) : { data: [] },
-          prefixIds.length ? supabase.from('items_prefixes').select('id, title').in('id', prefixIds) : { data: [] },
-        ]);
-        const frameMap = Object.fromEntries((framesRes.data || []).map(f => [f.id, f]));
-        const colorMap = Object.fromEntries((colorsRes.data || []).map(c => [c.id, c]));
-        const prefixMap = Object.fromEntries((prefixesRes.data || []).map(p => [p.id, p]));
-
-        const ranked = (profiles || [])
-          .map(p => ({
-            id: p.id,
-            name: [p.first_name, p.last_name].filter(Boolean).join(' '),
-            avatarUrl: p.avatar_url || null,
-            totalScore: scoreMap[p.id] || 0,
-            testsCompleted: testsMap[p.id] || 0,
-            activeFrame: p.active_frame_id ? (frameMap[p.active_frame_id] ?? null) : null,
-            activeColor: p.active_color_id ? (colorMap[p.active_color_id] ?? null) : null,
-            activePrefix: p.active_prefix_id ? (prefixMap[p.active_prefix_id] ?? null) : null,
-          }))
-          .sort((a, b) => b.totalScore - a.totalScore || b.testsCompleted - a.testsCompleted);
-
-        ranked.forEach((r, i) => { r.rank = i + 1; });
-        setLeaders(ranked);
-      } catch (err) {
-        console.error('Teacher leaderboard error:', err);
-        setLeaders([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [session]);
-
-  const medalBg = (i) =>
-    i === 0 ? 'linear-gradient(145deg,#f6d365,#fda085)'
-    : i === 1 ? 'linear-gradient(145deg,#e2e8f0,#94a3b8)'
-    : 'linear-gradient(145deg,#fdba74,#c2410c)';
-
-  return (
-    <div style={{ padding: '28px 32px 40px', flex: 1, minHeight: 0, overflow: 'auto' }}>
-      <div className="student-page student-page--wide" style={{ maxWidth: 960, margin: '0 auto' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <h1 className="student-page-title" style={{ color: 'var(--qf-bright-blue)', margin: 0 }}>ДОСКА ЛИДЕРОВ</h1>
-          {buildingName && (
-            <span style={{
-              fontSize: 14, fontWeight: 700, fontFamily: 'var(--qf-font)',
-              color: 'var(--qf-text-muted)', background: 'var(--qf-accent-border-soft, rgba(51,143,249,0.1))',
-              padding: '6px 16px', borderRadius: 999,
-            }}>
-              Корпус: {buildingName}
-            </span>
-          )}
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 60, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>Загрузка рейтинга…</div>
-        ) : leaders.length === 0 ? (
-          <div className="student-card" style={{ textAlign: 'center', padding: 48 }}>
-            <div style={{ fontSize: 52, marginBottom: 12 }}>🏆</div>
-            <p style={{ fontSize: 16, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>
-              Пока нет данных для отображения.
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {leaders.slice(0, 3).map((row, i) => (
-              <div key={row.id} className="student-card" style={{
-                display: 'grid', gridTemplateColumns: '72px 52px 1fr auto auto',
-                alignItems: 'center', gap: 16, padding: '20px 24px',
-              }}>
-                <div style={{
-                  width: 64, height: 64, borderRadius: '50%', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', color: '#fff',
-                  fontWeight: 900, fontSize: 24, fontFamily: 'var(--qf-font)',
-                  background: medalBg(i), boxShadow: '0 6px 16px rgba(0,0,0,.12)',
-                }}>{row.rank}</div>
-                <div style={{ position: 'relative', width: 52, height: 52, flexShrink: 0 }}>
-                  <img src={row.avatarUrl || '/icons/Standard_avatar.png'} alt="" width={52} height={52}
-                    style={{ borderRadius: '50%', objectFit: 'cover', width: 52, height: 52 }}
-                    onError={e => { e.currentTarget.src = '/icons/Standard_avatar.png'; }} />
-                  {row.activeFrame?.image_url && (
-                    <img src={row.activeFrame.image_url} alt="" style={{
-                      position: 'absolute', top: '50%', left: '50%',
-                      transform: 'translate(-50%,-50%)', width: 72, height: 72,
-                      objectFit: 'contain', pointerEvents: 'none', zIndex: 1,
-                    }} />
-                  )}
-                </div>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
-                  {row.activePrefix?.title && (
-                    <span className="qf-prefix-chip" style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                      {row.activePrefix.title}
-                    </span>
-                  )}
-                  <span style={{
-                    fontSize: 18, fontWeight: 700, fontFamily: 'var(--qf-font)',
-                    color: row.activeColor?.hex_code || 'var(--qf-text-body)',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>{row.name}</span>
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)', whiteSpace: 'nowrap' }}>
-                  {row.testsCompleted} тест.
-                </span>
-                <span style={{ fontSize: 18, fontWeight: 900, color: '#338ff9', fontFamily: 'var(--qf-font)', whiteSpace: 'nowrap' }}>
-                  {row.totalScore} очков
-                </span>
-              </div>
-            ))}
-
-            {leaders.length > 3 && (
-              <div className="student-card" style={{ padding: 0, overflow: 'hidden' }}>
-                {leaders.slice(3).map((row, i, arr) => (
-                  <div key={row.id} style={{
-                    display: 'grid', gridTemplateColumns: '48px 44px 1fr auto auto',
-                    alignItems: 'center', gap: 12, padding: '12px 20px',
-                    borderBottom: i < arr.length - 1 ? '1px solid var(--qf-border-subtle)' : 'none',
-                  }}>
-                    <span style={{ fontSize: 17, fontWeight: 900, color: 'var(--qf-text-body)', fontFamily: 'var(--qf-font)' }}>{row.rank}</span>
-                    <div style={{ position: 'relative', width: 40, height: 40, flexShrink: 0 }}>
-                      <img src={row.avatarUrl || '/icons/Standard_avatar.png'} alt="" width={40} height={40}
-                        style={{ borderRadius: '50%', objectFit: 'cover', width: 40, height: 40 }}
-                        onError={e => { e.currentTarget.src = '/icons/Standard_avatar.png'; }} />
-                      {row.activeFrame?.image_url && (
-                        <img src={row.activeFrame.image_url} alt="" style={{
-                          position: 'absolute', top: '50%', left: '50%',
-                          transform: 'translate(-50%,-50%)', width: 56, height: 56,
-                          objectFit: 'contain', pointerEvents: 'none', zIndex: 1,
-                        }} />
-                      )}
-                    </div>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
-                      {row.activePrefix?.title && (
-                        <span className="qf-prefix-chip" style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                          {row.activePrefix.title}
-                        </span>
-                      )}
-                      <span style={{
-                        fontSize: 16, fontWeight: 700, fontFamily: 'var(--qf-font)',
-                        color: row.activeColor?.hex_code || 'var(--qf-text-body)',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>{row.name}</span>
-                    </span>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)', whiteSpace: 'nowrap' }}>
-                      {row.testsCompleted} тест.
-                    </span>
-                    <span style={{ fontSize: 16, fontWeight: 900, color: '#338ff9', fontFamily: 'var(--qf-font)', whiteSpace: 'nowrap' }}>
-                      {row.totalScore} очков
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function TeacherApp({ session }) {
   const [tab, setTab] = useState('home');
   const [avatarRefreshKey, setAvatarRefreshKey] = useState(0);
@@ -503,7 +291,7 @@ function TeacherApp({ session }) {
       {tab === 'home' && <TeacherHomePage session={session} onTabChange={setTab} />}
       {tab === 'tests' && <TeacherControlPanel session={session} />}
       {tab === 'profile' && <Profile key={session.user.id} session={session} onAvatarUpdated={refreshAvatar} />}
-      {tab === 'leaderboard' && <TeacherLeaderboardPane session={session} />}
+      {tab === 'leaderboard' && <TeacherLeaderboardPage session={session} />}
       {tab === 'settings' && <TeacherSettingsPane />}
       {tab === 'help' && <TeacherHelpPane />}
     </TeacherLayout>
