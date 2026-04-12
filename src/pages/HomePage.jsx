@@ -135,7 +135,7 @@ export default function HomePage() {
                       </div>
                       <div className="home-shop-grid__title">{item.name || item.title}</div>
                       <div className="home-shop-grid__price">
-                        <img src="/icons/sp_coins.png" alt="" width={18} height={18} style={{ display: 'block' }} />
+                        <img src="/icons/sp_coins.png" alt="" width={18} height={18} style={{ verticalAlign: 'middle' }} />
                         <span className="home-shop-grid__price-txt">{item.price}</span>
                       </div>
                     </button>
@@ -338,6 +338,9 @@ export default function HomePage() {
           font-weight: var(--qf-fw-semibold);
           font-family: var(--qf-font);
           color: var(--qf-text-body);
+          display: inline-block;
+          vertical-align: middle;
+          line-height: 1;
         }
         .home-leaders {
           list-style: none;

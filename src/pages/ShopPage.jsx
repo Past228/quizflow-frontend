@@ -34,7 +34,7 @@ function ShopCard({ preview, name, description, price, btnLabel, btnDisabled, bt
       <h3 className="shop-card__title">{name}</h3>
       {description && <p className="shop-card__desc">{description}</p>}
       <div className="shop-card__price">
-        <img src="/icons/sp_coins.png" alt="" width={22} height={22} style={{ display: 'block' }} />
+        <img src="/icons/sp_coins.png" alt="" width={22} height={22} style={{ verticalAlign: 'middle' }} />
         <span className="shop-card__price-num">{price}</span>
       </div>
       <button
@@ -276,7 +276,7 @@ export default function ShopPage() {
         <div className="shop-header-balance">
           <span className="shop-header-balance__label">Монеты</span>
           <span className="shop-header-balance__value">
-            <img src="/icons/sp_coins.png" alt="" width={50} height={50} style={{ display: 'inline-block', verticalAlign: 'middle' }} />
+            <img src="/icons/sp_coins.png" alt="" width={50} height={50} style={{ verticalAlign: 'middle' }} />
             <span className="shop-balance-num">{coins}</span>
           </span>
         </div>
@@ -398,6 +398,8 @@ export default function ShopPage() {
           font-family: var(--qf-font);
           color: var(--qf-text-body);
           line-height: 1;
+          display: inline-block;
+          vertical-align: middle;
         }
         .shop-header-balance {
           display: flex;
