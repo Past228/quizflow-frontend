@@ -195,12 +195,29 @@ function initializeEventListeners() {
         statsParamType.addEventListener('change', function () {
             const valueSelect = document.getElementById('statsParamValue');
             const resultDiv = document.getElementById('statsParamResult');
+            const cascade = document.getElementById('statsStudentCascade');
+            const stGroup = document.getElementById('statsStGroup');
+            const stStudent = document.getElementById('statsStStudent');
             resultDiv.innerHTML = '';
-            if (this.value) {
-                valueSelect.style.display = 'block';
+            if (this.value === 'student') {
+                if (valueSelect) valueSelect.style.display = 'none';
+                if (cascade) cascade.style.display = 'block';
+                if (stGroup) {
+                    stGroup.innerHTML = '<option value="">-- Группа --</option>';
+                    stGroup.disabled = true;
+                }
+                if (stStudent) {
+                    stStudent.innerHTML = '<option value="">-- Студент --</option>';
+                    stStudent.disabled = true;
+                }
+                sendMessageToParent({ type: 'LOAD_STATS_STUDENT_COURSES_REQUEST' });
+            } else if (this.value) {
+                if (cascade) cascade.style.display = 'none';
+                if (valueSelect) valueSelect.style.display = 'block';
                 sendMessageToParent({ type: 'LOAD_STATS_PARAM_OPTIONS_REQUEST', data: { paramType: this.value } });
             } else {
-                valueSelect.style.display = 'none';
+                if (cascade) cascade.style.display = 'none';
+                if (valueSelect) valueSelect.style.display = 'none';
             }
         });
     }
@@ -208,10 +225,59 @@ function initializeEventListeners() {
     if (statsParamValue) {
         statsParamValue.addEventListener('change', function () {
             const paramType = document.getElementById('statsParamType').value;
-            if (this.value && paramType) {
+            if (this.value && paramType && paramType !== 'student') {
                 sendMessageToParent({
                     type: 'LOAD_STATS_BY_PARAM_REQUEST',
                     data: { paramType, paramValue: this.value }
+                });
+            } else {
+                document.getElementById('statsParamResult').innerHTML = '';
+            }
+        });
+    }
+
+    const statsStCourse = document.getElementById('statsStCourse');
+    if (statsStCourse) {
+        statsStCourse.addEventListener('change', function () {
+            document.getElementById('statsParamResult').innerHTML = '';
+            const stGroup = document.getElementById('statsStGroup');
+            const stStudent = document.getElementById('statsStStudent');
+            if (stGroup) {
+                stGroup.innerHTML = '<option value="">-- Группа --</option>';
+                stGroup.disabled = !this.value;
+            }
+            if (stStudent) {
+                stStudent.innerHTML = '<option value="">-- Студент --</option>';
+                stStudent.disabled = true;
+            }
+            if (this.value) {
+                sendMessageToParent({ type: 'LOAD_STATS_STUDENT_GROUPS_REQUEST', data: { courseId: this.value } });
+            }
+        });
+    }
+
+    const statsStGroup = document.getElementById('statsStGroup');
+    if (statsStGroup) {
+        statsStGroup.addEventListener('change', function () {
+            document.getElementById('statsParamResult').innerHTML = '';
+            const stStudent = document.getElementById('statsStStudent');
+            if (stStudent) {
+                stStudent.innerHTML = '<option value="">-- Студент --</option>';
+                stStudent.disabled = !this.value;
+            }
+            if (this.value) {
+                sendMessageToParent({ type: 'LOAD_STATS_STUDENT_LIST_REQUEST', data: { groupId: this.value } });
+            }
+        });
+    }
+
+    const statsStStudent = document.getElementById('statsStStudent');
+    if (statsStStudent) {
+        statsStStudent.addEventListener('change', function () {
+            if (this.value) {
+                sendMessageToParent({
+                    type: 'LOAD_STATS_BY_PARAM_REQUEST',
+                    data: { paramType: 'student', paramValue: this.value }
                 });
             } else {
                 document.getElementById('statsParamResult').innerHTML = '';
@@ -301,6 +367,18 @@ window.addEventListener('message', function (event) {
 
         case 'STATS_BY_PARAM_LOADED':
             handleStatsByParamLoaded(data.stats);
+            break;
+
+        case 'STATS_STUDENT_COURSES_LOADED':
+            handleStatsStudentCoursesLoaded(data.options);
+            break;
+
+        case 'STATS_STUDENT_GROUPS_LOADED':
+            handleStatsStudentGroupsLoaded(data.options);
+            break;
+
+        case 'STATS_STUDENT_LIST_LOADED':
+            handleStatsStudentListLoaded(data.options);
             break;
 
         case 'THEME_SYNC':
@@ -1249,11 +1327,49 @@ function handleStatsParamOptionsLoaded(options, paramType) {
     document.getElementById('statsParamResult').innerHTML = '';
 }
 
+function handleStatsStudentCoursesLoaded(options) {
+    const sel = document.getElementById('statsStCourse');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Курс --</option>';
+    (options || []).forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = o.name;
+        sel.appendChild(opt);
+    });
+}
+
+function handleStatsStudentGroupsLoaded(options) {
+    const sel = document.getElementById('statsStGroup');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Группа --</option>';
+    (options || []).forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = o.name;
+        sel.appendChild(opt);
+    });
+    sel.disabled = (options || []).length === 0;
+}
+
+function handleStatsStudentListLoaded(options) {
+    const sel = document.getElementById('statsStStudent');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Студент --</option>';
+    (options || []).forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = o.name;
+        sel.appendChild(opt);
+    });
+    sel.disabled = (options || []).length === 0;
+}
+
 function handleStatsByParamLoaded(stats) {
     const div = document.getElementById('statsParamResult');
     if (!div) return;
 
-    if (!stats || !stats.rows) {
+    if (!stats) {
         div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет данных по этому параметру.</p>';
         return;
     }
@@ -1278,7 +1394,7 @@ function handleStatsByParamLoaded(stats) {
                             <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Статус</th>
                             <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Ошибок</th>
                             <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Время</th>
-                            <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Правильность</th>
+                            <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Правильность, %</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1305,11 +1421,6 @@ function handleStatsByParamLoaded(stats) {
         return;
     }
 
-    if (stats.rows.length === 0) {
-        div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет данных по этому параметру.</p>';
-        return;
-    }
-
     let summaryHtml = '';
     if (stats.summary) {
         const s = stats.summary;
@@ -1322,28 +1433,36 @@ function handleStatsByParamLoaded(stats) {
             : '—';
         const fast = s.fastest
             ? `${escapeHtml(s.fastest.name)} — ${escapeHtml(s.fastest.totalTime)}`
-            : 'Нет данных о времени (нужны поля duration в попытках)';
+            : 'Нет данных о времени (нужны поля duration_seconds в test_attempts)';
         summaryHtml = `
             <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:10px; margin-bottom:16px;">
                 <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Завершили все тесты</div>
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Завершили все назначенные тесты</div>
                     <div style="font-size:20px; font-weight:800; color:#1e40af; margin-top:4px;">${pct}</div>
                     <div style="font-size:12px; color:#6b7280; margin-top:4px;">${s.totalStudents ?? 0} студ., ${s.assignedTests ?? 0} тест.</div>
                 </div>
                 <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Больше всего ошибок</div>
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Больше всего ошибок (сумма)</div>
                     <div style="font-size:14px; font-weight:600; color:#111827; margin-top:6px;">${most}</div>
                 </div>
                 <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Меньше всего ошибок</div>
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Меньше всего ошибок (сумма)</div>
                     <div style="font-size:14px; font-weight:600; color:#111827; margin-top:6px;">${few}</div>
                 </div>
                 <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
-                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Быстрее всех (все тесты)</div>
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Быстрее всех (сумма времени)</div>
                     <div style="font-size:14px; font-weight:600; color:#111827; margin-top:6px;">${fast}</div>
                 </div>
             </div>
         `;
+    }
+
+    const aggRows = stats.rows || [];
+    if (aggRows.length === 0) {
+        div.innerHTML =
+            summaryHtml +
+            '<p style="color:#6b7280;font-size:14px;font-weight:500;margin-top:8px;">Нет строк по тестам для выбранного курса или группы.</p>';
+        return;
     }
 
     let html =
@@ -1354,18 +1473,22 @@ function handleStatsByParamLoaded(stats) {
                 <thead>
                     <tr style="border-bottom:2px solid #e5e7eb;">
                         <th style="text-align:left; padding:10px 12px; font-weight:700; color:#374151;">Тест</th>
-                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Попыток</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Участников</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Прошли (чел.)</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Всего попыток</th>
                         <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Средний балл</th>
-                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Завершено</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Завершено попыток</th>
                     </tr>
                 </thead>
                 <tbody>
     `;
 
-    stats.rows.forEach((row) => {
+    aggRows.forEach((row) => {
         html += `
             <tr style="border-bottom:1px solid #f3f4f6;">
                 <td style="padding:10px 12px; color:#111827; font-weight:500;">${escapeHtml(row.testTitle || 'Без названия')}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.uniqueParticipants ?? 0}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.peopleCompleted ?? 0}</td>
                 <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.attempts ?? 0}</td>
                 <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.avgScore != null ? row.avgScore.toFixed(1) + '%' : '—'}</td>
                 <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.completed ?? 0}</td>

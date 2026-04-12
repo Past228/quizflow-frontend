@@ -115,6 +115,18 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                     await handleLoadStatsByParam(data.paramType, data.paramValue);
                     break;
 
+                case 'LOAD_STATS_STUDENT_COURSES_REQUEST':
+                    await handleLoadStatsStudentCourses();
+                    break;
+
+                case 'LOAD_STATS_STUDENT_GROUPS_REQUEST':
+                    await handleLoadStatsStudentGroups(data.courseId);
+                    break;
+
+                case 'LOAD_STATS_STUDENT_LIST_REQUEST':
+                    await handleLoadStatsStudentList(data.groupId);
+                    break;
+
                 default:
                     console.log('Unknown message type:', type);
             }
@@ -686,38 +698,76 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                     id: g.id,
                     name: `${g.group_number}` + (g.courses ? ` (${g.courses.course_number} курс${g.courses.buildings ? ', ' + g.courses.buildings.name : ''})` : ''),
                 }));
-            } else if (paramType === 'student') {
-                const scoped = await getTeacherScopedGroupIds();
-                let query = supabase
-                    .from('profiles')
-                    .select(
-                        'id, first_name, last_name, email, group_id, student_groups(group_number, courses(course_number, buildings(name)))'
-                    )
-                    .not('group_id', 'is', null);
-                if (scoped !== null) {
-                    if (scoped.length === 0) {
-                        sendMessageToIframe({ type: 'STATS_PARAM_OPTIONS_LOADED', data: { options: [], paramType } });
-                        return;
-                    }
-                    query = query.in('group_id', scoped);
-                }
-                const { data, error } = await query.order('last_name', { ascending: true });
-                if (error) throw error;
-                options = (data || []).map((p) => {
-                    const g = p.student_groups;
-                    const base = displayNameFromProfile(p);
-                    const suffix = g
-                        ? g.courses
-                            ? ` — ${g.group_number} (${g.courses.course_number} курс${g.courses.buildings?.name ? ', ' + g.courses.buildings.name : ''})`
-                            : ` — ${g.group_number}`
-                        : '';
-                    return { id: p.id, name: base + suffix };
-                });
             }
             sendMessageToIframe({ type: 'STATS_PARAM_OPTIONS_LOADED', data: { options, paramType } });
         } catch (err) {
             console.error('Stats param options error:', err);
             sendMessageToIframe({ type: 'STATS_PARAM_OPTIONS_LOADED', data: { options: [], paramType } });
+        }
+    };
+
+    const handleLoadStatsStudentCourses = async () => {
+        try {
+            const buildingId = await getTeacherBuildingId();
+            let query = supabase.from('courses').select('id, course_number, buildings(name)');
+            if (buildingId) query = query.eq('building_id', buildingId);
+            const { data, error } = await query.order('course_number');
+            if (error) throw error;
+            const options = (data || []).map((c) => ({
+                id: c.id,
+                name: `${c.course_number} курс` + (c.buildings ? ` — ${c.buildings.name}` : ''),
+            }));
+            sendMessageToIframe({ type: 'STATS_STUDENT_COURSES_LOADED', data: { options } });
+        } catch (err) {
+            console.error('Stats student courses error:', err);
+            sendMessageToIframe({ type: 'STATS_STUDENT_COURSES_LOADED', data: { options: [] } });
+        }
+    };
+
+    const handleLoadStatsStudentGroups = async (courseId) => {
+        try {
+            const { data, error } = await supabase
+                .from('student_groups')
+                .select('id, group_number, courses(course_number, buildings(name))')
+                .eq('course_id', courseId);
+            if (error) throw error;
+            const scoped = await getTeacherScopedGroupIds();
+            let list = data || [];
+            if (scoped !== null) {
+                const allow = new Set(scoped);
+                list = list.filter((g) => allow.has(g.id));
+            }
+            const options = list.map((g) => ({
+                id: g.id,
+                name:
+                    `${g.group_number}` +
+                    (g.courses
+                        ? ` (${g.courses.course_number} курс${g.courses.buildings ? ', ' + g.courses.buildings.name : ''})`
+                        : ''),
+            }));
+            sendMessageToIframe({ type: 'STATS_STUDENT_GROUPS_LOADED', data: { options } });
+        } catch (err) {
+            console.error('Stats student groups error:', err);
+            sendMessageToIframe({ type: 'STATS_STUDENT_GROUPS_LOADED', data: { options: [] } });
+        }
+    };
+
+    const handleLoadStatsStudentList = async (groupId) => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, email')
+                .eq('group_id', groupId)
+                .order('last_name', { ascending: true });
+            if (error) throw error;
+            const options = (data || []).map((p) => ({
+                id: p.id,
+                name: displayNameFromProfile(p),
+            }));
+            sendMessageToIframe({ type: 'STATS_STUDENT_LIST_LOADED', data: { options } });
+        } catch (err) {
+            console.error('Stats student list error:', err);
+            sendMessageToIframe({ type: 'STATS_STUDENT_LIST_LOADED', data: { options: [] } });
         }
     };
 
@@ -916,19 +966,26 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             const rows = testIds.map((tid) => {
                 const arr = byTest[tid] || [];
                 const scores = arr.filter((a) => a.score != null).map((a) => a.score);
+                const userIds = new Set(arr.map((a) => a.user_id).filter(Boolean));
+                const userIdsCompleted = new Set(
+                    arr.filter((a) => a.completed).map((a) => a.user_id).filter(Boolean)
+                );
                 return {
                     testTitle: testMap[tid] || 'Без названия',
                     attempts: arr.length,
+                    uniqueParticipants: userIds.size,
+                    peopleCompleted: userIdsCompleted.size,
                     avgScore:
                         scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : null,
                     completed: arr.filter((a) => a.completed).length,
                 };
             });
 
-            let summary = null;
             const students = profilesData || [];
             const nStudents = students.length;
             const nTests = testIds.length;
+
+            let summary;
 
             if (nStudents > 0 && nTests > 0) {
                 const errorSumByUser = {};
@@ -1043,6 +1100,15 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                               }
                             : null,
                 };
+            } else {
+                summary = {
+                    totalStudents: nStudents,
+                    assignedTests: nTests,
+                    pctFinishedAll: 0,
+                    mostErrors: null,
+                    fewestErrors: null,
+                    fastest: null,
+                };
             }
 
             sendMessageToIframe({
@@ -1094,7 +1160,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
         >
             <iframe
                 ref={iframeRef}
-                src="/profile.html"
+                src="/profile.html?v=stats-20260412"
                 width="100%"
                 height="100%"
                 frameBorder="0"
