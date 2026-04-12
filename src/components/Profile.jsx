@@ -385,13 +385,9 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             const userRole = session.user.user_metadata?.role;
 
             if (userRole === 'teacher') {
-                // Для преподавателей обновляем в таблице teachers
                 const { error: updateError } = await supabase
                     .from('teachers')
-                    .update({
-                        avatar_url: avatarUrl,
-                        updated_at: new Date().toISOString()
-                    })
+                    .update({ avatar_url: avatarUrl })
                     .eq('id', session.user.id);
 
                 if (updateError) throw updateError;

@@ -3,13 +3,14 @@ import { supabase } from '../../lib/supabaseClient';
 import { hydrateStudentSettings } from '../../lib/studentSettings';
 
 const NAV = [
-  { id: 'home',     icon: 'Home_icon.png',     iconActive: 'Home_icon_active.png',     label: 'Личный кабинет' },
-  { id: 'tests',    icon: 'Test_icon.png',      iconActive: 'Test_icon_active.png',      label: 'Панель управления' },
-  { id: 'settings', icon: 'Settings_icon.png', iconActive: 'Settings_icon_active.png', label: 'Настройки' },
-  { id: 'help',     icon: 'Help_icon.png',     iconActive: 'Help_icon_active.png',     label: 'Помощь' },
+  { id: 'home',        icon: 'Home_icon.png',     iconActive: 'Home_icon_active.png',     label: 'Личный кабинет' },
+  { id: 'tests',       icon: 'Test_icon.png',     iconActive: 'Test_icon_active.png',     label: 'Панель управления' },
+  { id: 'leaderboard', icon: 'Top_icon.png',      iconActive: 'Top_icon_active.png',      label: 'Лидеры' },
+  { id: 'settings',    icon: 'Settings_icon.png', iconActive: 'Settings_icon_active.png', label: 'Настройки' },
+  { id: 'help',        icon: 'Help_icon.png',     iconActive: 'Help_icon_active.png',     label: 'Помощь' },
 ];
 
-function TeacherSidebarAvatar({ session, onTabChange }) {
+function TeacherSidebarAvatar({ session, onTabChange, refreshKey }) {
   const [avatarUrl, setAvatarUrl] = useState(null);
 
   useEffect(() => {
@@ -20,9 +21,9 @@ function TeacherSidebarAvatar({ session, onTabChange }) {
       .eq('id', session.user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.avatar_url) setAvatarUrl(data.avatar_url);
+        setAvatarUrl(data?.avatar_url || null);
       });
-  }, [session]);
+  }, [session, refreshKey]);
 
   const src = avatarUrl || '/icons/Standard_avatar.png';
 
@@ -48,7 +49,7 @@ function TeacherSidebarAvatar({ session, onTabChange }) {
   );
 }
 
-export default function TeacherLayout({ session, activeTab, onTabChange, children }) {
+export default function TeacherLayout({ session, activeTab, onTabChange, avatarRefreshKey, children }) {
   useEffect(() => {
     hydrateStudentSettings();
   }, []);
@@ -89,7 +90,7 @@ export default function TeacherLayout({ session, activeTab, onTabChange, childre
           </nav>
 
           <div className="student-sidebar__avatar">
-            <TeacherSidebarAvatar session={session} onTabChange={onTabChange} />
+            <TeacherSidebarAvatar session={session} onTabChange={onTabChange} refreshKey={avatarRefreshKey} />
           </div>
         </aside>
 
