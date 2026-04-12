@@ -30,7 +30,7 @@ function TeacherSidebarAvatar({ session, onTabChange }) {
     <button
       type="button"
       className="student-sidebar__avatar-btn"
-      onClick={() => onTabChange('home')}
+      onClick={() => onTabChange('profile')}
       title="Личный кабинет"
     >
       <img
