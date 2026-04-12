@@ -6,171 +6,193 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <title>QuizFlow - Вход</title>
+    <title>СтудТест — Вход</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --qf-bright-blue: #338ff9;
+            --qf-turquoise: #20aeb9;
+            --qf-bg: #eaf4fc;
+            --qf-dark-blue: #127ab6;
+            --qf-white: #ffffff;
+            --qf-shadow: 0 8px 24px rgba(18, 122, 182, 0.08);
+            --qf-radius-lg: 18px;
+            --qf-radius-md: 12px;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: "Gothic A1", sans-serif;
-            background: white;
+            background: var(--qf-bg);
+            color: #1a202c;
             line-height: 1.6;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
         }
 
-        /* Header */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px 24px;
-            border-bottom: 1px solid #e5e7eb;
-            background: white;
+            padding: 14px 28px;
+            background: var(--qf-white);
+            box-shadow: 0 2px 12px rgba(18, 122, 182, 0.06);
         }
 
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
-            color: #111827;
+        .logo-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .logo-group img {
+            height: 36px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .logo-group span {
+            font-size: 17px;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #1a202c;
         }
 
         .header-right {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
         }
 
         .signup-btn {
-            background: #2563eb;
-            color: white;
+            background: var(--qf-bright-blue);
+            color: var(--qf-white);
             border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 9px 22px;
+            border-radius: var(--qf-radius-md);
             cursor: pointer;
+            font-family: inherit;
             font-size: 14px;
-            transition: background-color 0.2s;
+            font-weight: 600;
+            transition: filter 0.2s, transform 0.15s;
         }
+        .signup-btn:hover { filter: brightness(1.06); }
+        .signup-btn:active { transform: scale(0.97); }
 
-        .signup-btn:hover {
-            background: #1d4ed8;
-        }
-
-        /* Main Content */
         .main {
             flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 32px 16px;
+            padding: 40px 16px;
         }
 
         .form-container {
-            max-width: 400px;
+            max-width: 420px;
             width: 100%;
-            background: white;
-            padding: 32px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            background: var(--qf-white);
+            padding: 36px 32px 32px;
+            border-radius: var(--qf-radius-lg);
+            box-shadow: var(--qf-shadow);
         }
 
         .form-title {
             text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            color: #111827;
-            margin-bottom: 32px;
+            font-size: 26px;
+            font-weight: 900;
+            color: var(--qf-dark-blue);
+            margin-bottom: 28px;
+            letter-spacing: 0.02em;
         }
 
-        /* Form Styles */
-        .form-group {
-            margin-bottom: 16px;
-        }
+        .form-group { margin-bottom: 18px; }
 
         label {
             display: block;
-            margin-bottom: 4px;
+            margin-bottom: 5px;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
             color: #374151;
         }
 
         input {
             width: 100%;
-            padding: 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.2s;
+            padding: 13px 16px;
+            border: 2px solid rgba(51, 143, 249, 0.2);
+            border-radius: var(--qf-radius-md);
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 500;
+            color: #1a202c;
+            background: var(--qf-white);
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
-
+        input::placeholder { color: #94a3b8; }
         input:focus {
             outline: none;
-            border-color: #2563eb;
+            border-color: var(--qf-bright-blue);
+            box-shadow: 0 0 0 3px rgba(51, 143, 249, 0.15);
         }
 
         .submit-btn {
             width: 100%;
-            background: #2563eb;
-            color: white;
+            background: var(--qf-bright-blue);
+            color: var(--qf-white);
             border: none;
-            padding: 12px;
-            border-radius: 6px;
+            padding: 14px;
+            border-radius: var(--qf-radius-md);
             cursor: pointer;
+            font-family: inherit;
             font-size: 16px;
-            font-weight: 500;
-            margin-top: 16px;
-            transition: background-color 0.2s;
+            font-weight: 700;
+            margin-top: 20px;
+            transition: filter 0.2s, transform 0.15s;
         }
-
-        .submit-btn:hover {
-            background: #1d4ed8;
-        }
-
+        .submit-btn:hover { filter: brightness(1.06); }
+        .submit-btn:active { transform: scale(0.98); }
         .submit-btn:disabled {
-            background: #9ca3af;
+            background: #b0c4d8;
             cursor: not-allowed;
+            filter: none;
         }
 
         .toggle-auth {
             text-align: center;
-            margin-top: 24px;
+            margin-top: 22px;
         }
 
         .toggle-btn {
             background: none;
             border: none;
-            color: #2563eb;
+            color: var(--qf-turquoise);
             cursor: pointer;
+            font-family: inherit;
             font-size: 14px;
-            text-decoration: underline;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color 0.2s;
         }
+        .toggle-btn:hover { color: var(--qf-dark-blue); text-decoration: underline; }
 
-        .toggle-btn:hover {
-            color: #1d4ed8;
-        }
-
-        /* Messages */
         .message {
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 16px;
+            padding: 14px 16px;
+            border-radius: var(--qf-radius-md);
+            margin-bottom: 18px;
             text-align: center;
+            font-size: 14px;
+            font-weight: 500;
         }
-
         .message.success {
-            background: #dcfce7;
-            color: #166534;
-            border: 1px solid #bbf7d0;
+            background: #e6fbf0;
+            color: #0f7b4b;
+            border: 1px solid #a7f3d0;
         }
-
         .message.error {
-            background: #fee2e2;
-            color: #dc2626;
+            background: #fff1f1;
+            color: #c53030;
             border: 1px solid #fecaca;
         }
 
@@ -178,24 +200,18 @@
             color: #dc2626;
             font-size: 12px;
             margin-top: 4px;
+            font-weight: 500;
         }
 
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
+        .loading { display: flex; align-items: center; justify-content: center; gap: 8px; }
 
         .spinner {
-            width: 16px;
-            height: 16px;
+            width: 16px; height: 16px;
             border: 2px solid transparent;
             border-top: 2px solid white;
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -203,23 +219,22 @@
     </style>
 </head>
 <body>
-    <!-- Header -->
     <header class="header">
-        <div class="logo">СтудТест</div>
+        <div class="logo-group">
+            <img src="/icons/Logo.png" alt="">
+            <span>СтудТест</span>
+        </div>
         <div class="header-right">
             <button class="signup-btn" id="signupBtn">Регистрация</button>
         </div>
     </header>
 
-    <!-- Main Content -->
     <main class="main">
         <div class="form-container">
             <h2 class="form-title">Вход в систему</h2>
 
-            <!-- Messages -->
             <div id="messageContainer"></div>
 
-            <!-- Login Form -->
             <form id="loginForm">
                 <div class="form-group">
                     <label for="email">Email:</label>
@@ -233,22 +248,15 @@
                     <div class="error-text" id="passwordError"></div>
                 </div>
 
-                <!-- Submit Button -->
-                <button type="submit" class="submit-btn" id="submitBtn">
-                    Войти
-                </button>
+                <button type="submit" class="submit-btn" id="submitBtn">Войти</button>
             </form>
 
-            <!-- Toggle Auth -->
             <div class="toggle-auth">
-                <button class="toggle-btn" id="toggleAuthBtn">
-                    Нет аккаунта? Зарегистрироваться
-                </button>
+                <button class="toggle-btn" id="toggleAuthBtn">Нет аккаунта? Зарегистрироваться</button>
             </div>
         </div>
     </main>
 
-    <!-- ПОДКЛЮЧАЕМ login.js -->
     <script src="/login.js"></script>
 </body>
 </html>
