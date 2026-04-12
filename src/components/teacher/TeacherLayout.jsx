@@ -63,10 +63,25 @@ export default function TeacherLayout({ session, activeTab, onTabChange, avatarR
     <div className="student-layout-root">
       <div className="student-app">
         <aside className="student-sidebar" aria-label="Навигация преподавателя">
-          <div className="student-sidebar__logo" title="СТУДТЕСТ">
+          <button
+            type="button"
+            className="student-sidebar__logo"
+            title="На главную"
+            aria-label="СТУДТЕСТ — на главную"
+            onClick={() => onTabChange('home')}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              padding: 0,
+              cursor: 'pointer',
+              font: 'inherit',
+              color: 'inherit',
+              width: '100%',
+            }}
+          >
             <img className="student-sidebar__logo-mark" src="/icons/Logo.png" alt="" />
             <span className="student-sidebar__brand">СТУДТЕСТ</span>
-          </div>
+          </button>
 
           <nav className="student-sidebar__nav">
             {NAV.map((item) => {

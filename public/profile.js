@@ -1190,31 +1190,49 @@ function handleStatsByTestLoaded(stats) {
     const div = document.getElementById('statsTestResult');
     if (!div) return;
 
-    if (!stats || (!stats.attempts && !stats.avgScore && stats.avgScore !== 0)) {
+    if (!stats || !stats.rows) {
         div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет данных по этому тесту.</p>';
         return;
     }
 
-    div.innerHTML = `
-        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:12px;">
-            <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
-                <div style="font-size:26px; font-weight:900; color:#1e40af;">${stats.attempts ?? 0}</div>
-                <div style="font-size:12px; color:#6b7280; font-weight:600;">Попыток</div>
-            </div>
-            <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
-                <div style="font-size:26px; font-weight:900; color:#1e40af;">${stats.avgScore != null ? stats.avgScore.toFixed(1) + '%' : '—'}</div>
-                <div style="font-size:12px; color:#6b7280; font-weight:600;">Средний балл</div>
-            </div>
-            <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
-                <div style="font-size:26px; font-weight:900; color:#1e40af;">${stats.completed ?? 0}</div>
-                <div style="font-size:12px; color:#6b7280; font-weight:600;">Завершено</div>
-            </div>
-            <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
-                <div style="font-size:26px; font-weight:900; color:#1e40af;">${stats.bestScore != null ? stats.bestScore.toFixed(1) + '%' : '—'}</div>
-                <div style="font-size:12px; color:#6b7280; font-weight:600;">Лучший результат</div>
-            </div>
-        </div>
+    if (stats.rows.length === 0) {
+        div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет назначенных групп или данных по этому тесту.</p>';
+        return;
+    }
+
+    const title = stats.testTitle
+        ? `<p style="font-weight:700; margin-bottom:10px; color:#374151;">${escapeHtml(stats.testTitle)}</p>`
+        : '';
+
+    let html =
+        title +
+        `
+        <div style="overflow-x:auto; margin-top:8px;">
+            <table style="width:100%; border-collapse:collapse; font-size:14px; font-family:inherit;">
+                <thead>
+                    <tr style="border-bottom:2px solid #e5e7eb;">
+                        <th style="text-align:left; padding:10px 12px; font-weight:700; color:#374151;">Группа</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Прошли (чел.)</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Средний балл</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Завершено попыток</th>
+                    </tr>
+                </thead>
+                <tbody>
     `;
+
+    stats.rows.forEach((row) => {
+        html += `
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:10px 12px; color:#111827; font-weight:500;">${escapeHtml(row.groupTitle || '—')}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.peoplePassed ?? 0}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.avgScore != null ? row.avgScore.toFixed(1) + '%' : '—'}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.completedAttempts ?? 0}</td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table></div>';
+    div.innerHTML = html;
 }
 
 function handleStatsParamOptionsLoaded(options, paramType) {
@@ -1235,12 +1253,102 @@ function handleStatsByParamLoaded(stats) {
     const div = document.getElementById('statsParamResult');
     if (!div) return;
 
-    if (!stats || !stats.rows || stats.rows.length === 0) {
+    if (!stats || !stats.rows) {
         div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет данных по этому параметру.</p>';
         return;
     }
 
-    let html = `
+    if (stats.mode === 'student') {
+        if (stats.rows.length === 0) {
+            div.innerHTML =
+                '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет назначенных тестов для группы студента или нет данных.</p>';
+            return;
+        }
+        const name = stats.studentName
+            ? `<p style="font-weight:700; margin-bottom:10px; color:#374151;">${escapeHtml(stats.studentName)}</p>`
+            : '';
+        let html =
+            name +
+            `
+            <div style="overflow-x:auto; margin-top:8px;">
+                <table style="width:100%; border-collapse:collapse; font-size:14px; font-family:inherit;">
+                    <thead>
+                        <tr style="border-bottom:2px solid #e5e7eb;">
+                            <th style="text-align:left; padding:10px 12px; font-weight:700; color:#374151;">Тест</th>
+                            <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Статус</th>
+                            <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Ошибок</th>
+                            <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Время</th>
+                            <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Правильность</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        stats.rows.forEach((row) => {
+            const status = row.passed
+                ? '<span style="color:#059669;font-weight:600;">Пройден</span>'
+                : '<span style="color:#9ca3af;">Не пройден</span>';
+            const err = row.errors !== null && row.errors !== undefined ? row.errors : '—';
+            const pct =
+                row.correctnessPct != null ? row.correctnessPct.toFixed(1) + '%' : '—';
+            html += `
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:10px 12px; color:#111827; font-weight:500;">${escapeHtml(row.testTitle || 'Без названия')}</td>
+                    <td style="text-align:center; padding:10px 12px;">${status}</td>
+                    <td style="text-align:center; padding:10px 12px; color:#6b7280;">${err}</td>
+                    <td style="text-align:center; padding:10px 12px; color:#6b7280;">${escapeHtml(row.timeDisplay || '—')}</td>
+                    <td style="text-align:center; padding:10px 12px; color:#6b7280;">${pct}</td>
+                </tr>
+            `;
+        });
+        html += '</tbody></table></div>';
+        div.innerHTML = html;
+        return;
+    }
+
+    if (stats.rows.length === 0) {
+        div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет данных по этому параметру.</p>';
+        return;
+    }
+
+    let summaryHtml = '';
+    if (stats.summary) {
+        const s = stats.summary;
+        const pct = s.pctFinishedAll != null ? s.pctFinishedAll + '%' : '—';
+        const most = s.mostErrors
+            ? `${escapeHtml(s.mostErrors.name)} (${s.mostErrors.errors})`
+            : '—';
+        const few = s.fewestErrors
+            ? `${escapeHtml(s.fewestErrors.name)} (${s.fewestErrors.errors})`
+            : '—';
+        const fast = s.fastest
+            ? `${escapeHtml(s.fastest.name)} — ${escapeHtml(s.fastest.totalTime)}`
+            : 'Нет данных о времени (нужны поля duration в попытках)';
+        summaryHtml = `
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:10px; margin-bottom:16px;">
+                <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Завершили все тесты</div>
+                    <div style="font-size:20px; font-weight:800; color:#1e40af; margin-top:4px;">${pct}</div>
+                    <div style="font-size:12px; color:#6b7280; margin-top:4px;">${s.totalStudents ?? 0} студ., ${s.assignedTests ?? 0} тест.</div>
+                </div>
+                <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Больше всего ошибок</div>
+                    <div style="font-size:14px; font-weight:600; color:#111827; margin-top:6px;">${most}</div>
+                </div>
+                <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Меньше всего ошибок</div>
+                    <div style="font-size:14px; font-weight:600; color:#111827; margin-top:6px;">${few}</div>
+                </div>
+                <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
+                    <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Быстрее всех (все тесты)</div>
+                    <div style="font-size:14px; font-weight:600; color:#111827; margin-top:6px;">${fast}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    let html =
+        summaryHtml +
+        `
         <div style="overflow-x:auto; margin-top:8px;">
             <table style="width:100%; border-collapse:collapse; font-size:14px; font-family:inherit;">
                 <thead>
@@ -1254,7 +1362,7 @@ function handleStatsByParamLoaded(stats) {
                 <tbody>
     `;
 
-    stats.rows.forEach(row => {
+    stats.rows.forEach((row) => {
         html += `
             <tr style="border-bottom:1px solid #f3f4f6;">
                 <td style="padding:10px 12px; color:#111827; font-weight:500;">${escapeHtml(row.testTitle || 'Без названия')}</td>
