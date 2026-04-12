@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { useStudentProfile } from '../context/StudentProfileContext';
 import { SETTINGS_KEYS as LS } from '../lib/studentSettings';
 
 function readBool(key) {
@@ -11,9 +12,21 @@ function readBool(key) {
 }
 
 export default function SettingsPage() {
+  const { profile, refreshProfile } = useStudentProfile();
   const [themeOn, setThemeOn] = useState(() => readBool(LS.theme));
   const [incognito, setIncognito] = useState(() => readBool(LS.incognito));
   const [a11y, setA11y] = useState(() => readBool(LS.a11y));
+  const incognitoSynced = useRef(false);
+
+  // Sync initial incognito value from DB once profile loads
+  useEffect(() => {
+    if (profile && !incognitoSynced.current) {
+      incognitoSynced.current = true;
+      const dbVal = !!profile.incognito_mode;
+      setIncognito(dbVal);
+      try { localStorage.setItem(LS.incognito, dbVal ? '1' : '0'); } catch { /* ignore */ }
+    }
+  }, [profile]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('qf-theme-alt', themeOn);
@@ -33,13 +46,21 @@ export default function SettingsPage() {
     }
   }, [a11y]);
 
-  useEffect(() => {
+  async function handleIncognitoToggle() {
+    const next = !incognito;
+    setIncognito(next);
     try {
-      localStorage.setItem(LS.incognito, incognito ? '1' : '0');
-    } catch {
-      /* ignore */
+      localStorage.setItem(LS.incognito, next ? '1' : '0');
+    } catch { /* ignore */ }
+    if (profile?.id) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ incognito_mode: next })
+        .eq('id', profile.id);
+      if (error) console.error('Failed to update incognito_mode:', error);
+      else refreshProfile();
     }
-  }, [incognito]);
+  }
 
   return (
     <div className="student-page-wrap">
@@ -51,7 +72,7 @@ export default function SettingsPage() {
           <ToggleRow
             label="Режим «Инкогнито» в таблице лидеров"
             on={incognito}
-            onToggle={() => setIncognito((v) => !v)}
+            onToggle={handleIncognitoToggle}
           />
           <ToggleRow label="Версия для слабовидящих" on={a11y} onToggle={() => setA11y((v) => !v)} />
         </section>

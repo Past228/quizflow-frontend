@@ -33,11 +33,13 @@ export function useLeaderboard(currentGroupId) {
           testsMap[r.student_id] = (testsMap[r.student_id] || 0) + 1;
         });
 
-        // Step 2 — get all student profiles (including active cosmetic IDs)
+        // Step 2 — get all student profiles (including active cosmetic IDs),
+        //          excluding students who enabled incognito mode
         const { data: profiles, error: profilesErr } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id')
-          .eq('role', 'student');
+          .select('id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode')
+          .eq('role', 'student')
+          .or('incognito_mode.is.null,incognito_mode.eq.false');
 
         if (profilesErr) throw profilesErr;
 
