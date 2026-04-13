@@ -40,28 +40,31 @@ export function useTeacherBuildingLeaderboard(userId) {
           return;
         }
 
-        const { data: courses, error: cErr } = await supabase
-          .from('courses')
-          .select('id')
-          .eq('building_id', buildingId);
-        if (cErr) throw cErr;
-        const courseIds = (courses || []).map((c) => c.id);
-        if (courseIds.length === 0) {
-          setRows([]);
-          setLoading(false);
-          return;
-        }
-
-        const { data: groups, error: gErr } = await supabase
+        /** Группы корпуса: join courses↔building надёжнее, чем два запроса (и совпадает с фильтрами PostgREST). */
+        const { data: groupsJoined, error: gjErr } = await supabase
           .from('student_groups')
-          .select('id')
-          .in('course_id', courseIds);
-        if (gErr) throw gErr;
-        const groupIds = (groups || []).map((g) => g.id);
+          .select('id, courses!inner ( building_id )')
+          .eq('courses.building_id', buildingId);
+        if (gjErr) throw gjErr;
+
+        let groupIds = [...new Set((groupsJoined || []).map((g) => g.id).filter(Boolean))];
+
+        /** Запасной путь: курсы по building_id → группы (если join не вернул строк из‑за особенностей схемы). */
         if (groupIds.length === 0) {
-          setRows([]);
-          setLoading(false);
-          return;
+          const { data: courses, error: cErr } = await supabase
+            .from('courses')
+            .select('id')
+            .eq('building_id', buildingId);
+          if (cErr) throw cErr;
+          const courseIds = (courses || []).map((c) => c.id);
+          if (courseIds.length > 0) {
+            const { data: groups, error: gErr } = await supabase
+              .from('student_groups')
+              .select('id')
+              .in('course_id', courseIds);
+            if (gErr) throw gErr;
+            groupIds = [...new Set((groups || []).map((g) => g.id).filter(Boolean))];
+          }
         }
 
         const { data: results, error: rErr } = await supabase
@@ -70,15 +73,31 @@ export function useTeacherBuildingLeaderboard(userId) {
           .eq('status', 'completed');
         if (rErr) throw rErr;
 
-        const { data: profiles, error: pErr } = await supabase
-          .from('profiles')
-          .select(
-            'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode'
-          )
-          .eq('role', 'student')
-          .or('incognito_mode.is.null,incognito_mode.eq.false')
-          .in('group_id', groupIds);
-        if (pErr) throw pErr;
+        let profiles;
+        if (groupIds.length > 0) {
+          const { data: pRows, error: pErr } = await supabase
+            .from('profiles')
+            .select(
+              'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode'
+            )
+            .eq('role', 'student')
+            .or('incognito_mode.is.null,incognito_mode.eq.false')
+            .in('group_id', groupIds);
+          if (pErr) throw pErr;
+          profiles = pRows;
+        } else {
+          /** Нет groupIds (курсы не привязаны к корпусу в БД): всё равно показываем студентов корпуса через вложенный фильтр. */
+          const { data: pNested, error: pnErr } = await supabase
+            .from('profiles')
+            .select(
+              'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, student_groups!inner ( courses!inner ( building_id ) )'
+            )
+            .eq('role', 'student')
+            .or('incognito_mode.is.null,incognito_mode.eq.false')
+            .eq('student_groups.courses.building_id', buildingId);
+          if (pnErr) throw pnErr;
+          profiles = pNested;
+        }
 
         const scoreMap = {};
         const testsMap = {};

@@ -11,20 +11,16 @@ export default function TeacherLeaderboardPage({ session }) {
     session?.user?.id
   );
 
-  /** Если у преподавателя указан корпус — только студенты этого корпуса (все, в т.ч. с 0 очков). Иначе — общий рейтинг. */
-  const ranking = buildingName ? buildingRows : globalRows;
-  const useBuildingScope = Boolean(buildingName);
-
   const loading = globalLoading || buildingLoading;
-  const hasRows = ranking.length > 0;
+  const hasRows = globalRows.length > 0;
 
   const term = q.trim().toLowerCase();
   const top3 = useMemo(() => {
-    return ranking.slice(0, 3).filter((r) => !term || (r.name || '').toLowerCase().includes(term));
-  }, [ranking, term]);
+    return globalRows.slice(0, 3).filter((r) => !term || (r.name || '').toLowerCase().includes(term));
+  }, [globalRows, term]);
   const rest = useMemo(() => {
-    return ranking.slice(3).filter((r) => !term || (r.name || '').toLowerCase().includes(term));
-  }, [ranking, term]);
+    return globalRows.slice(3).filter((r) => !term || (r.name || '').toLowerCase().includes(term));
+  }, [globalRows, term]);
 
   return (
     <div className="student-page-wrap">
@@ -67,28 +63,24 @@ export default function TeacherLeaderboardPage({ session }) {
           <div className="lb-empty-root">
             <div className="lb-empty-icon">🏆</div>
             <p className="lb-empty-msg">
-              {buildingName
-                ? 'Нет студентов в группах вашего корпуса или корпус не сопоставлен с курсами.'
-                : 'Нет записей в рейтинге. Если в профиле не указан корпус, отображается общий список колледжа; после указания корпуса здесь будут все студенты корпуса, в том числе с 0 очков.'}
+              Нет студентов с ролью «студент» в системе, либо все включили режим инкогнито.
             </p>
           </div>
         ) : (
           <div className="lb-grid">
             <div className="lb-main">
-              {useBuildingScope && buildingName && (
-                <p
-                  className="lb-scope-hint"
-                  style={{
-                    margin: '0 0 12px',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: 'var(--qf-text-muted)',
-                    fontFamily: 'var(--qf-font)',
-                  }}
-                >
-                  Показаны все студенты корпуса «{buildingName}», в том числе с 0 очков.
-                </p>
-              )}
+              <p
+                className="lb-scope-hint"
+                style={{
+                  margin: '0 0 12px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: 'var(--qf-text-muted)',
+                  fontFamily: 'var(--qf-font)',
+                }}
+              >
+                Общий рейтинг колледжа: все студенты, в том числе с 0 очков.
+              </p>
               <>
               {top3.map((row, i) => (
                 <div key={row.id} className="student-card lb-top-card">
@@ -102,7 +94,7 @@ export default function TeacherLeaderboardPage({ session }) {
                 </div>
               ))}
 
-              {ranking.length > 3 && (
+              {globalRows.length > 3 && (
                 <div className="student-card lb-list">
                   {rest.length === 0 ? (
                     <p className="lb-not-found">Студент не найден</p>
@@ -126,12 +118,19 @@ export default function TeacherLeaderboardPage({ session }) {
             </div>
 
             <aside className="student-card lb-aside">
-              <h2 className="lb-aside-title">Сводка</h2>
-              {globalRows.length === 0 ? (
-                <p className="lb-empty">Общий рейтинг колледжа пока без записей test_results.</p>
+              <h2 className="lb-aside-title">
+                {buildingName ? `Корпус «${buildingName}»` : 'Ваш корпус'}
+              </h2>
+              {!buildingName ? (
+                <p className="lb-empty">В профиле не указан корпус — справа будет рейтинг вашего корпуса после привязки.</p>
+              ) : buildingRows.length === 0 ? (
+                <p className="lb-empty">
+                  Нет студентов корпуса в списке (проверьте группы и курсы в базе) или все в инкогнито. Студенты с 0 очков
+                  здесь тоже должны отображаться при корректных данных.
+                </p>
               ) : (
                 <ul className="lb-aside-list">
-                  {globalRows.slice(0, 12).map((r) => (
+                  {buildingRows.slice(0, 12).map((r) => (
                     <li key={r.id} className="lb-aside-item">
                       <span className="lb-aside-rank">{r.rank}</span>
                       <Avatar url={r.avatarUrl} size={34} frame={r.activeFrame} />
@@ -142,7 +141,7 @@ export default function TeacherLeaderboardPage({ session }) {
                 </ul>
               )}
               <p className="lb-empty" style={{ marginTop: 12, fontSize: 12 }}>
-                Боковая колонка — топ колледжа по очкам; основной список — полный перечень вашего корпуса.
+                Слева — общий рейтинг колледжа; справа — топ вашего корпуса (все студенты корпуса, в т.ч. с 0 очков).
               </p>
             </aside>
           </div>
