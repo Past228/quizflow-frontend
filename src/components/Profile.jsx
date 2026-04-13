@@ -1200,6 +1200,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
 
     return (
         <div
+            className="profile-host-root"
             style={{
                 width: '100%',
                 height: '100%',

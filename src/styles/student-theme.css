@@ -644,7 +644,8 @@ html.qf-theme-alt.qf-a11y .student-card {
     flex-direction: column;
   }
 
-  /* Контент на всю ширину, место под нижнюю навигацию */
+  /* Контент на всю ширину. Отступ снизу: для обычных страниц — в .student-page-wrap;
+     для личного кабинета (flush + iframe) — только здесь через :has() */
   .student-main {
     zoom: 1 !important;
     flex: 1 1 auto;
@@ -652,8 +653,13 @@ html.qf-theme-alt.qf-a11y .student-card {
     width: 100%;
     max-width: 100%;
     order: 1;
-    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     -webkit-overflow-scrolling: touch;
+  }
+
+  .student-main:has(.student-page-wrap--flush),
+  .student-main:has(.profile-host-root) {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   }
 
   .student-sidebar {
@@ -730,8 +736,9 @@ html.qf-theme-alt.qf-a11y .student-card {
     height: 44px;
   }
 
-  .student-page-wrap {
-    padding: 16px 14px 28px;
+  .student-page-wrap:not(.student-page-wrap--flush) {
+    padding: 16px 14px;
+    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
   }
 
   .student-page-title {
@@ -761,11 +768,37 @@ html.qf-theme-alt.qf-a11y .student-card {
     margin-bottom: 14px;
     line-height: 1.25;
   }
+
+  /* Режим слабовидящих: на десктопе иконки ×1.1 — на мобильной нижней панели это ломает вёрстку */
+  html.qf-a11y .student-sidebar__link img {
+    width: 28px !important;
+    height: 28px !important;
+    max-width: 30px;
+    max-height: 30px;
+  }
+
+  html.qf-a11y .student-sidebar__link {
+    min-width: 44px;
+    min-height: 48px;
+    height: 48px;
+  }
+
+  html.qf-a11y .student-sidebar__avatar-btn {
+    width: 44px !important;
+    height: 44px !important;
+    max-width: 48px;
+    max-height: 48px;
+  }
+
+  html.qf-a11y .student-sidebar__nav {
+    min-height: 52px;
+  }
 }
 
 @media (max-width: 480px) {
-  .student-page-wrap {
-    padding: 12px 12px 24px;
+  .student-page-wrap:not(.student-page-wrap--flush) {
+    padding: 12px 12px;
+    padding-bottom: calc(108px + env(safe-area-inset-bottom, 0px));
   }
 
   .student-sidebar__link img {
