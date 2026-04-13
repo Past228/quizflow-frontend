@@ -288,15 +288,15 @@ function initializeEventListeners() {
 
 // Communication with React parent
 function sendMessageToParent(message) {
-    console.log('Sending message to parent:', message);
     if (window.parent && window.parent.postMessage) {
-        window.parent.postMessage(message, '*');
+        window.parent.postMessage(message, window.location.origin);
     }
 }
 
 // Message handlers from React
 window.addEventListener('message', function (event) {
-    console.log('Received message from parent:', event.data);
+    if (event.origin !== window.location.origin) return;
+    if (event.data == null || typeof event.data !== 'object') return;
 
     const { type, data } = event.data;
 

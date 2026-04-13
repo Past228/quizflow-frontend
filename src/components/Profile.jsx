@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { devLog } from '../lib/devLog';
 import { profileIsStudentForRanking } from '../lib/profileRole';
+
+const SAME_ORIGIN = typeof window !== 'undefined' ? window.location.origin : '*';
 
 function estimateWrongAnswers(questionsCount, scorePercent) {
     if (questionsCount == null || questionsCount <= 0 || scorePercent == null) return null;
@@ -51,7 +54,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             const isA11y = localStorage.getItem('qf_setting_a11y') === '1';
             iframeRef.current.contentWindow.postMessage(
                 { type: 'THEME_SYNC', data: { isDark, isA11y } },
-                '*'
+                SAME_ORIGIN
             );
         } catch (e) { /* ignore */ }
     }
@@ -64,9 +67,11 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
 
     useEffect(() => {
         const handleMessage = async (event) => {
+            if (event.origin !== SAME_ORIGIN) return;
+            if (event.data == null || typeof event.data !== 'object') return;
             const { type, data } = event.data;
 
-            console.log('Received message from iframe:', type, data);
+            devLog('Received message from iframe:', type);
 
             switch (type) {
                 case 'LOAD_PROFILE_REQUEST':
@@ -146,7 +151,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                     break;
 
                 default:
-                    console.log('Unknown message type:', type);
+                    devLog('Unknown message type:', type);
             }
         };
 
@@ -163,7 +168,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
         try {
             // Сначала проверяем роль пользователя из metadata
             const userRole = session.user.user_metadata?.role;
-            console.log('User role:', userRole);
+            devLog('User role:', userRole);
 
             if (userRole === 'teacher') {
                 // ДЛЯ ПРЕПОДАВАТЕЛЕЙ - загружаем данные ИЗ TEACHERS
@@ -1183,7 +1188,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
     };
 
     const handleStartTest = async (testId) => {
-        console.log('Starting test:', testId);
+        devLog('Starting test:', testId);
         alert(`Начинаем тест с ID: ${testId}`);
     };
 
@@ -1193,8 +1198,8 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
 
     const sendMessageToIframe = (message) => {
         if (iframeRef.current && iframeRef.current.contentWindow) {
-            console.log('Sending message to iframe:', message);
-            iframeRef.current.contentWindow.postMessage(message, '*');
+            devLog('Sending message to iframe:', message.type);
+            iframeRef.current.contentWindow.postMessage(message, SAME_ORIGIN);
         }
     };
 
@@ -1219,7 +1224,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                 frameBorder="0"
                 title="Profile"
                 style={{ display: 'block', flex: 1, minHeight: 0, border: 0 }}
-                onLoad={() => { console.log('Profile iframe loaded'); syncThemeToIframe(); }}
+                onLoad={() => { devLog('Profile iframe loaded'); syncThemeToIframe(); }}
             />
         </div>
     );

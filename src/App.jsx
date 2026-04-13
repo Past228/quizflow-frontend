@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
 import AuthWithHTML from './components/AuthWithHTML';
@@ -6,15 +6,36 @@ import Profile from './components/Profile';
 import TeacherLayout from './components/teacher/TeacherLayout';
 import TeacherHomePage from './pages/TeacherHomePage';
 import StudentLayout from './components/student/StudentLayout';
-import HomePage from './pages/HomePage';
-import CatalogPage from './pages/CatalogPage';
-import TestPage from './pages/TestPage';
-import LeaderboardPage from './pages/LeaderboardPage';
-import ShopPage from './pages/ShopPage';
-import SettingsPage from './pages/SettingsPage';
-import HelpPage from './pages/HelpPage';
-import ProfileRoute from './pages/ProfileRoute';
 import TeacherLeaderboardPage from './pages/TeacherLeaderboardPage';
+
+const HomePage = lazy(() => import('./pages/HomePage'));
+const CatalogPage = lazy(() => import('./pages/CatalogPage'));
+const TestPage = lazy(() => import('./pages/TestPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+const ShopPage = lazy(() => import('./pages/ShopPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const HelpPage = lazy(() => import('./pages/HelpPage'));
+const ProfileRoute = lazy(() => import('./pages/ProfileRoute'));
+
+function StudentRouteFallback() {
+  return (
+    <div
+      style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        fontFamily: 'var(--qf-font), "Gothic A1", sans-serif',
+        color: 'var(--qf-text-muted, #64748b)',
+        fontWeight: 600,
+      }}
+    >
+      Загрузка…
+    </div>
+  );
+}
 
 const TEACHER_TAB_KEY = 'qf_teacher_active_tab';
 const TEACHER_VALID_TABS = ['home', 'tests', 'leaderboard', 'settings', 'help', 'profile'];
@@ -501,19 +522,21 @@ function App() {
       ) : (
         <BrowserRouter>
           <div className="app-root__fill">
-            <Routes>
-              <Route path="/" element={<StudentLayout session={session} />}>
-                <Route index element={<HomePage />} />
-                <Route path="catalog" element={<CatalogPage />} />
-                <Route path="test/:testId" element={<TestPage />} />
-                <Route path="leaderboard" element={<LeaderboardPage />} />
-                <Route path="shop" element={<ShopPage />} />
-                <Route path="settings" element={<SettingsPage />} />
-                <Route path="help" element={<HelpPage />} />
-                <Route path="profile" element={<ProfileRoute />} />
-              </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+            <Suspense fallback={<StudentRouteFallback />}>
+              <Routes>
+                <Route path="/" element={<StudentLayout session={session} />}>
+                  <Route index element={<HomePage />} />
+                  <Route path="catalog" element={<CatalogPage />} />
+                  <Route path="test/:testId" element={<TestPage />} />
+                  <Route path="leaderboard" element={<LeaderboardPage />} />
+                  <Route path="shop" element={<ShopPage />} />
+                  <Route path="settings" element={<SettingsPage />} />
+                  <Route path="help" element={<HelpPage />} />
+                  <Route path="profile" element={<ProfileRoute />} />
+                </Route>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
           </div>
         </BrowserRouter>
       )}

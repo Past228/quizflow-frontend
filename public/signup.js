@@ -74,16 +74,25 @@ function initializeEventListeners() {
 
 // Communication with React parent
 function sendMessageToParent(message) {
-    console.log('Sending message to parent:', message);
     if (window.parent && window.parent.postMessage) {
-        window.parent.postMessage(message, '*');
+        window.parent.postMessage(message, window.location.origin);
     }
+}
+
+function escapeHtml(text) {
+    if (text == null) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 
 // Message handlers from React
 window.addEventListener('message', function(event) {
-    console.log('Received message from parent:', event.data);
-    
+    if (event.origin !== window.location.origin) return;
+    if (event.data == null || typeof event.data !== 'object') return;
+
     const { type, data } = event.data;
     
     switch (type) {
@@ -278,13 +287,12 @@ function setLoadingState(resource, loading) {
 
 function showMessage(message, type) {
     if (typeof message === 'string' && message.includes('<div')) {
-        // Если message уже содержит HTML, используем как есть
         elements.messageContainer.innerHTML = message;
     } else {
-        // Стандартное сообщение
+        var cls = type === 'success' ? 'success' : type === 'error' ? 'error' : '';
         elements.messageContainer.innerHTML = `
-            <div class="message ${type}">
-                ${message}
+            <div class="message ${cls}">
+                ${escapeHtml(message)}
             </div>
         `;
     }

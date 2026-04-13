@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { devLog, devWarn } from '../lib/devLog';
 import { createClient } from '@supabase/supabase-js';
 
 // Белый список разрешенных источников
@@ -24,14 +25,15 @@ export default function AuthWithHTML() {
         const handleMessage = async (event) => {
             // ВАЖНО: Проверяем источник сообщения
             if (!ALLOWED_ORIGINS.includes(event.origin)) {
-                console.warn('Message from untrusted origin:', event.origin);
+                devWarn('Message from untrusted origin:', event.origin);
                 return;
             }
 
+            if (event.data == null || typeof event.data !== 'object') return;
+
             const { type, data } = event.data;
 
-            // Логируем только тип, без чувствительных данных
-            console.log('Received message from iframe:', type);
+            devLog('Received message from iframe:', type);
 
             switch (type) {
                 case 'SIGNUP_FORM_SUBMIT':
@@ -82,7 +84,7 @@ export default function AuthWithHTML() {
                     break;
 
                 default:
-                    console.log('Unknown message type:', type);
+                    devLog('Unknown message type:', type);
             }
         };
 
@@ -246,7 +248,7 @@ export default function AuthWithHTML() {
                 throw new Error('Не удалось создать пользователя');
             }
 
-            console.log('✅ User created in Auth');
+            devLog('User created in Auth');
 
             // 2. Безопасное создание профиля
             await createStudentProfileSafely(authData.user.id, cleanData);
@@ -292,12 +294,12 @@ export default function AuthWithHTML() {
                 });
 
             if (profileError) {
-                console.log('Profile creation failed, will create on first login');
+                devLog('Profile creation failed, will create on first login');
                 // Не бросаем ошибку - профиль создадим при входе
                 return;
             }
 
-            console.log('✅ Student profile created successfully');
+            devLog('Student profile created successfully');
 
         } catch (error) {
             console.error('Profile creation failed:', error);
@@ -451,7 +453,7 @@ export default function AuthWithHTML() {
                 .eq('code', cleanData.inviteCode)
                 .eq('is_used', false);
 
-            if (codeErr) console.warn('invite_codes update failed:', codeErr);
+            if (codeErr) devWarn('invite_codes update failed:', codeErr);
         }
 
         // 2. Create teachers row
@@ -472,7 +474,7 @@ export default function AuthWithHTML() {
             .insert(teacherRow);
 
         if (teacherErr) {
-            console.warn('Teacher row insert failed:', teacherErr);
+            devWarn('Teacher row insert failed:', teacherErr);
         }
     };
 
@@ -778,7 +780,7 @@ export default function AuthWithHTML() {
                 frameBorder="0"
                 title="Auth Form"
                 style={{ display: 'block', flex: 1, minHeight: 0, border: 0 }}
-                onLoad={() => console.log('Iframe loaded')}
+                onLoad={() => devLog('Auth iframe loaded')}
             />
 
             {loading && (

@@ -91,15 +91,24 @@ function validateInviteCode(code) {
 }
 
 function sendMessageToParent(message) {
-    console.log('Sending message to parent:', message);
     if (window.parent && window.parent.postMessage) {
-        window.parent.postMessage(message, '*');
+        window.parent.postMessage(message, window.location.origin);
     }
 }
 
+function escapeHtml(text) {
+    if (text == null) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 window.addEventListener('message', function(event) {
-    console.log('Received message from parent:', event.data);
-    
+    if (event.origin !== window.location.origin) return;
+    if (event.data == null || typeof event.data !== 'object') return;
+
     const { type, data } = event.data;
     
     switch (type) {
@@ -330,13 +339,13 @@ function handleLoginClick() {
 }
 
 function showMessage(message, type) {
+    var cls = type === 'success' ? 'success' : 'error';
     elements.messageContainer.innerHTML = `
-        <div class="message ${type}">
-            ${message}
+        <div class="message ${cls}">
+            ${escapeHtml(message)}
         </div>
     `;
-    
-    // Прокрутка к сообщению
+
     elements.messageContainer.scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -354,7 +363,7 @@ function displayValidationErrors(errors) {
         const errorElement = elements[`${field}Error`];
         if (errorElement) {
             errorElement.textContent = error;
-            element.style.color = '#dc2626';
+            errorElement.style.color = '#dc2626';
         }
     });
 }
