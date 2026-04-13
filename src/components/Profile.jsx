@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { profileIsStudentForRanking } from '../lib/profileRole';
 
 function estimateWrongAnswers(questionsCount, scorePercent) {
     if (questionsCount == null || questionsCount <= 0 || scorePercent == null) return null;
@@ -779,15 +780,16 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             }
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, first_name, last_name, email')
+                .select('id, first_name, last_name, email, role, group_id')
                 .eq('group_id', gid)
-                .eq('role', 'student')
                 .order('last_name', { ascending: true });
             if (error) throw error;
-            const options = (data || []).map((p) => ({
-                id: p.id,
-                name: displayNameFromProfile(p),
-            }));
+            const options = (data || [])
+                .filter(profileIsStudentForRanking)
+                .map((p) => ({
+                    id: p.id,
+                    name: displayNameFromProfile(p),
+                }));
             sendMessageToIframe({ type: 'STATS_STUDENT_LIST_LOADED', data: { options } });
         } catch (err) {
             console.error('Stats student list error:', err);

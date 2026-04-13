@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { profileIsStudentForRanking } from '../lib/profileRole';
 
 /**
  * Students ranked by total score, limited to groups whose courses belong to the teacher's building.
@@ -78,23 +79,21 @@ export function useTeacherBuildingLeaderboard(userId) {
           const { data: pRows, error: pErr } = await supabase
             .from('profiles')
             .select(
-              'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode'
+              'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role'
             )
-            .eq('role', 'student')
             .in('group_id', groupIds);
           if (pErr) throw pErr;
-          profiles = (pRows || []).filter((p) => p.incognito_mode !== true);
+          profiles = (pRows || []).filter(profileIsStudentForRanking);
         } else {
           /** Нет groupIds (курсы не привязаны к корпусу в БД): всё равно показываем студентов корпуса через вложенный фильтр. */
           const { data: pNested, error: pnErr } = await supabase
             .from('profiles')
             .select(
-              'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, student_groups!inner ( courses!inner ( building_id ) )'
+              'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role, student_groups!inner ( courses!inner ( building_id ) )'
             )
-            .eq('role', 'student')
             .eq('student_groups.courses.building_id', buildingId);
           if (pnErr) throw pnErr;
-          profiles = (pNested || []).filter((p) => p.incognito_mode !== true);
+          profiles = (pNested || []).filter(profileIsStudentForRanking);
         }
 
         const scoreMap = {};

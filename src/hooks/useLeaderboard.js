@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { profileIsStudentForRanking } from '../lib/profileRole';
 
 /**
  * Fetches the global leaderboard (all students ranked by total score from
@@ -42,15 +43,16 @@ export function useLeaderboard(currentGroupId) {
           testsMap[r.student_id] = (testsMap[r.student_id] || 0) + 1;
         });
 
-        // Step 2 — all student profiles; incognito filtered in JS (PostgREST .eq + .or is easy to misread)
+        // Step 2 — без .eq(role): в БД бывают NULL / другой регистр; отсекаем преподавателей в JS
         const { data: profilesRaw, error: profilesErr } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode')
-          .eq('role', 'student');
+          .select(
+            'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role'
+          );
 
         if (profilesErr) throw profilesErr;
 
-        const profiles = (profilesRaw || []).filter((p) => p.incognito_mode !== true);
+        const profiles = (profilesRaw || []).filter(profileIsStudentForRanking);
 
         // Step 3 — batch-load all referenced cosmetic items in parallel
         const unique = (arr) => [...new Set(arr.filter(Boolean))];
