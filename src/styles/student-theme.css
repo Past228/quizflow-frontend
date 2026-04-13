@@ -644,8 +644,8 @@ html.qf-theme-alt.qf-a11y .student-card {
     flex-direction: column;
   }
 
-  /* Контент на всю ширину. Отступ снизу: для обычных страниц — в .student-page-wrap;
-     для личного кабинета (flush + iframe) — только здесь через :has() */
+  /* Нижнее меню position:fixed — запас по высоте задаём на scroll-root (.student-main),
+     иначе padding у .student-page-wrap в flex-колонке не всегда удлиняет прокрутку (iOS/WebKit). */
   .student-main {
     zoom: 1 !important;
     flex: 1 1 auto;
@@ -653,13 +653,13 @@ html.qf-theme-alt.qf-a11y .student-card {
     width: 100%;
     max-width: 100%;
     order: 1;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
     -webkit-overflow-scrolling: touch;
   }
 
   .student-main:has(.student-page-wrap--flush),
   .student-main:has(.profile-host-root) {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   }
 
   .student-sidebar {
@@ -737,8 +737,7 @@ html.qf-theme-alt.qf-a11y .student-card {
   }
 
   .student-page-wrap:not(.student-page-wrap--flush) {
-    padding: 16px 14px;
-    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+    padding: 16px 14px 28px;
   }
 
   .student-page-title {
@@ -796,9 +795,17 @@ html.qf-theme-alt.qf-a11y .student-card {
 }
 
 @media (max-width: 480px) {
+  .student-main {
+    padding-bottom: calc(116px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .student-main:has(.student-page-wrap--flush),
+  .student-main:has(.profile-host-root) {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
   .student-page-wrap:not(.student-page-wrap--flush) {
-    padding: 12px 12px;
-    padding-bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 12px 24px;
   }
 
   .student-sidebar__link img {
