@@ -81,10 +81,9 @@ export function useTeacherBuildingLeaderboard(userId) {
               'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode'
             )
             .eq('role', 'student')
-            .or('incognito_mode.is.null,incognito_mode.eq.false')
             .in('group_id', groupIds);
           if (pErr) throw pErr;
-          profiles = pRows;
+          profiles = (pRows || []).filter((p) => p.incognito_mode !== true);
         } else {
           /** Нет groupIds (курсы не привязаны к корпусу в БД): всё равно показываем студентов корпуса через вложенный фильтр. */
           const { data: pNested, error: pnErr } = await supabase
@@ -93,10 +92,9 @@ export function useTeacherBuildingLeaderboard(userId) {
               'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, student_groups!inner ( courses!inner ( building_id ) )'
             )
             .eq('role', 'student')
-            .or('incognito_mode.is.null,incognito_mode.eq.false')
             .eq('student_groups.courses.building_id', buildingId);
           if (pnErr) throw pnErr;
-          profiles = pNested;
+          profiles = (pNested || []).filter((p) => p.incognito_mode !== true);
         }
 
         const scoreMap = {};

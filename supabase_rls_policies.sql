@@ -221,3 +221,28 @@ CREATE POLICY "Teachers can manage group_tests"
   ON group_tests FOR ALL TO authenticated
   USING (true)
   WITH CHECK (true);
+
+-- ── buildings, courses, student_groups ───────────────────────────
+-- Signup and teacher stats join these tables. If RLS is enabled
+-- without SELECT, teachers get empty cascades and empty leaderboards.
+
+ALTER TABLE buildings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_groups ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can read buildings" ON buildings;
+DROP POLICY IF EXISTS "Authenticated users can read courses" ON courses;
+DROP POLICY IF EXISTS "Authenticated users can read student_groups" ON student_groups;
+
+CREATE POLICY "Authenticated users can read buildings"
+  ON buildings FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Authenticated users can read courses"
+  ON courses FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Authenticated users can read student_groups"
+  ON student_groups FOR SELECT TO authenticated USING (true);
+
+-- test_attempts: если на таблице уже включён RLS, добавьте SELECT для authenticated
+-- (иначе статистика по студенту не увидит попытки). Не включайте RLS на test_attempts
+-- без политик INSERT для студентов — иначе пройденные тесты не сохранятся.

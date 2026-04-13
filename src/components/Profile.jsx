@@ -22,6 +22,23 @@ function displayNameFromProfile(p) {
     return (p.email || 'Студент').trim();
 }
 
+/** Id групп из БД (number) и из select (string) — единое сопоставление для фильтров. */
+function makeGroupIdSet(ids) {
+    if (ids == null) return null;
+    return new Set((ids || []).map((x) => String(x)));
+}
+
+function groupIdMatchesScope(id, allowSet) {
+    if (allowSet == null) return true;
+    return allowSet.has(String(id));
+}
+
+function normalizeGroupIdForProfileQuery(groupId) {
+    if (groupId == null || groupId === '') return null;
+    const n = Number(groupId);
+    return Number.isFinite(n) ? n : groupId;
+}
+
 export default function Profile({ session, embedded = false, onAvatarUpdated }) {
     const iframeRef = useRef(null);
 
@@ -563,7 +580,8 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
         if (!buildingId) return null;
         const { data: courses } = await supabase.from('courses').select('id').eq('building_id', buildingId);
         const courseIds = (courses || []).map(c => c.id);
-        if (courseIds.length === 0) return [];
+        /** Пустой массив раньше обнулял все группы; null = не ограничивать по корпусу (данные курсов/корпуса могут быть неполными). */
+        if (courseIds.length === 0) return null;
         const { data: groups } = await supabase.from('student_groups').select('id').in('course_id', courseIds);
         return (groups || []).map(g => g.id);
     };
@@ -589,9 +607,9 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             let groupIds = [...new Set((gt || []).map(r => r.group_id).filter(Boolean))];
 
             const scoped = await getTeacherScopedGroupIds();
-            if (scoped !== null) {
-                const allow = new Set(scoped);
-                groupIds = groupIds.filter((gid) => allow.has(gid));
+            if (scoped !== null && scoped.length > 0) {
+                const allow = makeGroupIdSet(scoped);
+                groupIds = groupIds.filter((gid) => groupIdMatchesScope(gid, allow));
             }
 
             let groupsMeta = [];
@@ -733,9 +751,9 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             if (error) throw error;
             const scoped = await getTeacherScopedGroupIds();
             let list = data || [];
-            if (scoped !== null) {
-                const allow = new Set(scoped);
-                list = list.filter((g) => allow.has(g.id));
+            if (scoped !== null && scoped.length > 0) {
+                const allow = makeGroupIdSet(scoped);
+                list = list.filter((g) => groupIdMatchesScope(g.id, allow));
             }
             const options = list.map((g) => ({
                 id: g.id,
@@ -754,10 +772,16 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
 
     const handleLoadStatsStudentList = async (groupId) => {
         try {
+            const gid = normalizeGroupIdForProfileQuery(groupId);
+            if (gid == null) {
+                sendMessageToIframe({ type: 'STATS_STUDENT_LIST_LOADED', data: { options: [] } });
+                return;
+            }
             const { data, error } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name, email')
-                .eq('group_id', groupId)
+                .eq('group_id', gid)
+                .eq('role', 'student')
                 .order('last_name', { ascending: true });
             if (error) throw error;
             const options = (data || []).map((p) => ({

@@ -15,9 +15,18 @@ export function useLeaderboard(currentGroupId) {
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
+    const load = async () => {
       setLoading(true);
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData?.session?.user) {
+          if (!cancelled) {
+            setAll([]);
+            setGroupRanking([]);
+          }
+          return;
+        }
+
         // Step 1 — aggregate scores from completed test sessions
         const { data: results, error: resultsErr } = await supabase
           .from('test_results')
@@ -33,15 +42,15 @@ export function useLeaderboard(currentGroupId) {
           testsMap[r.student_id] = (testsMap[r.student_id] || 0) + 1;
         });
 
-        // Step 2 — get all student profiles (including active cosmetic IDs),
-        //          excluding students who enabled incognito mode
-        const { data: profiles, error: profilesErr } = await supabase
+        // Step 2 — all student profiles; incognito filtered in JS (PostgREST .eq + .or is easy to misread)
+        const { data: profilesRaw, error: profilesErr } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode')
-          .eq('role', 'student')
-          .or('incognito_mode.is.null,incognito_mode.eq.false');
+          .eq('role', 'student');
 
         if (profilesErr) throw profilesErr;
+
+        const profiles = (profilesRaw || []).filter((p) => p.incognito_mode !== true);
 
         // Step 3 — batch-load all referenced cosmetic items in parallel
         const unique = (arr) => [...new Set(arr.filter(Boolean))];
@@ -83,7 +92,9 @@ export function useLeaderboard(currentGroupId) {
           setAll(ranked);
           setGroupRanking(
             currentGroupId
-              ? ranked.filter((r) => r.groupId === currentGroupId)
+              ? ranked.filter(
+                  (r) => String(r.groupId ?? '') === String(currentGroupId ?? '')
+                )
               : []
           );
         }
@@ -96,10 +107,16 @@ export function useLeaderboard(currentGroupId) {
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
+    };
+
+    load();
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+      if (!cancelled) load();
+    });
 
     return () => {
       cancelled = true;
+      authListener.subscription.unsubscribe();
     };
   }, [currentGroupId]);
 
