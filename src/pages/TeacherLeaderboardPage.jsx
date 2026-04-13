@@ -69,18 +69,6 @@ export default function TeacherLeaderboardPage({ session }) {
         ) : (
           <div className="lb-grid">
             <div className="lb-main">
-              <p
-                className="lb-scope-hint"
-                style={{
-                  margin: '0 0 12px',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: 'var(--qf-text-muted)',
-                  fontFamily: 'var(--qf-font)',
-                }}
-              >
-                Общий рейтинг колледжа: все студенты, в том числе с 0 очков.
-              </p>
               <>
               {top3.map((row, i) => (
                 <div key={row.id} className="student-card lb-top-card">
@@ -140,9 +128,6 @@ export default function TeacherLeaderboardPage({ session }) {
                   ))}
                 </ul>
               )}
-              <p className="lb-empty" style={{ marginTop: 12, fontSize: 12 }}>
-                Слева — общий рейтинг колледжа; справа — топ вашего корпуса (все студенты корпуса, в т.ч. с 0 очков).
-              </p>
             </aside>
           </div>
         )}
