@@ -246,3 +246,81 @@ CREATE POLICY "Authenticated users can read student_groups"
 -- test_attempts: если на таблице уже включён RLS, добавьте SELECT для authenticated
 -- (иначе статистика по студенту не увидит попытки). Не включайте RLS на test_attempts
 -- без политик INSERT для студентов — иначе пройденные тесты не сохранятся.
+
+-- ── RPC (SECURITY DEFINER): лидерборд и статистика у преподавателя ─────────────
+-- Прямой SELECT по profiles под RLS часто возвращает 0 строк для teacher-JWT,
+-- тогда как у student-JWT политики дают полный список. Эти функции вызываются
+-- только для auth.uid() IS NOT NULL и обходят RLS при чтении, сохраняя фильтр
+-- «не инкогнито» и «не staff» внутри SQL.
+-- Выполните этот блок в SQL Editor после остальных политик.
+
+CREATE OR REPLACE FUNCTION public.qf_leaderboard_profiles()
+RETURNS SETOF public.profiles
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT p.*
+  FROM public.profiles p
+  WHERE auth.uid() IS NOT NULL
+    AND (p.incognito_mode IS DISTINCT FROM true)
+    AND lower(trim(coalesce(p.role, ''))) NOT IN ('teacher', 'admin', 'moderator');
+$$;
+
+CREATE OR REPLACE FUNCTION public.qf_profiles_for_building(p_building_id bigint)
+RETURNS SETOF public.profiles
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT p.*
+  FROM public.profiles p
+  INNER JOIN public.student_groups sg ON sg.id = p.group_id
+  INNER JOIN public.courses c ON c.id = sg.course_id AND c.building_id = p_building_id
+  WHERE auth.uid() IS NOT NULL
+    AND (p.incognito_mode IS DISTINCT FROM true)
+    AND lower(trim(coalesce(p.role, ''))) NOT IN ('teacher', 'admin', 'moderator');
+$$;
+
+CREATE OR REPLACE FUNCTION public.qf_students_in_group(p_group_id bigint)
+RETURNS SETOF public.profiles
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT p.*
+  FROM public.profiles p
+  WHERE auth.uid() IS NOT NULL
+    AND p.group_id = p_group_id
+    AND (p.incognito_mode IS DISTINCT FROM true)
+    AND lower(trim(coalesce(p.role, ''))) NOT IN ('teacher', 'admin', 'moderator');
+$$;
+
+DROP FUNCTION IF EXISTS public.qf_profile_by_id(uuid);
+
+CREATE FUNCTION public.qf_profile_by_id(p_id uuid)
+RETURNS SETOF public.profiles
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT p.*
+  FROM public.profiles p
+  WHERE auth.uid() IS NOT NULL
+    AND p.id = p_id
+  LIMIT 1;
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_leaderboard_profiles() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.qf_profiles_for_building(bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.qf_students_in_group(bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.qf_profile_by_id(uuid) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION public.qf_leaderboard_profiles() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.qf_profiles_for_building(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.qf_students_in_group(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.qf_profile_by_id(uuid) TO authenticated;

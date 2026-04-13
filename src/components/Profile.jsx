@@ -778,13 +778,20 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                 sendMessageToIframe({ type: 'STATS_STUDENT_LIST_LOADED', data: { options: [] } });
                 return;
             }
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id, first_name, last_name, email, role, group_id')
-                .eq('group_id', gid)
-                .order('last_name', { ascending: true });
-            if (error) throw error;
-            const options = (data || [])
+            const rpcList = await supabase.rpc('qf_students_in_group', { p_group_id: Number(gid) });
+            let rows;
+            if (!rpcList.error && rpcList.data != null) {
+                rows = rpcList.data;
+            } else {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name, email, role, group_id')
+                    .eq('group_id', gid)
+                    .order('last_name', { ascending: true });
+                if (error) throw error;
+                rows = data;
+            }
+            const options = (rows || [])
                 .filter(profileIsStudentForRanking)
                 .map((p) => ({
                     id: p.id,
@@ -801,14 +808,33 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
         try {
             if (paramType === 'student') {
                 const profileId = paramValue;
-                const { data: prof, error: perr } = await supabase
-                    .from('profiles')
-                    .select(
-                        'id, first_name, last_name, email, group_id, student_groups(group_number, courses(course_number, buildings(name)))'
-                    )
-                    .eq('id', profileId)
-                    .maybeSingle();
-                if (perr) throw perr;
+                const rpcOne = await supabase.rpc('qf_profile_by_id', { p_id: profileId });
+                let prof = null;
+                if (!rpcOne.error && rpcOne.data != null) {
+                    prof = Array.isArray(rpcOne.data) ? rpcOne.data[0] : rpcOne.data;
+                }
+                if (!prof) {
+                    const { data, error: perr } = await supabase
+                        .from('profiles')
+                        .select(
+                            'id, first_name, last_name, email, group_id, student_groups(group_number, courses(course_number, buildings(name)))'
+                        )
+                        .eq('id', profileId)
+                        .maybeSingle();
+                    if (perr) throw perr;
+                    prof = data;
+                } else if (prof.group_id) {
+                    const { data: sg } = await supabase
+                        .from('student_groups')
+                        .select('group_number, courses(course_number, buildings(name))')
+                        .eq('id', prof.group_id)
+                        .maybeSingle();
+                    prof = { ...prof, student_groups: sg || null };
+                }
+                if (!prof) {
+                    sendMessageToIframe({ type: 'STATS_BY_PARAM_LOADED', data: { stats: null } });
+                    return;
+                }
 
                 const emptyStudent = (name) =>
                     sendMessageToIframe({

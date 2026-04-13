@@ -74,22 +74,28 @@ export function useTeacherBuildingLeaderboard(userId) {
           .eq('status', 'completed');
         if (rErr) throw rErr;
 
+        const selectCols =
+          'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role';
+
         let profiles;
-        if (groupIds.length > 0) {
+        const rpcB = await supabase.rpc('qf_profiles_for_building', {
+          p_building_id: Number(buildingId),
+        });
+        if (!rpcB.error && rpcB.data != null) {
+          profiles = (rpcB.data || []).filter(profileIsStudentForRanking);
+        } else if (groupIds.length > 0) {
           const { data: pRows, error: pErr } = await supabase
             .from('profiles')
-            .select(
-              'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role'
-            )
+            .select(selectCols)
             .in('group_id', groupIds);
           if (pErr) throw pErr;
           profiles = (pRows || []).filter(profileIsStudentForRanking);
         } else {
-          /** Нет groupIds (курсы не привязаны к корпусу в БД): всё равно показываем студентов корпуса через вложенный фильтр. */
+          /** Нет groupIds: вложенный фильтр (если RPC не развёрнут в проекте). */
           const { data: pNested, error: pnErr } = await supabase
             .from('profiles')
             .select(
-              'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role, student_groups!inner ( courses!inner ( building_id ) )'
+              `${selectCols}, student_groups!inner ( courses!inner ( building_id ) )`
             )
             .eq('student_groups.courses.building_id', buildingId);
           if (pnErr) throw pnErr;

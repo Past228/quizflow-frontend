@@ -43,14 +43,18 @@ export function useLeaderboard(currentGroupId) {
           testsMap[r.student_id] = (testsMap[r.student_id] || 0) + 1;
         });
 
-        // Step 2 — без .eq(role): в БД бывают NULL / другой регистр; отсекаем преподавателей в JS
-        const { data: profilesRaw, error: profilesErr } = await supabase
-          .from('profiles')
-          .select(
-            'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role'
-          );
-
-        if (profilesErr) throw profilesErr;
+        // Step 2 — RPC обходит RLS: у teacher-JWT часто 0 строк при прямом SELECT (у студента — ок)
+        const selectCols =
+          'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role';
+        const rpcLb = await supabase.rpc('qf_leaderboard_profiles');
+        let profilesRaw;
+        if (!rpcLb.error && rpcLb.data != null) {
+          profilesRaw = rpcLb.data;
+        } else {
+          const { data, error: profilesErr } = await supabase.from('profiles').select(selectCols);
+          if (profilesErr) throw profilesErr;
+          profilesRaw = data;
+        }
 
         const profiles = (profilesRaw || []).filter(profileIsStudentForRanking);
 
