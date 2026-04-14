@@ -674,6 +674,13 @@ html.qf-theme-alt.qf-a11y .student-card {
     -webkit-overflow-scrolling: touch;
   }
 
+  /* Профиль (iframe): padding у main даёт голубую полосу --qf-bg под документом.
+     Убираем его здесь; отступ под нижнюю панель задаём в profile.html (прокрутка внутри iframe), по смыслу как магазин: внешний main + padding у контента. */
+  .student-main:has(.profile-host-root) {
+    padding-bottom: 0;
+    scroll-padding-bottom: 0;
+  }
+
   .student-sidebar {
     order: 2;
     position: fixed;
