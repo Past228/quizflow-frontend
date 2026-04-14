@@ -1181,8 +1181,9 @@
         /* Мобильный iframe: небольшой зазор под контентом при прокрутке внутри страницы.
            Запас под нижнюю панель приложения задаётся снаружи (.student-main), не дублируем огромным padding здесь. */
         @media (max-width: 900px) {
+            /* Воздух под последними карточками при прокрутке внутри iframe (запас под панель — снаружи). */
             body {
-                padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+                padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
             }
         }
     </style>

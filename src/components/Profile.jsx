@@ -1208,7 +1208,6 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             className="profile-host-root"
             style={{
                 width: '100%',
-                height: '100%',
                 minHeight: 0,
                 flex: 1,
                 display: 'flex',

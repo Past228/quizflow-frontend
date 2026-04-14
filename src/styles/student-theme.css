@@ -674,6 +674,19 @@ html.qf-theme-alt.qf-a11y .student-card {
     -webkit-overflow-scrolling: touch;
   }
 
+  /* Личный кабинет (iframe): без padding-bottom у main — иначе голубая полоса --qf-bg.
+     Высота iframe ограничена под нижнюю панель; докрутка — внутри profile.html. */
+  .student-main:has(.profile-host-root) {
+    padding-bottom: 0;
+    scroll-padding-bottom: 0;
+  }
+
+  .student-main:has(.profile-host-root) .profile-host-root {
+    max-height: calc(100vh - var(--qf-mobile-bottom-clearance));
+    max-height: calc(100svh - var(--qf-mobile-bottom-clearance));
+    height: auto;
+  }
+
   .student-sidebar {
     order: 2;
     position: fixed;
