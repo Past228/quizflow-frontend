@@ -632,6 +632,8 @@ html.qf-theme-alt.qf-a11y .student-card {
     --qf-main-ui-zoom: 1;
     --qf-layout-w: 100%;
     --qf-main-w: 100%;
+    /* Нижняя навигация (fixed) + запас под тень/крупные тачи и safe-area */
+    --qf-mobile-bottom-clearance: calc(132px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Иначе 120% от a11y + узкий экран дают гигантский текст */
@@ -644,8 +646,8 @@ html.qf-theme-alt.qf-a11y .student-card {
     flex-direction: column;
   }
 
-  /* Нижнее меню position:fixed — запас по высоте задаём на scroll-root (.student-main),
-     иначе padding у .student-page-wrap в flex-колонке не всегда удлиняет прокрутку (iOS/WebKit). */
+  /* Нижнее меню position:fixed — запас только на корневом скролле (.student-main).
+     Вложенные overflow:auto обходят этот отступ и снова обрезают контент под панелью. */
   .student-main {
     zoom: 1 !important;
     flex: 1 1 auto;
@@ -653,13 +655,9 @@ html.qf-theme-alt.qf-a11y .student-card {
     width: 100%;
     max-width: 100%;
     order: 1;
-    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--qf-mobile-bottom-clearance);
+    scroll-padding-bottom: var(--qf-mobile-bottom-clearance);
     -webkit-overflow-scrolling: touch;
-  }
-
-  .student-main:has(.student-page-wrap--flush),
-  .student-main:has(.profile-host-root) {
-    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   }
 
   .student-sidebar {
@@ -795,13 +793,8 @@ html.qf-theme-alt.qf-a11y .student-card {
 }
 
 @media (max-width: 480px) {
-  .student-main {
-    padding-bottom: calc(116px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .student-main:has(.student-page-wrap--flush),
-  .student-main:has(.profile-host-root) {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  :root {
+    --qf-mobile-bottom-clearance: calc(128px + env(safe-area-inset-bottom, 0px));
   }
 
   .student-page-wrap:not(.student-page-wrap--flush) {

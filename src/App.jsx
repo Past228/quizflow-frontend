@@ -122,7 +122,15 @@ function TeacherControlPanel({ session }) {
   const [view, setView] = useState('actions');
 
   return (
-    <div style={{ padding: '28px 32px 40px', flex: 1, minHeight: 0, overflow: 'auto' }}>
+    <div
+      style={{
+        padding: '28px 32px 40px',
+        flex: '0 0 auto',
+        alignSelf: 'stretch',
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
       <div className="student-page student-page--wide" style={{ maxWidth: 1100, margin: '0 auto' }}>
         <h1 className="student-page-title" style={{ color: 'var(--qf-bright-blue)' }}>ПАНЕЛЬ УПРАВЛЕНИЯ</h1>
 
@@ -411,7 +419,15 @@ function TeacherSettingsPane() {
   }, [a11y]);
 
   return (
-    <div style={{ padding: '28px 32px 40px', flex: 1, minHeight: 0, overflow: 'auto' }}>
+    <div
+      style={{
+        padding: '28px 32px 40px',
+        flex: '0 0 auto',
+        alignSelf: 'stretch',
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
       <div className="student-page student-page--wide" style={{ maxWidth: 960, margin: '0 auto' }}>
         <h1 className="student-page-title" style={{ color: 'var(--qf-bright-blue)' }}>НАСТРОЙКИ</h1>
         <div className="student-card" style={{ padding: '8px 0', display: 'flex', flexDirection: 'column' }}>
@@ -435,7 +451,15 @@ function TeacherSettingsPane() {
 
 function TeacherHelpPane() {
   return (
-    <div style={{ padding: '28px 32px 40px', flex: 1, minHeight: 0, overflow: 'auto' }}>
+    <div
+      style={{
+        padding: '28px 32px 40px',
+        flex: '0 0 auto',
+        alignSelf: 'stretch',
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
       <div className="student-page student-page--wide" style={{ maxWidth: 960, margin: '0 auto' }}>
         <h1 className="student-page-title" style={{ color: 'var(--qf-bright-blue)' }}>ПОМОЩЬ</h1>
         <div className="student-card" style={{ padding: '28px 32px' }}>
