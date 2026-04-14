@@ -63,7 +63,11 @@ function SidebarAvatar() {
 function AnimatedOutlet({ context }) {
   const location = useLocation();
   return (
-    <div key={location.pathname} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+    <div
+      key={location.pathname}
+      className="student-main-outlet"
+      style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+    >
       <Outlet context={context} />
     </div>
   );

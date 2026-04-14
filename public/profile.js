@@ -643,22 +643,8 @@ function updateStudentProfileUI(profile) {
 function updateStudentAvatarUI() {
     const profile = state.profile;
 
-    if (profile.avatar_url) {
-        if (profile.avatar_url.startsWith('data:image/svg+xml') ||
-            profile.avatar_url.startsWith('http') ||
-            profile.avatar_url.startsWith('https') ||
-            profile.avatar_url.startsWith('/')) {
-
-            elements.userAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
-            elements.userAvatar.style.background = 'transparent';
-
-            const img = elements.userAvatar.querySelector('img');
-            if (img) {
-                img.onerror = function () { showDefaultStudentAvatar(); };
-            }
-        } else {
-            showDefaultStudentAvatar();
-        }
+    if (profile.avatar_url && isSafeAvatarUrl(profile.avatar_url)) {
+        setAvatarImage(elements.userAvatar, profile.avatar_url.trim(), showDefaultStudentAvatar);
     } else {
         showDefaultStudentAvatar();
     }
@@ -686,15 +672,15 @@ function updateStudyInfoUI(profile) {
         studyInfoHTML = `
             <div class="study-item study-building">
                 <span class="study-label">Корпус:</span>
-                <span class="study-value">${building}</span>
+                <span class="study-value">${escapeHtml(String(building))}</span>
             </div>
             <div class="study-item study-course">
                 <span class="study-label">Курс:</span>
-                <span class="study-value">${course} курс</span>
+                <span class="study-value">${escapeHtml(String(course))} курс</span>
             </div>
             <div class="study-item study-group">
                 <span class="study-label">Группа:</span>
-                <span class="study-value">${group}</span>
+                <span class="study-value">${escapeHtml(String(group))}</span>
             </div>
         `;
     } else {
@@ -823,22 +809,8 @@ function updateTeacherProfileUI(profile) {
 function updateTeacherAvatarUI() {
     const profile = state.profile;
 
-    if (profile.avatar_url) {
-        if (profile.avatar_url.startsWith('data:image/svg+xml') ||
-            profile.avatar_url.startsWith('http') ||
-            profile.avatar_url.startsWith('https') ||
-            profile.avatar_url.startsWith('/')) {
-
-            elements.teacherAvatar.innerHTML = `<img src="${profile.avatar_url}" alt="Avatar" class="avatar-image">`;
-            elements.teacherAvatar.style.background = 'transparent';
-
-            const img = elements.teacherAvatar.querySelector('img');
-            if (img) {
-                img.onerror = function () { showDefaultTeacherAvatar(); };
-            }
-        } else {
-            showDefaultTeacherAvatar();
-        }
+    if (profile.avatar_url && isSafeAvatarUrl(profile.avatar_url)) {
+        setAvatarImage(elements.teacherAvatar, profile.avatar_url.trim(), showDefaultTeacherAvatar);
     } else {
         showDefaultTeacherAvatar();
     }
@@ -874,12 +846,13 @@ function updateTeacherTestsUI(tests) {
         const status = test.is_active ? 'active' : 'inactive';
         const statusText = test.is_active ? 'Активен' : 'Неактивен';
 
+        const tid = JSON.stringify(test.id);
         testsHTML += `
             <div class="teacher-test-card">
                 <div class="test-header">
                     <div>
-                        <h4 class="test-title">${test.title}</h4>
-                        <p class="test-description">${test.description || 'Описание отсутствует'}</p>
+                        <h4 class="test-title">${escapeHtml(test.title || '')}</h4>
+                        <p class="test-description">${escapeHtml(test.description || 'Описание отсутствует')}</p>
                     </div>
                     <span class="test-status ${status}">${statusText}</span>
                 </div>
@@ -889,9 +862,9 @@ function updateTeacherTestsUI(tests) {
                     <span>Попыток: ${test.max_attempts || 1}</span>
                 </div>
                 <div class="test-actions">
-                    <button class="test-action-btn" onclick="handleEditTest('${test.id}')">Редактировать</button>
-                    <button class="test-action-btn primary" onclick="handleAssignGroups('${test.id}')">Назначить группам</button>
-                    <button class="test-action-btn danger" onclick="handleDeleteTest('${test.id}')">Удалить</button>
+                    <button type="button" class="test-action-btn" onclick="handleEditTest(${tid})">Редактировать</button>
+                    <button type="button" class="test-action-btn primary" onclick="handleAssignGroups(${tid})">Назначить группам</button>
+                    <button type="button" class="test-action-btn danger" onclick="handleDeleteTest(${tid})">Удалить</button>
                 </div>
             </div>
         `;
@@ -1129,7 +1102,9 @@ function refreshNameDisplay() {
         nameEl.textContent = `${firstName} ${lastName}`;
     }
 
-    nameEl.style.color = (state.activeColor && state.activeColor.hex_code) ? state.activeColor.hex_code : '';
+    nameEl.style.color = (state.activeColor && state.activeColor.hex_code)
+        ? sanitizeHexColor(state.activeColor.hex_code)
+        : '';
 }
 
 function escapeHtml(str) {
@@ -1138,6 +1113,37 @@ function escapeHtml(str) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+}
+
+/** Допустимые URL аватара: same-origin path, https/http, data:image (в т.ч. svg) */
+function isSafeAvatarUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    const u = url.trim();
+    if (u.startsWith('//')) return false;
+    if (u.startsWith('/') && u.length > 1) return true;
+    if (u.startsWith('data:image/')) return true;
+    if (u.startsWith('http://') || u.startsWith('https://')) return true;
+    return false;
+}
+
+function setAvatarImage(container, url, onError) {
+    container.innerHTML = '';
+    container.style.background = 'transparent';
+    const img = document.createElement('img');
+    img.alt = 'Аватар';
+    img.className = 'avatar-image';
+    img.src = url;
+    img.onerror = function () {
+        if (typeof onError === 'function') onError();
+    };
+    container.appendChild(img);
+}
+
+/** Только #RGB / #RRGGBB из БД — защита от инъекции в style */
+function sanitizeHexColor(hex) {
+    if (!hex || typeof hex !== 'string') return '#64748b';
+    const m = hex.trim().match(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/);
+    return m ? hex.trim() : '#64748b';
 }
 
 // ─── Inventory grid renderer ─────────────────────────────────────────────────
@@ -1229,8 +1235,9 @@ function buildCosmeticPreview(item) {
     } else if (item.type === 'name_color' && item.hex_code) {
         // Show the letter in the chosen colour on a neutral background — same
         // visual language as the shop card where the user's name appears coloured.
-        preview.style.cssText = `width:64px;height:64px;border-radius:50%;background:#f0f4f8;border:3px solid ${item.hex_code};`;
-        preview.innerHTML = `<span style="color:${item.hex_code};font-weight:900;font-size:26px;font-family:sans-serif;line-height:1;">А</span>`;
+        const hex = sanitizeHexColor(item.hex_code);
+        preview.style.cssText = 'width:64px;height:64px;border-radius:50%;background:#f0f4f8;border:3px solid ' + hex;
+        preview.innerHTML = '<span style="color:' + hex + ';font-weight:900;font-size:26px;font-family:sans-serif;line-height:1;">А</span>';
 
     } else if (item.type === 'prefix') {
         // white-space:nowrap so the badge never wraps; the card is wide enough to

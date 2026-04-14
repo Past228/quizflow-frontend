@@ -101,15 +101,8 @@ window.addEventListener('message', function(event) {
             break;
             
         case 'AUTH_SUCCESS':
-            // Показываем сообщение о необходимости подтверждения email
-            showMessage(`
-                <div class="message success">
-                    <strong>Регистрация успешна! 🎉</strong><br><br>
-                    📧 На вашу почту отправлено письмо с ссылкой для подтверждения.<br>
-                    Пожалуйста, проверьте вашу электронную почту и перейдите по ссылке в письме.<br><br>
-                    Через несколько секунд вы будете перенаправлены на страницу входа...
-                </div>
-            `, 'success');
+            // Статическая разметка из кода (не из postMessage) — не подставляем HTML извне
+            showSignupEmailConfirmationMessage();
             
             // Очищаем форму
             resetForm();
@@ -141,7 +134,10 @@ window.addEventListener('message', function(event) {
             break;
             
         case 'LOAD_ERROR':
-            showMessage(`Ошибка загрузки ${data.resource}: ${data.message}`, 'error');
+            showMessage(
+                'Ошибка загрузки ' + escapeHtml(String(data.resource || '')) + ': ' + escapeHtml(String(data.message || '')),
+                'error'
+            );
             setLoadingState(data.resource, false);
             break;
     }
@@ -285,17 +281,21 @@ function setLoadingState(resource, loading) {
     state.loadingStates[resource] = loading;
 }
 
+function showSignupEmailConfirmationMessage() {
+    elements.messageContainer.innerHTML = `
+        <div class="message success">
+            <strong>Регистрация успешна! 🎉</strong><br><br>
+            📧 На вашу почту отправлено письмо с ссылкой для подтверждения.<br>
+            Пожалуйста, проверьте вашу электронную почту и перейдите по ссылке в письме.<br><br>
+            Через несколько секунд вы будете перенаправлены на страницу входа...
+        </div>
+    `;
+}
+
 function showMessage(message, type) {
-    if (typeof message === 'string' && message.includes('<div')) {
-        elements.messageContainer.innerHTML = message;
-    } else {
-        var cls = type === 'success' ? 'success' : type === 'error' ? 'error' : '';
-        elements.messageContainer.innerHTML = `
-            <div class="message ${cls}">
-                ${escapeHtml(message)}
-            </div>
-        `;
-    }
+    var cls = type === 'success' ? 'success' : type === 'error' ? 'error' : '';
+    elements.messageContainer.innerHTML =
+        '<div class="message ' + cls + '">' + escapeHtml(message) + '</div>';
 }
 
 function displayValidationErrors(errors) {

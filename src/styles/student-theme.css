@@ -633,7 +633,7 @@ html.qf-theme-alt.qf-a11y .student-card {
     --qf-layout-w: 100%;
     --qf-main-w: 100%;
     /* Нижняя навигация (fixed) + запас под тень/крупные тачи и safe-area */
-    --qf-mobile-bottom-clearance: calc(132px + env(safe-area-inset-bottom, 0px));
+    --qf-mobile-bottom-clearance: calc(152px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Иначе 120% от a11y + узкий экран дают гигантский текст */
@@ -646,8 +646,28 @@ html.qf-theme-alt.qf-a11y .student-card {
     flex-direction: column;
   }
 
-  /* Нижнее меню position:fixed — запас только на корневом скролле (.student-main).
-     Вложенные overflow:auto обходят этот отступ и снова обрезают контент под панелью. */
+  /* Нижнее меню position:fixed — запас на корневом скролле (.student-main).
+     Обёртка Outlet с flex:1 + min-height:0 даёт вложенный scrollport в WebKit: переполнение
+     не удлиняет .student-main — контент оказывается под панелью. На мобилке растягиваем
+     контент по высоте (flex: 0 0 auto), исключение — профиль с iframe (см. ниже). */
+  .student-main-outlet {
+    flex: 0 0 auto !important;
+    align-self: stretch;
+    width: 100%;
+    min-height: 0;
+  }
+
+  .student-main:has(.student-page-wrap--flush) .student-main-outlet {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
+
+  .profile-host-root {
+    padding-bottom: var(--qf-mobile-bottom-clearance);
+    box-sizing: border-box;
+    background: var(--qf-card);
+  }
+
   .student-main {
     zoom: 1 !important;
     flex: 1 1 auto;
@@ -658,6 +678,11 @@ html.qf-theme-alt.qf-a11y .student-card {
     padding-bottom: var(--qf-mobile-bottom-clearance);
     scroll-padding-bottom: var(--qf-mobile-bottom-clearance);
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Профиль (iframe): отступ перенесён в .profile-host-root — иначе под iframe видна полоса --qf-bg */
+  .student-main:has(.profile-host-root) {
+    padding-bottom: 0;
   }
 
   .student-sidebar {
@@ -794,7 +819,7 @@ html.qf-theme-alt.qf-a11y .student-card {
 
 @media (max-width: 480px) {
   :root {
-    --qf-mobile-bottom-clearance: calc(128px + env(safe-area-inset-bottom, 0px));
+    --qf-mobile-bottom-clearance: calc(148px + env(safe-area-inset-bottom, 0px));
   }
 
   .student-page-wrap:not(.student-page-wrap--flush) {

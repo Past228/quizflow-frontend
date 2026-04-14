@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { devLog, devWarn } from '../lib/devLog';
-import { createClient } from '@supabase/supabase-js';
 
 // Белый список разрешенных источников
 const ALLOWED_ORIGINS = [

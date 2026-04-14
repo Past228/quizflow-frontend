@@ -115,7 +115,9 @@ export default function TeacherLayout({ session, activeTab, onTabChange, avatarR
         </aside>
 
         <main className="student-main">
-          {children}
+          <div className="student-main-outlet" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {children}
+          </div>
         </main>
       </div>
     </div>

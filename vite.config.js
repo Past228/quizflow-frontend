@@ -12,6 +12,8 @@ export default defineConfig(({ mode }) => ({
           if (!id.includes('node_modules')) return;
           if (id.includes('@supabase')) return 'supabase';
           if (id.includes('react-router')) return 'router';
+          if (id.includes('node_modules/react-dom')) return 'react-dom';
+          if (id.includes('node_modules/react/')) return 'react';
           return 'vendor';
         },
       },
