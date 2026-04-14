@@ -1177,6 +1177,14 @@
         html.qf-theme-alt.qf-a11y .card {
             border: 2px solid rgba(96, 165, 250, 0.28);
         }
+
+        /* Мобильный iframe: небольшой зазор под контентом при прокрутке внутри страницы.
+           Запас под нижнюю панель приложения задаётся снаружи (.student-main), не дублируем огромным padding здесь. */
+        @media (max-width: 900px) {
+            body {
+                padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            }
+        }
     </style>
 </head>
 

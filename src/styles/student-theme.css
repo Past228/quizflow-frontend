@@ -662,12 +662,6 @@ html.qf-theme-alt.qf-a11y .student-card {
     min-height: 0 !important;
   }
 
-  .profile-host-root {
-    padding-bottom: var(--qf-mobile-bottom-clearance);
-    box-sizing: border-box;
-    background: var(--qf-card);
-  }
-
   .student-main {
     zoom: 1 !important;
     flex: 1 1 auto;
@@ -678,11 +672,6 @@ html.qf-theme-alt.qf-a11y .student-card {
     padding-bottom: var(--qf-mobile-bottom-clearance);
     scroll-padding-bottom: var(--qf-mobile-bottom-clearance);
     -webkit-overflow-scrolling: touch;
-  }
-
-  /* Профиль (iframe): отступ перенесён в .profile-host-root — иначе под iframe видна полоса --qf-bg */
-  .student-main:has(.profile-host-root) {
-    padding-bottom: 0;
   }
 
   .student-sidebar {
