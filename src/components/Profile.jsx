@@ -3,8 +3,6 @@ import { supabase } from '../lib/supabaseClient';
 import { devLog } from '../lib/devLog';
 import { profileIsStudentForRanking } from '../lib/profileRole';
 
-const SAME_ORIGIN = typeof window !== 'undefined' ? window.location.origin : '*';
-
 function estimateWrongAnswers(questionsCount, scorePercent) {
     if (questionsCount == null || questionsCount <= 0 || scorePercent == null) return null;
     return Math.max(0, Math.round(questionsCount * ((100 - scorePercent) / 100)));
@@ -54,7 +52,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             const isA11y = localStorage.getItem('qf_setting_a11y') === '1';
             iframeRef.current.contentWindow.postMessage(
                 { type: 'THEME_SYNC', data: { isDark, isA11y } },
-                SAME_ORIGIN
+                window.location.origin
             );
         } catch (e) { /* ignore */ }
     }
@@ -67,7 +65,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
 
     useEffect(() => {
         const handleMessage = async (event) => {
-            if (event.origin !== SAME_ORIGIN) return;
+            if (event.origin !== window.location.origin) return;
             if (event.data == null || typeof event.data !== 'object') return;
             const { type, data } = event.data;
 
@@ -1199,7 +1197,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
     const sendMessageToIframe = (message) => {
         if (iframeRef.current && iframeRef.current.contentWindow) {
             devLog('Sending message to iframe:', message.type);
-            iframeRef.current.contentWindow.postMessage(message, SAME_ORIGIN);
+            iframeRef.current.contentWindow.postMessage(message, window.location.origin);
         }
     };
 

@@ -49,7 +49,6 @@ const elements = {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Signup HTML loaded');
     initializeEventListeners();
     // Запрашиваем корпуса при загрузке
     sendMessageToParent({ type: 'LOAD_BUILDINGS_REQUEST' });
@@ -146,8 +145,7 @@ window.addEventListener('message', function(event) {
 // Event Handlers
 function handleFormSubmit(e) {
     e.preventDefault();
-    console.log('Signup form submitted');
-    
+
     const formData = {
         email: elements.email.value,
         password: elements.password.value,
@@ -156,9 +154,7 @@ function handleFormSubmit(e) {
         selectedGroupId: state.selectedGroupId,
         isSignUp: true
     };
-    
-    console.log('Form data:', formData);
-    
+
     sendMessageToParent({
         type: 'SIGNUP_FORM_SUBMIT',
         data: formData

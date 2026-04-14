@@ -22,7 +22,6 @@ const elements = {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Login HTML loaded');
     initializeEventListeners();
 });
 
@@ -77,16 +76,13 @@ window.addEventListener('message', function(event) {
 // Event Handlers
 function handleFormSubmit(e) {
     e.preventDefault();
-    console.log('Login form submitted');
-    
+
     const formData = {
         email: elements.email.value,
         password: elements.password.value,
         isSignUp: false
     };
-    
-    console.log('Form data:', formData);
-    
+
     sendMessageToParent({
         type: 'LOGIN_FORM_SUBMIT',
         data: formData

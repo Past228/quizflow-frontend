@@ -24,7 +24,6 @@ const elements = {
 };
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Teacher signup HTML loaded');
     initializeEventListeners();
     initializeCodeValidation();
     
@@ -34,7 +33,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Принудительно включаем select через 3 секунды на всякий случай
     setTimeout(() => {
         if (elements.building && elements.building.disabled) {
-            console.log('Force enabling building select after timeout');
             elements.building.disabled = false;
         }
     }, 3000);
@@ -82,8 +80,6 @@ function validateInviteCode(code) {
         return;
     }
     
-    console.log('Validating invite code:', code);
-    
     sendMessageToParent({
         type: 'VALIDATE_INVITE_CODE',
         data: { code: code.toUpperCase() }
@@ -126,12 +122,10 @@ window.addEventListener('message', function(event) {
             break;
             
         case 'BUILDINGS_LOADED':
-            console.log('BUILDINGS_LOADED received with data:', data);
             handleBuildingsLoaded(data.buildings);
             break;
             
         case 'LOAD_ERROR':
-            console.error('LOAD_ERROR:', data);
             handleLoadError(data);
             break;
             
@@ -140,17 +134,15 @@ window.addEventListener('message', function(event) {
             break;
             
         case 'LOADING_STATE':
-            console.log('LOADING_STATE:', data);
             handleLoadingState(data.loading, data.resource);
             break;
             
         default:
-            console.log('Unknown message type:', type);
+            break;
     }
 });
 
 function handleBuildingsLoaded(buildings) {
-    console.log('Handling buildings loaded:', buildings);
     state.buildings = buildings || [];
     state.buildingsLoaded = true;
     
@@ -158,8 +150,6 @@ function handleBuildingsLoaded(buildings) {
 }
 
 function handleLoadError(data) {
-    console.error('Load error:', data);
-    
     if (data.resource === 'buildings') {
         // Показываем статический список корпусов при ошибке
         const staticBuildings = [
@@ -170,7 +160,6 @@ function handleLoadError(data) {
             { id: 5, name: 'Корпус Г' }
         ];
         
-        console.log('Using static buildings due to error');
         populateBuildings(staticBuildings);
         
         showMessage('Корпуса загружены в ограниченном режиме', 'error');
@@ -178,10 +167,7 @@ function handleLoadError(data) {
 }
 
 function populateBuildings(buildings) {
-    console.log('Populating buildings with:', buildings);
-    
     if (!elements.building) {
-        console.error('Building select element not found!');
         return;
     }
     
@@ -210,10 +196,7 @@ function populateBuildings(buildings) {
         if (currentValue) {
             elements.building.value = currentValue;
         }
-        
-        console.log(`Successfully populated ${buildings.length} buildings`);
     } else {
-        console.log('No buildings to populate');
         const emptyOption = document.createElement('option');
         emptyOption.value = '';
         emptyOption.textContent = 'Корпуса не найдены';
@@ -224,12 +207,6 @@ function populateBuildings(buildings) {
     elements.building.disabled = false;
     elements.building.style.pointerEvents = 'auto';
     elements.building.style.opacity = '1';
-    
-    console.log('Building select after population:', {
-        disabled: elements.building.disabled,
-        optionsLength: elements.building.options.length,
-        value: elements.building.value
-    });
 }
 
 function handleInviteCodeValidationResult(result) {
@@ -245,8 +222,6 @@ function handleInviteCodeValidationResult(result) {
 }
 
 function handleLoadingState(loading, resource) {
-    console.log(`Loading state: ${resource}, loading: ${loading}`);
-    
     if (resource === 'buildings') {
         if (loading) {
             // Показываем загрузку
@@ -266,8 +241,7 @@ function handleLoadingState(loading, resource) {
 
 function handleFormSubmit(e) {
     e.preventDefault();
-    console.log('Teacher signup form submitted');
-    
+
     // Очищаем предыдущие сообщения
     elements.messageContainer.innerHTML = '';
     displayValidationErrors({});
@@ -280,9 +254,7 @@ function handleFormSubmit(e) {
         buildingId: elements.building.value,
         inviteCode: elements.inviteCode.value,
     };
-    
-    console.log('Teacher form data:', formData);
-    
+
     // Валидация на клиенте
     const errors = validateFormClient(formData);
     if (Object.keys(errors).length > 0) {
@@ -382,18 +354,3 @@ function resetForm() {
         elements.building.value = '';
     }
 }
-
-// Добавляем глобальную функцию для отладки
-window.debugBuildingSelect = function() {
-    console.log('Building select debug info:', {
-        element: elements.building,
-        disabled: elements.building.disabled,
-        options: elements.building.options,
-        value: elements.building.value,
-        buildings: state.buildings
-    });
-    
-    // Принудительно включаем
-    elements.building.disabled = false;
-    console.log('Building select enabled manually');
-};
