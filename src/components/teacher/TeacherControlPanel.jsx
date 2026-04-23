@@ -186,50 +186,58 @@ export default function TeacherControlPanel({ session }) {
       }
 
       const assignments = assignmentsRes.data || [];
-      attempts = attempts.filter((row) => testIds.includes(row.test_id));
+      const testIdSet = new Set(testIds.map((id) => String(id)));
+      attempts = attempts.filter((row) => testIdSet.has(String(row.test_id)));
 
-      const allGroupIds = [...new Set(assignments.map((a) => a.group_id).filter(Boolean))];
-      const [groupsRes, studentsRes] = await Promise.all([
-        allGroupIds.length > 0
-          ? supabase
-              .from('student_groups')
-              .select('id, group_number, courses(course_number, buildings(name))')
-              .in('id', allGroupIds)
-          : Promise.resolve({ data: [] }),
-        allGroupIds.length > 0
+      const assignmentGroupIds = [...new Set(assignments.map((a) => a.group_id).filter(Boolean))];
+      const attemptStudentIds = [...new Set(attempts.map((a) => String(a.student_id || '')).filter(Boolean))];
+
+      const [byAttemptProfilesRes, studentsInAssignedGroupsRes] = await Promise.all([
+        attemptStudentIds.length > 0
           ? supabase
               .from('profiles')
               .select('id, first_name, last_name, email, group_id')
-              .in('group_id', allGroupIds)
+              .in('id', attemptStudentIds)
+          : Promise.resolve({ data: [] }),
+        assignmentGroupIds.length > 0
+          ? supabase
+              .from('profiles')
+              .select('id, first_name, last_name, email, group_id')
+              .in('group_id', assignmentGroupIds)
           : Promise.resolve({ data: [] }),
       ]);
-      if (groupsRes.error) throw groupsRes.error;
-      if (studentsRes.error) throw studentsRes.error;
+      if (byAttemptProfilesRes.error) throw byAttemptProfilesRes.error;
+      if (studentsInAssignedGroupsRes.error) throw studentsInAssignedGroupsRes.error;
 
-      const groupsMap = Object.fromEntries((groupsRes.data || []).map((g) => [String(g.id), g]));
-      const students = [...(studentsRes.data || [])];
-      const knownStudentIdSet = new Set(students.map((s) => String(s.id)));
-      const attemptStudentIds = [...new Set(attempts.map((a) => String(a.student_id || '')).filter(Boolean))];
-      const missingStudentIds = attemptStudentIds.filter((id) => !knownStudentIdSet.has(id));
-      if (missingStudentIds.length > 0) {
-        const missingProfilesRes = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, email, group_id')
-          .in('id', missingStudentIds);
-        if (missingProfilesRes.error) throw missingProfilesRes.error;
-        students.push(...(missingProfilesRes.data || []));
-      }
-      const studentsById = Object.fromEntries(students.map((s) => [String(s.id), s]));
+      const mergedProfiles = [...(byAttemptProfilesRes.data || []), ...(studentsInAssignedGroupsRes.data || [])];
+      const studentsById = {};
+      mergedProfiles.forEach((p) => {
+        studentsById[String(p.id)] = p;
+      });
+
+      const allGroupIds = [
+        ...new Set([
+          ...assignmentGroupIds,
+          ...mergedProfiles.map((s) => s.group_id).filter(Boolean),
+        ]),
+      ];
+      const { data: groupsData, error: groupsErr } =
+        allGroupIds.length > 0
+          ? await supabase
+              .from('student_groups')
+              .select('id, group_number, courses(course_number, buildings(name))')
+              .in('id', allGroupIds)
+          : { data: [], error: null };
+      if (groupsErr) throw groupsErr;
+      const groupsMap = Object.fromEntries((groupsData || []).map((g) => [String(g.id), g]));
 
       const rows = testsForResults.map((test) => {
         const testAssignments = assignments.filter((a) => String(a.test_id) === String(test.id));
         const assignedGroupIdsForTest = [...new Set(testAssignments.map((a) => String(a.group_id)).filter(Boolean))];
-        const assignedStudents = students.filter((s) => assignedGroupIdsForTest.includes(String(s.group_id)));
-        const assignedStudentIds = new Set(assignedStudents.map((s) => String(s.id)));
+        const assignedStudents = mergedProfiles.filter((s) =>
+          assignedGroupIdsForTest.includes(String(s.group_id))
+        );
         let testAttempts = attempts.filter((a) => String(a.test_id) === String(test.id));
-        if (assignedStudentIds.size > 0) {
-          testAttempts = testAttempts.filter((a) => assignedStudentIds.has(String(a.student_id)));
-        }
         const attemptStudents = [
           ...new Set(
             testAttempts

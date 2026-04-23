@@ -347,7 +347,7 @@ window.addEventListener('message', function (event) {
             handleInventoryLoaded(data.cosmetics, data.bonuses);
             break;
         case 'STUDENT_RESULTS_LOADED':
-            handleStudentResultsLoaded(data.rows);
+            handleStudentResultsLoaded((data && data.rows) || []);
             break;
 
         case 'ITEM_APPLIED':

@@ -541,10 +541,17 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
 
     const handleLoadStudentResults = async (profileId, groupId) => {
         try {
-            if (!profileId) {
+            const studentId = session.user?.id;
+            if (!studentId) {
                 sendMessageToIframe({ type: 'STUDENT_RESULTS_LOADED', data: { rows: [] } });
                 return;
             }
+            if (profileId && String(profileId) !== String(studentId)) {
+                sendMessageToIframe({ type: 'STUDENT_RESULTS_LOADED', data: { rows: [] } });
+                return;
+            }
+
+            const testIdKey = (tid) => (tid == null || tid === '' ? null : String(tid));
 
             let assignedTestIds = [];
             if (groupId) {
@@ -553,16 +560,23 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                     .select('test_id')
                     .eq('group_id', groupId);
                 if (assErr) throw assErr;
-                assignedTestIds = [...new Set((assignments || []).map((a) => a.test_id).filter(Boolean))];
+                assignedTestIds = [
+                    ...new Set((assignments || []).map((a) => testIdKey(a.test_id)).filter(Boolean)),
+                ];
             }
 
             const { data: results, error: resErr } = await supabase
                 .from('test_results')
                 .select('test_id, percentage, score, status, started_at, completed_at')
-                .eq('student_id', profileId);
+                .eq('student_id', studentId);
             if (resErr) throw resErr;
 
-            const resultTestIds = [...new Set((results || []).map((r) => r.test_id).filter(Boolean))];
+            const resultRows = (results || []).filter(
+                (r) => r.status == null || r.status === 'completed'
+            );
+            const resultTestIds = [
+                ...new Set(resultRows.map((r) => testIdKey(r.test_id)).filter(Boolean)),
+            ];
             const testIdsForList = [...new Set([...assignedTestIds, ...resultTestIds])];
 
             let tests = [];
@@ -576,15 +590,16 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
             }
 
             const byTest = {};
-            (results || []).forEach((r) => {
-                const tid = r.test_id;
+            resultRows.forEach((r) => {
+                const tid = testIdKey(r.test_id);
                 if (!tid) return;
                 if (!byTest[tid]) byTest[tid] = [];
                 byTest[tid].push(r);
             });
             const testsMap = Object.fromEntries((tests || []).map((t) => [String(t.id), t]));
             const rows = testIdsForList.map((testId) => {
-                const attempts = byTest[testId] || [];
+                const tKey = testIdKey(testId);
+                const attempts = tKey ? byTest[tKey] || [] : [];
                 let best = null;
                 attempts.forEach((r) => {
                     const score = r.percentage != null ? Number(r.percentage) || 0 : Number(r.score) || 0;
