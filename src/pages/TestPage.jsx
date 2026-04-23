@@ -60,6 +60,7 @@ export default function TestPage() {
   const [warning, setWarning] = useState('');
   const [result, setResult] = useState(null);
   const [hiddenOptionIdsByQuestion, setHiddenOptionIdsByQuestion] = useState({});
+  const [skipCorrectByQuestion, setSkipCorrectByQuestion] = useState({});
   const [bonusLoading, setBonusLoading] = useState('');
   const [retryNonce, setRetryNonce] = useState(0);
   const [needsExtraAttempt, setNeedsExtraAttempt] = useState(false);
@@ -166,6 +167,7 @@ export default function TestPage() {
           setTestMeta(testData);
           setQuestions(normalized);
           setAnswers({});
+          setSkipCorrectByQuestion({});
           setIndex(0);
           setResult(null);
           setHiddenOptionIdsByQuestion({});
@@ -217,10 +219,12 @@ export default function TestPage() {
   }, [timeLeft]);
 
   const setSingleAnswer = (questionId, optionId) => {
+    setSkipCorrectByQuestion((prev) => ({ ...prev, [questionId]: false }));
     setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
   };
 
   const toggleMultipleAnswer = (questionId, optionId) => {
+    setSkipCorrectByQuestion((prev) => ({ ...prev, [questionId]: false }));
     setAnswers((prev) => {
       const current = new Set(prev[questionId] || []);
       if (current.has(optionId)) current.delete(optionId);
@@ -230,6 +234,7 @@ export default function TestPage() {
   };
 
   const setMatchingAnswer = (questionId, optionId, value) => {
+    setSkipCorrectByQuestion((prev) => ({ ...prev, [questionId]: false }));
     setAnswers((prev) => ({
       ...prev,
       [questionId]: { ...(prev[questionId] || {}), [optionId]: value },
@@ -280,15 +285,21 @@ export default function TestPage() {
           if (!purchaseErr && purchases?.length) {
             const currentPurchase = purchases[0];
             if ((currentPurchase.amount || 0) > 1) {
-              await supabase
+              const { error: purchaseUpdateError } = await supabase
                 .from('user_purchases')
                 .update({ amount: currentPurchase.amount - 1 })
                 .eq('id', currentPurchase.id);
+              if (purchaseUpdateError) {
+                throw purchaseUpdateError;
+              }
             } else {
-              await supabase
+              const { error: purchaseDeleteError } = await supabase
                 .from('user_purchases')
                 .delete()
                 .eq('id', currentPurchase.id);
+              if (purchaseDeleteError) {
+                throw purchaseDeleteError;
+              }
             }
           }
         }
@@ -349,6 +360,7 @@ export default function TestPage() {
     const applied = await consumeBonus('skip');
     if (!applied) return;
     setAnswers((prev) => ({ ...prev, [currentQuestion.id]: null }));
+    setSkipCorrectByQuestion((prev) => ({ ...prev, [currentQuestion.id]: true }));
     if (index < questions.length - 1) {
       setIndex((prev) => prev + 1);
     } else {
@@ -365,6 +377,20 @@ export default function TestPage() {
   };
 
   const evaluateQuestion = (question) => {
+    if (skipCorrectByQuestion[question.id]) {
+      return {
+        points: 1,
+        maxPoints: 1,
+        responses: [
+          {
+            question_id: question.id,
+            selected_option_id: null,
+            is_correct: true,
+          },
+        ],
+      };
+    }
+
     const answer = answers[question.id];
     if (question.type === QUESTION_TYPES.single) {
       const selectedOption = question.options.find((o) => o.id === answer);

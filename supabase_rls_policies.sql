@@ -102,6 +102,8 @@ CREATE POLICY "Users can insert own inventory"
 
 DROP POLICY IF EXISTS "Users can view own purchases"   ON user_purchases;
 DROP POLICY IF EXISTS "Users can insert own purchases" ON user_purchases;
+DROP POLICY IF EXISTS "Users can update own purchases" ON user_purchases;
+DROP POLICY IF EXISTS "Users can delete own purchases" ON user_purchases;
 
 CREATE POLICY "Users can view own purchases"
   ON user_purchases FOR SELECT TO authenticated
@@ -110,6 +112,15 @@ CREATE POLICY "Users can view own purchases"
 CREATE POLICY "Users can insert own purchases"
   ON user_purchases FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = profile_id);
+
+CREATE POLICY "Users can update own purchases"
+  ON user_purchases FOR UPDATE TO authenticated
+  USING (auth.uid() = profile_id)
+  WITH CHECK (auth.uid() = profile_id);
+
+CREATE POLICY "Users can delete own purchases"
+  ON user_purchases FOR DELETE TO authenticated
+  USING (auth.uid() = profile_id);
 
 -- ── profiles ──────────────────────────────────────────────────
 
