@@ -349,7 +349,8 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                 .insert({
                     title: testData.title,
                     description: testData.description,
-                    max_attempts: testData.maxAttempts,
+                    attempts_allowed: testData.maxAttempts,
+                    time_limit_minutes: testData.timeLimitMinutes ?? null,
                     questions_count: 0,
                     teacher_id: session.user.id,
                     is_active: true,

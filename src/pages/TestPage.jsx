@@ -29,7 +29,7 @@ export default function TestPage() {
         setTestMeta(null);
         return;
       }
-      const { data, error } = await supabase.from('tests').select('id, title, time_limit').eq('id', testId).single();
+      const { data, error } = await supabase.from('tests').select('id, title, time_limit_minutes').eq('id', testId).single();
       if (cancelled) return;
       if (!error && data) setTestMeta(data);
     })();
