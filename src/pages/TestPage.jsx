@@ -14,6 +14,15 @@ const BONUS_FIELDS = {
   attempt: 'bonus_extra_attempt_count',
 };
 
+function bonusMatchesKey(key, bonus) {
+  const id = String(bonus?.id || '').toLowerCase();
+  const name = String(bonus?.name || '').toLowerCase();
+  if (key === 'hint') return id.includes('hint') || name.includes('подсказ');
+  if (key === 'skip') return id.includes('skip') || name.includes('пропуск');
+  if (key === 'attempt') return id.includes('attempt') || name.includes('попыт') || name.includes('доп');
+  return false;
+}
+
 function detectQuestionType(options) {
   if (!options?.length) return QUESTION_TYPES.single;
   const hasMatchingPayload = options.some((o) => (o.explanation || '').trim());
@@ -248,6 +257,43 @@ export default function TestPage() {
         .update({ [field]: current - 1 })
         .eq('id', profile.id);
       if (updErr) throw updErr;
+
+      // Keep shop inventory in sync with profile bonus counters.
+      const { data: shopBonuses, error: bErr } = await supabase
+        .from('shop_bonuses')
+        .select('id, name');
+      if (!bErr) {
+        const matchedBonusIds = (shopBonuses || [])
+          .filter((bonus) => bonusMatchesKey(bonusKey, bonus))
+          .map((bonus) => bonus.id);
+
+        if (matchedBonusIds.length > 0) {
+          const { data: purchases, error: purchaseErr } = await supabase
+            .from('user_purchases')
+            .select('id, amount')
+            .eq('profile_id', profile.id)
+            .in('bonus_id', matchedBonusIds)
+            .gt('amount', 0)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (!purchaseErr && purchases?.length) {
+            const currentPurchase = purchases[0];
+            if ((currentPurchase.amount || 0) > 1) {
+              await supabase
+                .from('user_purchases')
+                .update({ amount: currentPurchase.amount - 1 })
+                .eq('id', currentPurchase.id);
+            } else {
+              await supabase
+                .from('user_purchases')
+                .delete()
+                .eq('id', currentPurchase.id);
+            }
+          }
+        }
+      }
+
       await refreshProfile();
       return true;
     } catch (err) {
@@ -475,9 +521,37 @@ export default function TestPage() {
           .eq('id', profile.id)
           .single();
         if (lpErr) throw lpErr;
+
+        const { data: completedRows, error: completedErr } = await supabase
+          .from('test_results')
+          .select('test_id, score, percentage')
+          .eq('student_id', profile.id)
+          .eq('status', 'completed');
+        if (completedErr) throw completedErr;
+
+        const bestByTest = {};
+        (completedRows || []).forEach((row) => {
+          const tid = row.test_id;
+          if (!tid) return;
+          const points =
+            row.score != null
+              ? Number(row.score) || 0
+              : Math.round(Number(row.percentage) || 0);
+          bestByTest[tid] = Math.max(bestByTest[tid] || 0, points);
+        });
+        const leaderboardPoints = Object.values(bestByTest).reduce(
+          (sum, value) => sum + Number(value || 0),
+          0
+        );
+        const completedTestsCount = Object.keys(bestByTest).length;
+
         const { error: coinErr } = await supabase
           .from('profiles')
-          .update({ sp_coins: (latestProfile?.sp_coins || 0) + earnedCoins })
+          .update({
+            sp_coins: (latestProfile?.sp_coins || 0) + earnedCoins,
+            leaderboard_points: leaderboardPoints,
+            completed_tests_count: completedTestsCount,
+          })
           .eq('id', profile.id);
         if (coinErr) throw coinErr;
       } else if (submitData == null) {

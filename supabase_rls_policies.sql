@@ -471,6 +471,46 @@ WHERE id NOT IN (SELECT DISTINCT test_id FROM test_questions);
 -- GROUP BY t.id, t.title, t.questions_count
 -- ORDER BY t.id DESC;
 
+-- Leaderboard cache fields on profiles (fast reads, deterministic sorting).
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS leaderboard_points integer NOT NULL DEFAULT 0;
+
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS completed_tests_count integer NOT NULL DEFAULT 0;
+
+WITH best_scores AS (
+  SELECT
+    tr.student_id,
+    tr.test_id,
+    MAX(COALESCE(tr.score, ROUND(COALESCE(tr.percentage, 0))::int, 0)) AS best_score
+  FROM test_results tr
+  WHERE tr.status = 'completed'
+  GROUP BY tr.student_id, tr.test_id
+),
+aggregated AS (
+  SELECT
+    student_id,
+    COALESCE(SUM(best_score), 0)::int AS leaderboard_points,
+    COUNT(*)::int AS completed_tests_count
+  FROM best_scores
+  GROUP BY student_id
+)
+UPDATE profiles p
+SET
+  leaderboard_points = COALESCE(a.leaderboard_points, 0),
+  completed_tests_count = COALESCE(a.completed_tests_count, 0)
+FROM aggregated a
+WHERE p.id = a.student_id;
+
+UPDATE profiles p
+SET
+  leaderboard_points = 0,
+  completed_tests_count = 0
+WHERE NOT EXISTS (
+  SELECT 1 FROM test_results tr
+  WHERE tr.student_id = p.id AND tr.status = 'completed'
+);
+
 -- ── RPC: atomic test submit (RLS-safe) ───────────────────────────────────
 -- Uses auth.uid() internally and updates:
 --   1) test_results
@@ -498,6 +538,8 @@ DECLARE
   v_result_id integer;
   v_item jsonb;
   v_curr_coins integer;
+  v_points integer := 0;
+  v_completed_tests integer := 0;
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
@@ -551,8 +593,27 @@ BEGIN
   WHERE id = v_uid
   FOR UPDATE;
 
+  SELECT
+    COALESCE(SUM(best_score), 0)::int,
+    COUNT(*)::int
+  INTO
+    v_points,
+    v_completed_tests
+  FROM (
+    SELECT
+      tr.test_id,
+      MAX(COALESCE(tr.score, ROUND(COALESCE(tr.percentage, 0))::int, 0)) AS best_score
+    FROM test_results tr
+    WHERE tr.student_id = v_uid
+      AND tr.status = 'completed'
+    GROUP BY tr.test_id
+  ) s;
+
   UPDATE profiles
-  SET sp_coins = COALESCE(v_curr_coins, 0) + COALESCE(p_coins, 0)
+  SET
+    sp_coins = COALESCE(v_curr_coins, 0) + COALESCE(p_coins, 0),
+    leaderboard_points = COALESCE(v_points, 0),
+    completed_tests_count = COALESCE(v_completed_tests, 0)
   WHERE id = v_uid;
 
   RETURN v_result_id;

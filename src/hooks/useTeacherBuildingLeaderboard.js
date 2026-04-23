@@ -68,14 +68,8 @@ export function useTeacherBuildingLeaderboard(userId) {
           }
         }
 
-        const { data: results, error: rErr } = await supabase
-          .from('test_results')
-          .select('student_id, score, percentage')
-          .eq('status', 'completed');
-        if (rErr) throw rErr;
-
         const selectCols =
-          'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role';
+          'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role, leaderboard_points, completed_tests_count';
 
         let profiles;
         const rpcB = await supabase.rpc('qf_profiles_for_building', {
@@ -101,17 +95,6 @@ export function useTeacherBuildingLeaderboard(userId) {
           if (pnErr) throw pnErr;
           profiles = (pNested || []).filter(profileIsStudentForRanking);
         }
-
-        const scoreMap = {};
-        const testsMap = {};
-        (results || []).forEach((r) => {
-          const scoreValue =
-            r.score != null
-              ? Number(r.score) || 0
-              : Math.round(Number(r.percentage) || 0);
-          scoreMap[r.student_id] = (scoreMap[r.student_id] || 0) + scoreValue;
-          testsMap[r.student_id] = (testsMap[r.student_id] || 0) + 1;
-        });
 
         const unique = (arr) => [...new Set(arr.filter(Boolean))];
         const frameIds = unique((profiles || []).map((p) => p.active_frame_id));
@@ -140,8 +123,8 @@ export function useTeacherBuildingLeaderboard(userId) {
             name: [p.first_name, p.last_name].filter(Boolean).join(' '),
             avatarUrl: p.avatar_url || null,
             groupId: p.group_id,
-            totalScore: scoreMap[p.id] || 0,
-            testsCompleted: testsMap[p.id] || 0,
+            totalScore: Number(p.leaderboard_points || 0),
+            testsCompleted: Number(p.completed_tests_count || 0),
             activeFrame: p.active_frame_id ? frameMap[p.active_frame_id] ?? null : null,
             activeColor: p.active_color_id ? colorMap[p.active_color_id] ?? null : null,
             activePrefix: p.active_prefix_id ? prefixMap[p.active_prefix_id] ?? null : null,
