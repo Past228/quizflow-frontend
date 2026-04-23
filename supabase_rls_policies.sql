@@ -470,3 +470,94 @@ WHERE id NOT IN (SELECT DISTINCT test_id FROM test_questions);
 -- LEFT JOIN test_questions q ON q.test_id = t.id
 -- GROUP BY t.id, t.title, t.questions_count
 -- ORDER BY t.id DESC;
+
+-- ── RPC: atomic test submit (RLS-safe) ───────────────────────────────────
+-- Uses auth.uid() internally and updates:
+--   1) test_results
+--   2) user_question_responses
+--   3) profiles.sp_coins
+-- This avoids client-side RLS conflicts for multi-step completion flow.
+
+CREATE OR REPLACE FUNCTION public.qf_submit_test_result(
+  p_test_id integer,
+  p_score integer,
+  p_max_score integer,
+  p_percentage numeric,
+  p_started_at timestamptz,
+  p_completed_at timestamptz,
+  p_coins integer,
+  p_responses jsonb DEFAULT '[]'::jsonb
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_result_id integer;
+  v_item jsonb;
+  v_curr_coins integer;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  INSERT INTO test_results (
+    test_id,
+    student_id,
+    score,
+    max_score,
+    percentage,
+    started_at,
+    completed_at,
+    status
+  )
+  VALUES (
+    p_test_id,
+    v_uid,
+    p_score,
+    p_max_score,
+    p_percentage,
+    p_started_at,
+    p_completed_at,
+    'completed'
+  )
+  RETURNING id INTO v_result_id;
+
+  FOR v_item IN
+    SELECT value FROM jsonb_array_elements(COALESCE(p_responses, '[]'::jsonb))
+  LOOP
+    INSERT INTO user_question_responses (
+      test_result_id,
+      question_id,
+      selected_option_id,
+      is_correct,
+      points_earned,
+      question_difficulty
+    )
+    VALUES (
+      v_result_id,
+      (v_item->>'question_id')::uuid,
+      NULLIF(v_item->>'selected_option_id', '')::uuid,
+      COALESCE((v_item->>'is_correct')::boolean, false),
+      COALESCE((v_item->>'points_earned')::numeric, 0),
+      COALESCE((v_item->>'question_difficulty')::numeric, 0)
+    );
+  END LOOP;
+
+  SELECT sp_coins INTO v_curr_coins
+  FROM profiles
+  WHERE id = v_uid
+  FOR UPDATE;
+
+  UPDATE profiles
+  SET sp_coins = COALESCE(v_curr_coins, 0) + COALESCE(p_coins, 0)
+  WHERE id = v_uid;
+
+  RETURN v_result_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_submit_test_result(integer, integer, integer, numeric, timestamptz, timestamptz, integer, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_submit_test_result(integer, integer, integer, numeric, timestamptz, timestamptz, integer, jsonb) TO authenticated;

@@ -263,8 +263,7 @@ export default function TestPage() {
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
-      const sessionUserId = userData?.user?.id;
-      if (!sessionUserId) {
+      if (!userData?.user?.id) {
         throw new Error('Сессия истекла. Войдите в аккаунт снова.');
       }
 
@@ -279,26 +278,9 @@ export default function TestPage() {
       const startedAtIso = new Date(startedAtRef.current).toISOString();
       const completedAtIso = new Date().toISOString();
 
-      const { data: resultRow, error: resultError } = await supabase
-        .from('test_results')
-        .insert({
-          test_id: testMeta.id,
-          student_id: sessionUserId,
-          score,
-          max_score: 100,
-          percentage: roundedPercentage,
-          started_at: startedAtIso,
-          completed_at: completedAtIso,
-          status: 'completed',
-        })
-        .select('id')
-        .single();
-      if (resultError) throw resultError;
-
       const responseRows = evaluations
         .flatMap((e) => e.responses)
         .map((r) => ({
-          test_result_id: resultRow.id,
           question_id: r.question_id,
           selected_option_id: r.selected_option_id,
           is_correct: r.is_correct,
@@ -306,27 +288,23 @@ export default function TestPage() {
           question_difficulty:
             questions.find((q) => q.id === r.question_id)?.difficulty ?? 0,
         }));
-      if (responseRows.length > 0) {
-        const { error: responseError } = await supabase.from('user_question_responses').insert(responseRows);
-        if (responseError) {
-          // Keep test completion successful even if detailed response logging fails.
-          console.error('Failed to save user_question_responses:', responseError);
-          setWarning('Тест завершен, но детальные ответы не удалось сохранить.');
-        }
-      }
 
-      const { data: latestProfile, error: latestProfileError } = await supabase
-        .from('profiles')
-        .select('sp_coins')
-        .eq('id', sessionUserId)
-        .single();
-      if (latestProfileError) throw latestProfileError;
-      const currentCoins = latestProfile?.sp_coins || 0;
-      const { error: coinsError } = await supabase
-        .from('profiles')
-        .update({ sp_coins: currentCoins + earnedCoins })
-        .eq('id', sessionUserId);
-      if (coinsError) throw coinsError;
+      const { error: submitError } = await supabase.rpc('qf_submit_test_result', {
+        p_test_id: Number(testMeta.id),
+        p_score: score,
+        p_max_score: 100,
+        p_percentage: roundedPercentage,
+        p_started_at: startedAtIso,
+        p_completed_at: completedAtIso,
+        p_coins: earnedCoins,
+        p_responses: responseRows,
+      });
+      if (submitError) {
+        if (String(submitError.message || '').includes('qf_submit_test_result')) {
+          throw new Error('На сервере не применен SQL-скрипт для сохранения результатов. Обновите SQL в Supabase.');
+        }
+        throw submitError;
+      }
 
       await refreshProfile();
       setResult({ score, percentage: roundedPercentage, earnedCoins });
