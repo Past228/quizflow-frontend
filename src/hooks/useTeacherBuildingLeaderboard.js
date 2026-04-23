@@ -70,7 +70,7 @@ export function useTeacherBuildingLeaderboard(userId) {
 
         const { data: results, error: rErr } = await supabase
           .from('test_results')
-          .select('student_id, score')
+          .select('student_id, score, percentage')
           .eq('status', 'completed');
         if (rErr) throw rErr;
 
@@ -105,7 +105,11 @@ export function useTeacherBuildingLeaderboard(userId) {
         const scoreMap = {};
         const testsMap = {};
         (results || []).forEach((r) => {
-          scoreMap[r.student_id] = (scoreMap[r.student_id] || 0) + (r.score || 0);
+          const scoreValue =
+            r.score != null
+              ? Number(r.score) || 0
+              : Math.round(Number(r.percentage) || 0);
+          scoreMap[r.student_id] = (scoreMap[r.student_id] || 0) + scoreValue;
           testsMap[r.student_id] = (testsMap[r.student_id] || 0) + 1;
         });
 

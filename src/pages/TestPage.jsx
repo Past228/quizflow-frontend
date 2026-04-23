@@ -14,6 +14,15 @@ const BONUS_FIELDS = {
   attempt: 'bonus_extra_attempt_count',
 };
 
+function resolveBonusKey(rawId, rawName = '') {
+  const id = String(rawId || '').toLowerCase();
+  const name = String(rawName || '').toLowerCase();
+  if (id === 'hint' || id.includes('hint') || name.includes('подсказ')) return 'hint';
+  if (id === 'skip' || id.includes('skip') || name.includes('пропуск')) return 'skip';
+  if (id === 'attempt' || id.includes('attempt') || name.includes('попыт')) return 'attempt';
+  return null;
+}
+
 function detectQuestionType(options) {
   if (!options?.length) return QUESTION_TYPES.single;
   const hasMatchingPayload = options.some((o) => (o.explanation || '').trim());
@@ -55,6 +64,7 @@ export default function TestPage() {
   const [retryNonce, setRetryNonce] = useState(0);
   const [needsExtraAttempt, setNeedsExtraAttempt] = useState(false);
   const [extraAttemptGranted, setExtraAttemptGranted] = useState(false);
+  const [legacyBonusCounts, setLegacyBonusCounts] = useState({ hint: 0, skip: 0, attempt: 0 });
   const startedAtRef = useRef(Date.now());
 
   useEffect(() => {
@@ -178,6 +188,44 @@ export default function TestPage() {
   }, [testId, profile?.id, profile?.group_id, profile?.bonus_extra_attempt_count, retryNonce, extraAttemptGranted]);
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!profile?.id) return;
+      try {
+        const { data: purchases, error: purchasesError } = await supabase
+          .from('user_purchases')
+          .select('bonus_id, amount')
+          .eq('profile_id', profile.id);
+        if (purchasesError) throw purchasesError;
+
+        const ids = [...new Set((purchases || []).map((p) => p.bonus_id).filter(Boolean))];
+        let idToName = {};
+        if (ids.length > 0) {
+          const { data: bonuses, error: bonusesError } = await supabase
+            .from('shop_bonuses')
+            .select('id, name')
+            .in('id', ids);
+          if (bonusesError) throw bonusesError;
+          idToName = Object.fromEntries((bonuses || []).map((b) => [b.id, b.name]));
+        }
+
+        const next = { hint: 0, skip: 0, attempt: 0 };
+        (purchases || []).forEach((row) => {
+          const key = resolveBonusKey(row.bonus_id, idToName[row.bonus_id] || '');
+          if (!key) return;
+          next[key] += Number(row.amount) || 0;
+        });
+        if (!cancelled) setLegacyBonusCounts(next);
+      } catch (err) {
+        if (!cancelled) setLegacyBonusCounts({ hint: 0, skip: 0, attempt: 0 });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id]);
+
+  useEffect(() => {
     if (loading || result) return undefined;
     const t = setInterval(() => setTimeLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
@@ -195,6 +243,9 @@ export default function TestPage() {
   const hintCount = profile?.bonus_hint_count || 0;
   const skipCount = profile?.bonus_skip_count || 0;
   const extraAttemptCount = profile?.bonus_extra_attempt_count || 0;
+  const hintAvailable = hintCount > 0 ? hintCount : legacyBonusCounts.hint;
+  const skipAvailable = skipCount > 0 ? skipCount : legacyBonusCounts.skip;
+  const extraAttemptAvailable = extraAttemptCount > 0 ? extraAttemptCount : legacyBonusCounts.attempt;
   const hiddenSet = new Set(currentQuestion ? (hiddenOptionIdsByQuestion[currentQuestion.id] || []) : []);
   const visibleOptions =
     currentQuestion?.type && currentQuestion.type !== QUESTION_TYPES.matching
@@ -232,6 +283,7 @@ export default function TestPage() {
     if (!field || !profile?.id) return false;
     setBonusLoading(bonusKey);
     try {
+      const legacyAvailable = legacyBonusCounts[bonusKey] || 0;
       const { data: latestProfile, error: pErr } = await supabase
         .from('profiles')
         .select(field)
@@ -239,15 +291,19 @@ export default function TestPage() {
         .single();
       if (pErr) throw pErr;
       const current = latestProfile?.[field] || 0;
-      if (current <= 0) {
+      const available = current > 0 ? current : legacyAvailable;
+      if (available <= 0) {
         setWarning('Этот бонус закончился.');
         return false;
       }
       const { error: updErr } = await supabase
         .from('profiles')
-        .update({ [field]: current - 1 })
+        .update({ [field]: available - 1 })
         .eq('id', profile.id);
       if (updErr) throw updErr;
+      if (current <= 0 && legacyAvailable > 0) {
+        setLegacyBonusCounts((prev) => ({ ...prev, [bonusKey]: 0 }));
+      }
       await refreshProfile();
       return true;
     } catch (err) {
@@ -486,9 +542,9 @@ export default function TestPage() {
                 type="button"
                 className="qf-btn-primary"
                 onClick={handleUseExtraAttempt}
-                disabled={bonusLoading === 'attempt'}
+                disabled={bonusLoading === 'attempt' || extraAttemptAvailable <= 0}
               >
-                {bonusLoading === 'attempt' ? 'Применение…' : 'Использовать доп. попытку'}
+                {bonusLoading === 'attempt' ? 'Применение…' : `Использовать доп. попытку (${extraAttemptAvailable})`}
               </button>
               <button type="button" className="qf-btn-primary" onClick={() => navigate('/catalog')}>
                 К каталогу
@@ -521,7 +577,7 @@ export default function TestPage() {
               Вопросов: {questions.length}
             </div>
             <div style={{ color: 'var(--qf-text-muted)', fontSize: 13, fontFamily: 'var(--qf-font)' }}>
-              💡 {hintCount} • ⏭ {skipCount} • ↻ {extraAttemptCount}
+              💡 {hintAvailable} • ⏭ {skipAvailable} • ↻ {extraAttemptAvailable}
             </div>
           </div>
         </header>
@@ -600,19 +656,19 @@ export default function TestPage() {
                     type="button"
                     className="qf-btn-primary"
                     style={{ padding: '8px 12px', fontSize: 14 }}
-                    disabled={hintCount <= 0 || !!bonusLoading}
+                    disabled={hintAvailable <= 0 || !!bonusLoading}
                     onClick={handleUseHint}
                   >
-                    {bonusLoading === 'hint' ? 'Подсказка…' : `Подсказка (${hintCount})`}
+                    {bonusLoading === 'hint' ? 'Подсказка…' : `Подсказка (${hintAvailable})`}
                   </button>
                   <button
                     type="button"
                     className="qf-btn-primary"
                     style={{ padding: '8px 12px', fontSize: 14, background: '#6b7280' }}
-                    disabled={skipCount <= 0 || !!bonusLoading}
+                    disabled={skipAvailable <= 0 || !!bonusLoading}
                     onClick={handleSkipQuestion}
                   >
-                    {bonusLoading === 'skip' ? 'Пропуск…' : `Пропуск (${skipCount})`}
+                    {bonusLoading === 'skip' ? 'Пропуск…' : `Пропуск (${skipAvailable})`}
                   </button>
                 </div>
                 {warning && (
