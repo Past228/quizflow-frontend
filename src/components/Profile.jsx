@@ -41,7 +41,7 @@ function normalizeGroupIdForProfileQuery(groupId) {
     return Number.isFinite(n) ? n : groupId;
 }
 
-export default function Profile({ session, embedded = false, onAvatarUpdated }) {
+export default function Profile({ session, embedded = false, onAvatarUpdated, onStartTest }) {
     const iframeRef = useRef(null);
 
     // Пробрасываем текущую тему в iframe при его загрузке и при смене темы
@@ -349,8 +349,8 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                 .insert({
                     title: testData.title,
                     description: testData.description,
-                    attempts_allowed: testData.maxAttempts,
-                    time_limit_minutes: testData.timeLimitMinutes ?? null,
+                    attempts_allowed: Number(testData.maxAttempts) || 1,
+                    time_limit_minutes: Number(testData.timeLimitMinutes ?? testData.timeLimit) || null,
                     questions_count: 0,
                     teacher_id: session.user.id,
                     is_active: true,
@@ -643,8 +643,8 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
 
             let attemptsData = [];
             const attRes = await supabase
-                .from('test_attempts')
-                .select('user_id, score, completed')
+                .from('test_results')
+                .select('student_id, percentage, status')
                 .eq('test_id', testId);
             if (attRes.error) throw attRes.error;
             attemptsData = attRes.data || [];
@@ -665,10 +665,10 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
 
             const rows = groupIds.map((gid) => {
                 const uids = groupToUsers[gid] || [];
-                const rel = attemptsData.filter((a) => uids.includes(a.user_id));
-                const completed = rel.filter((a) => a.completed);
-                const peoplePassed = new Set(completed.map((a) => a.user_id)).size;
-                const scores = completed.filter((a) => a.score != null).map((a) => a.score);
+                const rel = attemptsData.filter((a) => uids.includes(a.student_id));
+                const completed = rel.filter((a) => a.status === 'completed');
+                const peoplePassed = new Set(completed.map((a) => a.student_id)).size;
+                const scores = completed.filter((a) => a.percentage != null).map((a) => Number(a.percentage));
                 const avgScore =
                     scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : null;
                 const completedAttempts = completed.length;
@@ -880,23 +880,12 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                     qByTest[t.id] = t.questions_count ?? 0;
                 });
 
-                let attemptsData = [];
-                const ar = await supabase
-                    .from('test_attempts')
-                    .select('test_id, score, completed, wrong_count, duration_seconds')
-                    .eq('user_id', profileId)
+                const { data: attemptsData, error: attemptsErr } = await supabase
+                    .from('test_results')
+                    .select('test_id, percentage, status')
+                    .eq('student_id', profileId)
                     .in('test_id', testIds);
-                if (ar.error) {
-                    const ar2 = await supabase
-                        .from('test_attempts')
-                        .select('test_id, score, completed')
-                        .eq('user_id', profileId)
-                        .in('test_id', testIds);
-                    if (ar2.error) throw ar2.error;
-                    attemptsData = ar2.data || [];
-                } else {
-                    attemptsData = ar.data || [];
-                }
+                if (attemptsErr) throw attemptsErr;
 
                 const byTest = {};
                 attemptsData.forEach((a) => {
@@ -906,7 +895,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
 
                 const rows = testIds.map((tid) => {
                     const arr = byTest[tid] || [];
-                    const completed = arr.filter((a) => a.completed);
+                    const completed = arr.filter((a) => a.status === 'completed');
                     if (completed.length === 0) {
                         return {
                             testTitle: titleByTest[tid] || 'Без названия',
@@ -917,24 +906,17 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                         };
                     }
                     const best = completed.reduce((a, b) =>
-                        (a.score ?? -1) >= (b.score ?? -1) ? a : b
+                        (a.percentage ?? -1) >= (b.percentage ?? -1) ? a : b
                     );
                     const qn = qByTest[tid] || 0;
-                    let errN =
-                        best.wrong_count != null && Number.isFinite(best.wrong_count)
-                            ? best.wrong_count
-                            : estimateWrongAnswers(qn, best.score);
                     const correctnessPct =
-                        best.score != null ? Math.round(best.score * 10) / 10 : null;
-                    let timeDisplay = '—';
-                    if (best.duration_seconds != null && Number.isFinite(best.duration_seconds)) {
-                        timeDisplay = formatDurationSec(best.duration_seconds) || '—';
-                    }
+                        best.percentage != null ? Math.round(Number(best.percentage) * 10) / 10 : null;
+                    const errN = correctnessPct == null ? null : estimateWrongAnswers(qn, correctnessPct);
                     return {
                         testTitle: titleByTest[tid] || 'Без названия',
                         passed: true,
                         errors: errN,
-                        timeDisplay,
+                        timeDisplay: '—',
                         correctnessPct,
                     };
                 });
@@ -996,21 +978,12 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
             let attemptsData = [];
             if (profileIds.length > 0) {
                 const ar = await supabase
-                    .from('test_attempts')
-                    .select('user_id, test_id, score, completed, wrong_count, duration_seconds')
+                    .from('test_results')
+                    .select('student_id, test_id, percentage, status')
                     .in('test_id', testIds)
-                    .in('user_id', profileIds);
-                if (ar.error) {
-                    const ar2 = await supabase
-                        .from('test_attempts')
-                        .select('user_id, test_id, score, completed')
-                        .in('test_id', testIds)
-                        .in('user_id', profileIds);
-                    if (ar2.error) throw ar2.error;
-                    attemptsData = ar2.data || [];
-                } else {
-                    attemptsData = ar.data || [];
-                }
+                    .in('student_id', profileIds);
+                if (ar.error) throw ar.error;
+                attemptsData = ar.data || [];
             }
 
             const byTest = {};
@@ -1021,10 +994,10 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
 
             const rows = testIds.map((tid) => {
                 const arr = byTest[tid] || [];
-                const scores = arr.filter((a) => a.score != null).map((a) => a.score);
-                const userIds = new Set(arr.map((a) => a.user_id).filter(Boolean));
+                const scores = arr.filter((a) => a.percentage != null).map((a) => Number(a.percentage));
+                const userIds = new Set(arr.map((a) => a.student_id).filter(Boolean));
                 const userIdsCompleted = new Set(
-                    arr.filter((a) => a.completed).map((a) => a.user_id).filter(Boolean)
+                    arr.filter((a) => a.status === 'completed').map((a) => a.student_id).filter(Boolean)
                 );
                 return {
                     testTitle: testMap[tid] || 'Без названия',
@@ -1033,7 +1006,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                     peopleCompleted: userIdsCompleted.size,
                     avgScore:
                         scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : null,
-                    completed: arr.filter((a) => a.completed).length,
+                    completed: arr.filter((a) => a.status === 'completed').length,
                 };
             });
 
@@ -1053,7 +1026,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                 for (const s of students) {
                     const allDone = testIds.every((tid) =>
                         attemptsData.some(
-                            (a) => a.user_id === s.id && a.test_id === tid && a.completed
+                            (a) => a.student_id === s.id && a.test_id === tid && a.status === 'completed'
                         )
                     );
                     if (allDone) finishedAllCount++;
@@ -1062,23 +1035,20 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                 const pctFinishedAll = (100 * finishedAllCount) / nStudents;
 
                 const withAnyCompleted = students.filter((s) =>
-                    attemptsData.some((a) => a.user_id === s.id && a.completed)
+                    attemptsData.some((a) => a.student_id === s.id && a.status === 'completed')
                 );
 
                 for (const s of withAnyCompleted) {
                     for (const tid of testIds) {
                         const attempts = attemptsData.filter(
-                            (a) => a.user_id === s.id && a.test_id === tid && a.completed
+                            (a) => a.student_id === s.id && a.test_id === tid && a.status === 'completed'
                         );
                         if (attempts.length === 0) continue;
                         const best = attempts.reduce((a, b) =>
-                            (a.score ?? -1) >= (b.score ?? -1) ? a : b
+                            (a.percentage ?? -1) >= (b.percentage ?? -1) ? a : b
                         );
                         const qn = qMap[tid] || 0;
-                        let w =
-                            best.wrong_count != null && Number.isFinite(best.wrong_count)
-                                ? best.wrong_count
-                                : estimateWrongAnswers(qn, best.score);
+                        let w = estimateWrongAnswers(qn, best.percentage);
                         errorSumByUser[s.id] += w ?? 0;
                     }
                 }
@@ -1094,40 +1064,6 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                             ? a
                             : b
                     );
-                }
-
-                const totalDurationForUser = (uid) => {
-                    let sum = 0;
-                    for (const tid of testIds) {
-                        const attempts = attemptsData.filter(
-                            (a) => a.user_id === uid && a.test_id === tid && a.completed
-                        );
-                        if (attempts.length === 0) return null;
-                        const best = attempts.reduce((a, b) =>
-                            (a.score ?? -1) >= (b.score ?? -1) ? a : b
-                        );
-                        if (best.duration_seconds == null || !Number.isFinite(best.duration_seconds)) {
-                            return null;
-                        }
-                        sum += best.duration_seconds;
-                    }
-                    return sum;
-                };
-
-                let fastestStudent = null;
-                let fastestSec = Infinity;
-                for (const s of students) {
-                    const allDone = testIds.every((tid) =>
-                        attemptsData.some(
-                            (a) => a.user_id === s.id && a.test_id === tid && a.completed
-                        )
-                    );
-                    if (!allDone) continue;
-                    const ttot = totalDurationForUser(s.id);
-                    if (ttot != null && ttot < fastestSec) {
-                        fastestSec = ttot;
-                        fastestStudent = s;
-                    }
                 }
 
                 summary = {
@@ -1148,13 +1084,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
                                   errors: errorSumByUser[fewestErrors.id] ?? 0,
                               }
                             : null,
-                    fastest:
-                        fastestStudent != null && fastestSec !== Infinity
-                            ? {
-                                  name: displayNameFromProfile(fastestStudent),
-                                  totalTime: formatDurationSec(fastestSec) || String(fastestSec),
-                              }
-                            : null,
+                    fastest: null,
                 };
             } else {
                 summary = {
@@ -1188,7 +1118,11 @@ export default function Profile({ session, embedded = false, onAvatarUpdated }) 
 
     const handleStartTest = async (testId) => {
         devLog('Starting test:', testId);
-        alert(`Начинаем тест с ID: ${testId}`);
+        if (onStartTest) {
+            onStartTest(testId);
+            return;
+        }
+        window.location.assign(`/test/${testId}`);
     };
 
     const handleSignOut = async () => {

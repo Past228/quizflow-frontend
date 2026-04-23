@@ -858,7 +858,7 @@ function updateTeacherTestsUI(tests) {
                 <div class="test-meta">
                     <span>Вопросов: ${questionsCount}</span>
                     <span>Лимит: ${timeLimit}</span>
-                    <span>Попыток: ${test.max_attempts || 1}</span>
+                    <span>Попыток: ${test.attempts_allowed || 1}</span>
                 </div>
                 <div class="test-actions">
                     <button type="button" class="test-action-btn" onclick="handleEditTest(${tid})">Редактировать</button>
@@ -1429,7 +1429,7 @@ function handleStatsByParamLoaded(stats) {
             : '—';
         const fast = s.fastest
             ? `${escapeHtml(s.fastest.name)} — ${escapeHtml(s.fastest.totalTime)}`
-            : 'Нет данных о времени (нужны поля duration_seconds в test_attempts)';
+            : 'Нет данных о времени';
         summaryHtml = `
             <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:10px; margin-bottom:16px;">
                 <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
