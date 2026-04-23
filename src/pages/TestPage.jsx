@@ -43,6 +43,7 @@ export default function TestPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [warning, setWarning] = useState('');
   const [result, setResult] = useState(null);
   const startedAtRef = useRef(Date.now());
 
@@ -55,6 +56,7 @@ export default function TestPage() {
       }
       setLoading(true);
       setError('');
+      setWarning('');
       try {
         const { data: testData, error: testError } = await supabase
           .from('tests')
@@ -257,6 +259,7 @@ export default function TestPage() {
   const handleSubmit = async () => {
     if (!profile?.id || !testMeta || !questions.length || submitting || result) return;
     setSubmitting(true);
+    setWarning('');
     try {
       const evaluations = questions.map((q) => evaluateQuestion(q));
       const points = evaluations.reduce((s, v) => s + v.points, 0);
@@ -298,10 +301,20 @@ export default function TestPage() {
         }));
       if (responseRows.length > 0) {
         const { error: responseError } = await supabase.from('user_question_responses').insert(responseRows);
-        if (responseError) throw responseError;
+        if (responseError) {
+          // Keep test completion successful even if detailed response logging fails.
+          console.error('Failed to save user_question_responses:', responseError);
+          setWarning('Тест завершен, но детальные ответы не удалось сохранить.');
+        }
       }
 
-      const currentCoins = profile.sp_coins || 0;
+      const { data: latestProfile, error: latestProfileError } = await supabase
+        .from('profiles')
+        .select('sp_coins')
+        .eq('id', profile.id)
+        .single();
+      if (latestProfileError) throw latestProfileError;
+      const currentCoins = latestProfile?.sp_coins || 0;
       const { error: coinsError } = await supabase
         .from('profiles')
         .update({ sp_coins: currentCoins + earnedCoins })
@@ -412,6 +425,11 @@ export default function TestPage() {
                 <p style={{ margin: 0, color: 'var(--qf-text-body)', fontFamily: 'var(--qf-font)', fontSize: 18 }}>
                   Начислено монет: <strong>+{result.earnedCoins}</strong>
                 </p>
+                {warning && (
+                  <p style={{ margin: 0, color: '#b45309', fontFamily: 'var(--qf-font)', fontWeight: 600 }}>
+                    {warning}
+                  </p>
+                )}
               </div>
             ) : (
               <>

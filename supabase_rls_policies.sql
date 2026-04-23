@@ -392,6 +392,30 @@ CREATE POLICY "Teachers can manage own question options"
     )
   );
 
+-- ── user_question_responses ──────────────────────────────────────────────
+-- Students write detailed answers for their own test_result rows.
+-- Teachers and students can read responses for analytics/review screens.
+
+ALTER TABLE user_question_responses ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can read question responses" ON user_question_responses;
+DROP POLICY IF EXISTS "Students can insert own question responses" ON user_question_responses;
+
+CREATE POLICY "Authenticated users can read question responses"
+  ON user_question_responses FOR SELECT TO authenticated
+  USING (true);
+
+CREATE POLICY "Students can insert own question responses"
+  ON user_question_responses FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM test_results tr
+      WHERE tr.id = user_question_responses.test_result_id
+        AND tr.student_id = auth.uid()
+    )
+  );
+
 -- ── Legacy tests repair (safe backfill) ──────────────────────────────────
 -- Run this block once after deploying the new test builder.
 -- It fixes old rows created before the new schema wiring:
