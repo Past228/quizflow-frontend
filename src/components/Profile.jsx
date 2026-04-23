@@ -584,7 +584,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
             });
             const testsMap = Object.fromEntries((tests || []).map((t) => [String(t.id), t]));
             const rows = testIdsForList.map((testId) => {
-                const attempts = (byTest[testId] || []).filter((r) => r.status === 'completed' || !!r.completed_at);
+                const attempts = byTest[testId] || [];
                 let best = null;
                 attempts.forEach((r) => {
                     const score = r.percentage != null ? Number(r.percentage) || 0 : Number(r.score) || 0;
@@ -776,9 +776,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
             }
 
             const bestAttemptByStudent = {};
-            attemptsData
-                .filter((attempt) => attempt.status === 'completed' || !!attempt.completed_at)
-                .forEach((attempt) => {
+            attemptsData.forEach((attempt) => {
                 const sid = attempt.student_id;
                 if (!sid) return;
                 const pct =
@@ -791,7 +789,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 if (!prev || pct > prevPct) {
                     bestAttemptByStudent[sid] = attempt;
                 }
-                });
+            });
 
             const studentRows = profilesData
                 .map((student) => {

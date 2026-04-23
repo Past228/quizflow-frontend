@@ -230,20 +230,28 @@ export default function TeacherControlPanel({ session }) {
         if (assignedStudentIds.size > 0) {
           testAttempts = testAttempts.filter((a) => assignedStudentIds.has(String(a.student_id)));
         }
-        const completedAttempts = testAttempts.filter(
-          (a) => a.status === 'completed' || !!a.completed_at
-        );
         const attemptStudents = [
           ...new Set(
-            completedAttempts
+            testAttempts
               .map((a) => studentsById[String(a.student_id)])
               .filter(Boolean)
           ),
         ];
-        const baseStudents = assignedStudents.length > 0 ? assignedStudents : attemptStudents;
+        const attemptStudentIdsForTest = new Set(testAttempts.map((a) => String(a.student_id || '')).filter(Boolean));
+        const baseStudentIds = new Set([
+          ...assignedStudents.map((s) => String(s.id)),
+          ...attemptStudentIdsForTest,
+        ]);
+        const baseStudents =
+          baseStudentIds.size > 0
+            ? [...baseStudentIds].map(
+                (id) =>
+                  studentsById[id] || { id, first_name: '', last_name: '', email: `ID: ${id}`, group_id: null }
+              )
+            : attemptStudents;
 
         const bestAttemptByStudent = {};
-        completedAttempts.forEach((attempt) => {
+        testAttempts.forEach((attempt) => {
           const key = String(attempt.student_id || '');
           if (!key) return;
           const pct =
