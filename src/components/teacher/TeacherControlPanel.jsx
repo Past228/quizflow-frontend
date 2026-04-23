@@ -147,7 +147,14 @@ export default function TeacherControlPanel({ session }) {
   const loadResults = useCallback(async () => {
     setResultsLoading(true);
     try {
-      const testIds = tests.map((t) => t.id);
+      const { data: latestTests, error: latestTestsError } = await supabase
+        .from('tests')
+        .select('id, title')
+        .eq('teacher_id', session.user.id);
+      if (latestTestsError) throw latestTestsError;
+
+      const testsForResults = latestTests || [];
+      const testIds = testsForResults.map((t) => t.id);
       if (testIds.length === 0) {
         setResultRows([]);
         return;
@@ -189,18 +196,19 @@ export default function TeacherControlPanel({ session }) {
       const groupsMap = Object.fromEntries((groupsRes.data || []).map((g) => [String(g.id), g]));
       const students = studentsRes.data || [];
 
-      const rows = tests.map((test) => {
-        const testAssignments = assignments.filter((a) => a.test_id === test.id);
+      const rows = testsForResults.map((test) => {
+        const testAssignments = assignments.filter((a) => String(a.test_id) === String(test.id));
         const assignedGroupIdsForTest = [...new Set(testAssignments.map((a) => String(a.group_id)).filter(Boolean))];
         const assignedStudents = students.filter((s) => assignedGroupIdsForTest.includes(String(s.group_id)));
-        const assignedStudentIds = assignedStudents.map((s) => s.id);
-        const testAttempts = attempts.filter(
-          (a) => a.test_id === test.id && assignedStudentIds.includes(a.student_id)
-        );
+        const assignedStudentIds = new Set(assignedStudents.map((s) => String(s.id)));
+        let testAttempts = attempts.filter((a) => String(a.test_id) === String(test.id));
+        if (assignedStudentIds.size > 0) {
+          testAttempts = testAttempts.filter((a) => assignedStudentIds.has(String(a.student_id)));
+        }
 
         const bestAttemptByStudent = {};
         testAttempts.forEach((attempt) => {
-          const key = attempt.student_id;
+          const key = String(attempt.student_id || '');
           if (!key) return;
           const pct =
             attempt.percentage != null
@@ -216,7 +224,7 @@ export default function TeacherControlPanel({ session }) {
 
         const studentRows = assignedStudents
           .map((student) => {
-            const best = bestAttemptByStudent[student.id] || null;
+            const best = bestAttemptByStudent[String(student.id)] || null;
             const started = best?.started_at ? new Date(best.started_at).getTime() : null;
             const completed = best?.completed_at ? new Date(best.completed_at).getTime() : null;
             const durationSeconds =
@@ -275,7 +283,7 @@ export default function TeacherControlPanel({ session }) {
     } finally {
       setResultsLoading(false);
     }
-  }, [tests]);
+  }, [session.user.id]);
 
   useEffect(() => {
     loadTests();
