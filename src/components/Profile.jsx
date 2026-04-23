@@ -582,9 +582,9 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 if (!byTest[tid]) byTest[tid] = [];
                 byTest[tid].push(r);
             });
-
-            const rows = (tests || []).map((test) => {
-                const attempts = (byTest[test.id] || []).filter((r) => r.status === 'completed' || !!r.completed_at);
+            const testsMap = Object.fromEntries((tests || []).map((t) => [String(t.id), t]));
+            const rows = testIdsForList.map((testId) => {
+                const attempts = (byTest[testId] || []).filter((r) => r.status === 'completed' || !!r.completed_at);
                 let best = null;
                 attempts.forEach((r) => {
                     const score = r.percentage != null ? Number(r.percentage) || 0 : Number(r.score) || 0;
@@ -601,8 +601,8 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 const durationSec =
                     started && completed && completed >= started ? Math.round((completed - started) / 1000) : null;
                 return {
-                    testId: test.id,
-                    testTitle: test.title || 'Без названия',
+                    testId,
+                    testTitle: testsMap[String(testId)]?.title || `Тест #${testId}`,
                     attemptsUsed: attempts.length,
                     passed: !!best,
                     bestResult:
@@ -613,7 +613,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                                 : null,
                     durationSec,
                 };
-            });
+            }).sort((a, b) => Number(b.bestResult ?? -1) - Number(a.bestResult ?? -1));
 
             sendMessageToIframe({ type: 'STUDENT_RESULTS_LOADED', data: { rows } });
         } catch (err) {

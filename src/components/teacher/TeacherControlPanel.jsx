@@ -207,7 +207,19 @@ export default function TeacherControlPanel({ session }) {
       if (studentsRes.error) throw studentsRes.error;
 
       const groupsMap = Object.fromEntries((groupsRes.data || []).map((g) => [String(g.id), g]));
-      const students = studentsRes.data || [];
+      const students = [...(studentsRes.data || [])];
+      const knownStudentIdSet = new Set(students.map((s) => String(s.id)));
+      const attemptStudentIds = [...new Set(attempts.map((a) => String(a.student_id || '')).filter(Boolean))];
+      const missingStudentIds = attemptStudentIds.filter((id) => !knownStudentIdSet.has(id));
+      if (missingStudentIds.length > 0) {
+        const missingProfilesRes = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, email, group_id')
+          .in('id', missingStudentIds);
+        if (missingProfilesRes.error) throw missingProfilesRes.error;
+        students.push(...(missingProfilesRes.data || []));
+      }
+      const studentsById = Object.fromEntries(students.map((s) => [String(s.id), s]));
 
       const rows = testsForResults.map((test) => {
         const testAssignments = assignments.filter((a) => String(a.test_id) === String(test.id));
@@ -221,6 +233,14 @@ export default function TeacherControlPanel({ session }) {
         const completedAttempts = testAttempts.filter(
           (a) => a.status === 'completed' || !!a.completed_at
         );
+        const attemptStudents = [
+          ...new Set(
+            completedAttempts
+              .map((a) => studentsById[String(a.student_id)])
+              .filter(Boolean)
+          ),
+        ];
+        const baseStudents = assignedStudents.length > 0 ? assignedStudents : attemptStudents;
 
         const bestAttemptByStudent = {};
         completedAttempts.forEach((attempt) => {
@@ -238,7 +258,7 @@ export default function TeacherControlPanel({ session }) {
           }
         });
 
-        const studentRows = assignedStudents
+        const studentRows = baseStudents
           .map((student) => {
             const best = bestAttemptByStudent[String(student.id)] || null;
             const started = best?.started_at ? new Date(best.started_at).getTime() : null;
@@ -284,7 +304,7 @@ export default function TeacherControlPanel({ session }) {
           testId: test.id,
           testTitle: test.title || 'Без названия',
           assignedGroups: assignedGroupIdsForTest.length,
-          assignedStudentsTotal: assignedStudents.length,
+          assignedStudentsTotal: baseStudents.length,
           passedStudentsTotal: studentRows.filter((row) => row.passed).length,
           avgScore,
           studentRows,
