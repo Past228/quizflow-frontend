@@ -246,6 +246,24 @@ export default function TestPage() {
     if (!field || !profile?.id) return false;
     setBonusLoading(bonusKey);
     try {
+      const { error: rpcErr } = await supabase.rpc('qf_consume_bonus', {
+        p_bonus_key: bonusKey,
+      });
+      if (!rpcErr) {
+        await refreshProfile();
+        return true;
+      }
+
+      const rpcMsg = String(rpcErr.message || '');
+      const rpcMissing =
+        rpcMsg.includes('qf_consume_bonus') ||
+        rpcMsg.includes('function') ||
+        rpcMsg.includes('does not exist') ||
+        rpcErr.code === 'PGRST202';
+      if (!rpcMissing) {
+        throw rpcErr;
+      }
+
       const { data: latestProfile, error: pErr } = await supabase
         .from('profiles')
         .select(field)

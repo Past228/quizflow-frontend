@@ -633,3 +633,86 @@ $$;
 
 REVOKE ALL ON FUNCTION public.qf_submit_test_result(integer, integer, integer, numeric, timestamptz, timestamptz, integer, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.qf_submit_test_result(integer, integer, integer, numeric, timestamptz, timestamptz, integer, jsonb) TO authenticated;
+
+-- ── RPC: atomic bonus consume (profile + inventory) ───────────────────────
+-- Ensures one bonus use always decrements both:
+--   1) profiles.bonus_*_count
+--   2) user_purchases.amount (or deletes row when amount reaches 0)
+CREATE OR REPLACE FUNCTION public.qf_consume_bonus(p_bonus_key text)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_key text := lower(trim(coalesce(p_bonus_key, '')));
+  v_field text;
+  v_current integer := 0;
+  v_purchase_id text;
+  v_purchase_amount integer;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  v_field := CASE
+    WHEN v_key = 'hint' THEN 'bonus_hint_count'
+    WHEN v_key = 'skip' THEN 'bonus_skip_count'
+    WHEN v_key = 'attempt' THEN 'bonus_extra_attempt_count'
+    ELSE NULL
+  END;
+
+  IF v_field IS NULL THEN
+    RAISE EXCEPTION 'Unknown bonus key: %', p_bonus_key;
+  END IF;
+
+  EXECUTE format('SELECT COALESCE(%I, 0) FROM profiles WHERE id = $1 FOR UPDATE', v_field)
+    INTO v_current
+    USING v_uid;
+
+  IF COALESCE(v_current, 0) <= 0 THEN
+    RAISE EXCEPTION 'Этот бонус закончился.';
+  END IF;
+
+  SELECT up.id::text, COALESCE(up.amount, 0)
+  INTO v_purchase_id, v_purchase_amount
+  FROM user_purchases up
+  JOIN shop_bonuses sb ON sb.id = up.bonus_id
+  WHERE up.profile_id = v_uid
+    AND COALESCE(up.amount, 0) > 0
+    AND (
+      (v_key = 'hint' AND (lower(sb.id::text) LIKE '%hint%' OR lower(coalesce(sb.name, '')) LIKE '%подсказ%'))
+      OR
+      (v_key = 'skip' AND (lower(sb.id::text) LIKE '%skip%' OR lower(coalesce(sb.name, '')) LIKE '%пропуск%'))
+      OR
+      (v_key = 'attempt' AND (lower(sb.id::text) LIKE '%attempt%' OR lower(coalesce(sb.name, '')) LIKE '%попыт%' OR lower(coalesce(sb.name, '')) LIKE '%доп%'))
+    )
+  ORDER BY up.created_at DESC NULLS LAST, up.id DESC
+  LIMIT 1
+  FOR UPDATE OF up;
+
+  IF v_purchase_id IS NOT NULL THEN
+    IF v_purchase_amount > 1 THEN
+      UPDATE user_purchases
+      SET amount = v_purchase_amount - 1
+      WHERE id::text = v_purchase_id;
+    ELSE
+      DELETE FROM user_purchases
+      WHERE id::text = v_purchase_id;
+    END IF;
+  END IF;
+
+  EXECUTE format('UPDATE profiles SET %I = GREATEST(COALESCE(%I, 0) - 1, 0) WHERE id = $1', v_field, v_field)
+    USING v_uid;
+
+  EXECUTE format('SELECT COALESCE(%I, 0) FROM profiles WHERE id = $1', v_field)
+    INTO v_current
+    USING v_uid;
+
+  RETURN COALESCE(v_current, 0);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_consume_bonus(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_consume_bonus(text) TO authenticated;
