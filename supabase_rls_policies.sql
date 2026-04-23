@@ -801,3 +801,91 @@ $$;
 
 REVOKE ALL ON FUNCTION public.qf_teacher_test_results(integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.qf_teacher_test_results(integer) TO authenticated;
+
+-- RPC: результаты тестов преподавателя с ФИО и группой (обходит RLS на profiles
+-- — у teacher-JWT прямой SELECT по profiles в части проектов даёт 0 строк).
+CREATE OR REPLACE FUNCTION public.qf_teacher_test_results_enriched(
+  p_test_id integer DEFAULT NULL
+)
+RETURNS TABLE (
+  test_id integer,
+  student_id uuid,
+  percentage numeric,
+  score integer,
+  status text,
+  started_at timestamptz,
+  completed_at timestamptz,
+  first_name text,
+  last_name text,
+  email text,
+  profile_group_id bigint,
+  group_number text,
+  course_number text,
+  building_name text
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT
+    tr.test_id,
+    tr.student_id,
+    tr.percentage,
+    tr.score,
+    tr.status,
+    tr.started_at,
+    tr.completed_at,
+    p.first_name,
+    p.last_name,
+    p.email,
+    p.group_id AS profile_group_id,
+    sg.group_number::text,
+    c.course_number::text,
+    b.name::text AS building_name
+  FROM public.test_results tr
+  INNER JOIN public.tests t ON t.id = tr.test_id
+  LEFT JOIN public.profiles p ON p.id = tr.student_id
+  LEFT JOIN public.student_groups sg ON sg.id = p.group_id
+  LEFT JOIN public.courses c ON c.id = sg.course_id
+  LEFT JOIN public.buildings b ON b.id = c.building_id
+  WHERE auth.uid() IS NOT NULL
+    AND t.teacher_id = auth.uid()
+    AND (p_test_id IS NULL OR tr.test_id = p_test_id);
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_teacher_test_results_enriched(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_teacher_test_results_enriched(integer) TO authenticated;
+
+-- RPC: свои результаты студента (с названием теста, в т.ч. неактивного — через JOIN под DEFINER)
+CREATE OR REPLACE FUNCTION public.qf_student_my_test_results()
+RETURNS TABLE (
+  test_id integer,
+  test_title text,
+  percentage numeric,
+  score integer,
+  status text,
+  started_at timestamptz,
+  completed_at timestamptz
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT
+    tr.test_id,
+    COALESCE(t.title, 'Тест #' || tr.test_id::text) AS test_title,
+    tr.percentage,
+    tr.score,
+    tr.status,
+    tr.started_at,
+    tr.completed_at
+  FROM public.test_results tr
+  LEFT JOIN public.tests t ON t.id = tr.test_id
+  WHERE tr.student_id = auth.uid()
+    AND (tr.status IS NULL OR tr.status = 'completed');
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_student_my_test_results() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_student_my_test_results() TO authenticated;

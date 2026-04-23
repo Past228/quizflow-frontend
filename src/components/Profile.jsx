@@ -541,12 +541,14 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
 
     const handleLoadStudentResults = async (profileId, groupId) => {
         try {
-            const studentId = session.user?.id;
+            const { data: authData } = await supabase.auth.getUser();
+            const studentId = authData?.user?.id;
             if (!studentId) {
                 sendMessageToIframe({ type: 'STUDENT_RESULTS_LOADED', data: { rows: [] } });
                 return;
             }
-            if (profileId && String(profileId) !== String(studentId)) {
+            const prof = profileId != null ? String(profileId).toLowerCase() : '';
+            if (prof && prof !== String(studentId).toLowerCase()) {
                 sendMessageToIframe({ type: 'STUDENT_RESULTS_LOADED', data: { rows: [] } });
                 return;
             }
@@ -565,15 +567,32 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 ];
             }
 
-            const { data: results, error: resErr } = await supabase
-                .from('test_results')
-                .select('test_id, percentage, score, status, started_at, completed_at')
-                .eq('student_id', studentId);
-            if (resErr) throw resErr;
+            let resultRows = [];
+            const rpcRes = await supabase.rpc('qf_student_my_test_results');
+            if (!rpcRes.error && Array.isArray(rpcRes.data)) {
+                resultRows = rpcRes.data.filter(
+                    (r) => r.status == null || r.status === 'completed'
+                );
+            } else {
+                const resErr = rpcRes.error;
+                const msg = resErr ? String(resErr.message || '') : '';
+                const rpcMissing =
+                    msg.includes('qf_student_my_test_results') ||
+                    msg.includes('function') ||
+                    msg.includes('does not exist') ||
+                    resErr?.code === 'PGRST202';
+                if (resErr && !rpcMissing) throw resErr;
 
-            const resultRows = (results || []).filter(
-                (r) => r.status == null || r.status === 'completed'
-            );
+                const { data: results, error: directErr } = await supabase
+                    .from('test_results')
+                    .select('test_id, percentage, score, status, started_at, completed_at')
+                    .eq('student_id', studentId);
+                if (directErr) throw directErr;
+                resultRows = (results || []).filter(
+                    (r) => r.status == null || r.status === 'completed'
+                );
+            }
+
             const resultTestIds = [
                 ...new Set(resultRows.map((r) => testIdKey(r.test_id)).filter(Boolean)),
             ];
@@ -615,9 +634,16 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 const completed = best?.completed_at ? new Date(best.completed_at).getTime() : null;
                 const durationSec =
                     started && completed && completed >= started ? Math.round((completed - started) / 1000) : null;
+                const titleFromRpc =
+                    best && typeof best.test_title === 'string' && best.test_title
+                        ? best.test_title
+                        : null;
                 return {
                     testId,
-                    testTitle: testsMap[String(testId)]?.title || `Тест #${testId}`,
+                    testTitle:
+                        titleFromRpc ||
+                        testsMap[String(testId)]?.title ||
+                        `Тест #${testId}`,
                     attemptsUsed: attempts.length,
                     passed: !!best,
                     bestResult:

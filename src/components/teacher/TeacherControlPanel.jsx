@@ -160,65 +160,105 @@ export default function TeacherControlPanel({ session }) {
         return;
       }
 
+      const testIdSet = new Set(testIds.map((id) => String(id)));
+
       const [assignmentsRes, attemptsRes] = await Promise.all([
         supabase.from('group_tests').select('test_id, group_id').in('test_id', testIds),
-        supabase.rpc('qf_teacher_test_results', { p_test_id: null }),
+        supabase.rpc('qf_teacher_test_results_enriched', { p_test_id: null }),
       ]);
 
       if (assignmentsRes.error) throw assignmentsRes.error;
+
       let attempts = [];
       if (attemptsRes.error) {
         const msg = String(attemptsRes.error.message || '');
         const rpcMissing =
-          msg.includes('qf_teacher_test_results') ||
+          msg.includes('qf_teacher_test_results_enriched') ||
           msg.includes('function') ||
           msg.includes('does not exist') ||
           attemptsRes.error.code === 'PGRST202';
         if (!rpcMissing) throw attemptsRes.error;
-        const fallback = await supabase
-          .from('test_results')
-          .select('test_id, student_id, percentage, score, status, started_at, completed_at')
-          .in('test_id', testIds);
-        if (fallback.error) throw fallback.error;
-        attempts = fallback.data || [];
+        const legacy = await supabase.rpc('qf_teacher_test_results', { p_test_id: null });
+        if (legacy.error) {
+          const m2 = String(legacy.error.message || '');
+          const miss2 =
+            m2.includes('qf_teacher_test_results') || m2.includes('does not exist') || legacy.error.code === 'PGRST202';
+          if (!miss2) throw legacy.error;
+          const fallback = await supabase
+            .from('test_results')
+            .select('test_id, student_id, percentage, score, status, started_at, completed_at')
+            .in('test_id', testIds);
+          if (fallback.error) throw fallback.error;
+          attempts = fallback.data || [];
+        } else {
+          attempts = legacy.data || [];
+        }
       } else {
         attempts = attemptsRes.data || [];
       }
 
       const assignments = assignmentsRes.data || [];
-      const testIdSet = new Set(testIds.map((id) => String(id)));
       attempts = attempts.filter((row) => testIdSet.has(String(row.test_id)));
 
       const assignmentGroupIds = [...new Set(assignments.map((a) => a.group_id).filter(Boolean))];
-      const attemptStudentIds = [...new Set(attempts.map((a) => String(a.student_id || '')).filter(Boolean))];
+      const isEnriched = attempts.length > 0 && 'profile_group_id' in (attempts[0] || {});
 
-      const [byAttemptProfilesRes, studentsInAssignedGroupsRes] = await Promise.all([
-        attemptStudentIds.length > 0
-          ? supabase
-              .from('profiles')
-              .select('id, first_name, last_name, email, group_id')
-              .in('id', attemptStudentIds)
-          : Promise.resolve({ data: [] }),
-        assignmentGroupIds.length > 0
-          ? supabase
-              .from('profiles')
-              .select('id, first_name, last_name, email, group_id')
-              .in('group_id', assignmentGroupIds)
-          : Promise.resolve({ data: [] }),
-      ]);
-      if (byAttemptProfilesRes.error) throw byAttemptProfilesRes.error;
-      if (studentsInAssignedGroupsRes.error) throw studentsInAssignedGroupsRes.error;
-
-      const mergedProfiles = [...(byAttemptProfilesRes.data || []), ...(studentsInAssignedGroupsRes.data || [])];
       const studentsById = {};
-      mergedProfiles.forEach((p) => {
-        studentsById[String(p.id)] = p;
-      });
+      if (isEnriched) {
+        attempts.forEach((row) => {
+          const sid = String(row.student_id);
+          if (!sid) return;
+          if (!studentsById[sid]) {
+            studentsById[sid] = {
+              id: row.student_id,
+              first_name: row.first_name,
+              last_name: row.last_name,
+              email: row.email,
+              group_id: row.profile_group_id,
+              _gnum: row.group_number,
+              _cnum: row.course_number,
+              _bname: row.building_name,
+            };
+          }
+        });
+      } else {
+        const attemptStudentIds = [...new Set(attempts.map((a) => String(a.student_id || '')).filter(Boolean))];
+        const profileResults = await Promise.all(
+          attemptStudentIds.map((id) => supabase.rpc('qf_profile_by_id', { p_id: id }))
+        );
+        attemptStudentIds.forEach((id, i) => {
+          const res = profileResults[i];
+          if (res.error) return;
+          const raw = res.data;
+          const p = raw == null ? null : Array.isArray(raw) ? raw[0] : raw;
+          if (p) {
+            studentsById[id] = { ...p, _gnum: null, _cnum: null, _bname: null };
+          }
+        });
+      }
+
+      for (const gid of assignmentGroupIds) {
+        const n = Number(gid);
+        if (!Number.isFinite(n)) continue;
+        const { data: grpStudents, error: sgErr } = await supabase.rpc('qf_students_in_group', { p_group_id: n });
+        if (sgErr) {
+          console.warn('qf_students_in_group', sgErr);
+          continue;
+        }
+        (grpStudents || []).forEach((p) => {
+          const sid = String(p.id);
+          if (!studentsById[sid]) {
+            studentsById[sid] = { ...p, _gnum: null, _cnum: null, _bname: null };
+          }
+        });
+      }
 
       const allGroupIds = [
         ...new Set([
           ...assignmentGroupIds,
-          ...mergedProfiles.map((s) => s.group_id).filter(Boolean),
+          ...Object.values(studentsById)
+            .map((s) => s.group_id)
+            .filter(Boolean),
         ]),
       ];
       const { data: groupsData, error: groupsErr } =
@@ -231,32 +271,62 @@ export default function TeacherControlPanel({ session }) {
       if (groupsErr) throw groupsErr;
       const groupsMap = Object.fromEntries((groupsData || []).map((g) => [String(g.id), g]));
 
+      const groupTitleFor = (student) => {
+        if (student == null) return 'Группа не указана';
+        if (student._gnum != null || student._cnum != null || student._bname) {
+          if (student._gnum == null && student._cnum == null && !student._bname) return 'Группа не указана';
+          return `Группа ${student._gnum ?? '—'}${
+            student._cnum != null
+              ? ` (${student._cnum} курс${student._bname ? `, ${student._bname}` : ''})`
+              : student._bname
+                ? ` (${student._bname})`
+                : ''
+          }`;
+        }
+        const groupMeta = groupsMap[String(student.group_id)];
+        if (!groupMeta) return 'Группа не указана';
+        return `Группа ${groupMeta.group_number}${
+          groupMeta.courses
+            ? ` (${groupMeta.courses.course_number} курс${
+                groupMeta.courses.buildings?.name ? `, ${groupMeta.courses.buildings.name}` : ''
+              })`
+            : ''
+        }`;
+      };
+
+      const displayName = (student) => {
+        if (student == null) return 'Студент';
+        const byName = [student.last_name, student.first_name].filter(Boolean).join(' ').trim();
+        if (byName) return byName;
+        if (student.email) return String(student.email);
+        return `ID: ${String(student.id)}`;
+      };
+
       const rows = testsForResults.map((test) => {
         const testAssignments = assignments.filter((a) => String(a.test_id) === String(test.id));
         const assignedGroupIdsForTest = [...new Set(testAssignments.map((a) => String(a.group_id)).filter(Boolean))];
-        const assignedStudents = mergedProfiles.filter((s) =>
+        const assignedStudents = Object.values(studentsById).filter((s) =>
           assignedGroupIdsForTest.includes(String(s.group_id))
         );
         let testAttempts = attempts.filter((a) => String(a.test_id) === String(test.id));
-        const attemptStudents = [
-          ...new Set(
-            testAttempts
-              .map((a) => studentsById[String(a.student_id)])
-              .filter(Boolean)
-          ),
-        ];
         const attemptStudentIdsForTest = new Set(testAttempts.map((a) => String(a.student_id || '')).filter(Boolean));
-        const baseStudentIds = new Set([
-          ...assignedStudents.map((s) => String(s.id)),
-          ...attemptStudentIdsForTest,
-        ]);
+        const baseStudentIds = new Set([...assignedStudents.map((s) => String(s.id)), ...attemptStudentIdsForTest]);
         const baseStudents =
           baseStudentIds.size > 0
             ? [...baseStudentIds].map(
                 (id) =>
-                  studentsById[id] || { id, first_name: '', last_name: '', email: `ID: ${id}`, group_id: null }
+                  studentsById[id] || {
+                    id,
+                    first_name: '',
+                    last_name: '',
+                    email: null,
+                    group_id: null,
+                    _gnum: null,
+                    _cnum: null,
+                    _bname: null,
+                  }
               )
-            : attemptStudents;
+            : [];
 
         const bestAttemptByStudent = {};
         testAttempts.forEach((attempt) => {
@@ -281,22 +351,24 @@ export default function TeacherControlPanel({ session }) {
             const completed = best?.completed_at ? new Date(best.completed_at).getTime() : null;
             const durationSeconds =
               started && completed && completed >= started ? Math.round((completed - started) / 1000) : null;
-            const groupMeta = groupsMap[String(student.group_id)];
-            const groupTitle = groupMeta
-              ? `Группа ${groupMeta.group_number}${
-                  groupMeta.courses
-                    ? ` (${groupMeta.courses.course_number} курс${
-                        groupMeta.courses.buildings?.name ? `, ${groupMeta.courses.buildings.name}` : ''
-                      })`
-                    : ''
-                }`
-              : 'Группа не указана';
+
+            let groupTitle = groupTitleFor(student);
+            if (isEnriched && best && 'group_number' in best) {
+              const b = best;
+              if (b.group_number != null || b.course_number != null || b.building_name) {
+                groupTitle = `Группа ${b.group_number ?? '—'}${
+                  b.course_number != null
+                    ? ` (${b.course_number} курс${b.building_name ? `, ${b.building_name}` : ''})`
+                    : b.building_name
+                      ? ` (${b.building_name})`
+                      : ''
+                }`;
+              }
+            }
+
             return {
               studentId: student.id,
-              studentName:
-                [student.last_name, student.first_name].filter(Boolean).join(' ').trim() ||
-                student.email ||
-                'Студент',
+              studentName: displayName(studentsById[String(student.id)] || student),
               groupTitle,
               passed: !!best,
               percentage:
@@ -330,7 +402,10 @@ export default function TeacherControlPanel({ session }) {
       setResultRows(rows);
     } catch (err) {
       console.error('Failed to load results:', err);
-      setNotice({ type: 'error', text: 'Не удалось загрузить результаты.' });
+      setNotice({
+        type: 'error',
+        text: 'Не удалось загрузить результаты. В Supabase → SQL Editor выполните новый блок из конца файла supabase_rls_policies.sql (функции qf_teacher_test_results_enriched и qf_student_my_test_results).',
+      });
       setResultRows([]);
     } finally {
       setResultsLoading(false);
