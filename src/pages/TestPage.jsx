@@ -404,6 +404,7 @@ export default function TestPage() {
             question_id: question.id,
             selected_option_id: null,
             is_correct: true,
+            points_earned: 1,
           },
         ],
       };
@@ -421,6 +422,7 @@ export default function TestPage() {
             question_id: question.id,
             selected_option_id: selectedOption?.id || null,
             is_correct: isCorrect,
+            points_earned: isCorrect ? 1 : 0,
           },
         ],
       };
@@ -433,39 +435,43 @@ export default function TestPage() {
         selected.size === correctIds.size &&
         [...selected].every((id) => correctIds.has(id));
 
-      const responses = question.options
-        .filter((o) => selected.has(o.id))
-        .map((o) => ({
-          question_id: question.id,
-          selected_option_id: o.id,
-          is_correct: !!o.is_correct,
-        }));
-
       return {
         points: exactMatch ? 1 : 0,
         maxPoints: 1,
-        responses: responses.length ? responses : [{ question_id: question.id, selected_option_id: null, is_correct: false }],
+        // Store one row per question to satisfy unique_response_per_question.
+        responses: [
+          {
+            question_id: question.id,
+            selected_option_id: null,
+            is_correct: exactMatch,
+            points_earned: exactMatch ? 1 : 0,
+          },
+        ],
       };
     }
 
     const matchInput = answer || {};
     let correctPairs = 0;
-    const responses = question.options.map((o) => {
+    question.options.forEach((o) => {
       const expected = (o.explanation || '').trim().toLowerCase();
       const got = String(matchInput[o.id] || '').trim().toLowerCase();
       const ok = expected.length > 0 && got === expected;
       if (ok) correctPairs += 1;
-      return {
-        question_id: question.id,
-        selected_option_id: o.id,
-        is_correct: ok,
-      };
     });
     const maxPoints = question.options.length || 1;
+    const points = correctPairs / maxPoints;
     return {
-      points: correctPairs / maxPoints,
+      points,
       maxPoints: 1,
-      responses,
+      // One summary row per matching question.
+      responses: [
+        {
+          question_id: question.id,
+          selected_option_id: null,
+          is_correct: points >= 1,
+          points_earned: points,
+        },
+      ],
     };
   };
 
@@ -497,7 +503,7 @@ export default function TestPage() {
           question_id: r.question_id,
           selected_option_id: r.selected_option_id,
           is_correct: r.is_correct,
-          points_earned: r.is_correct ? 1 : 0,
+          points_earned: r.points_earned ?? (r.is_correct ? 1 : 0),
           question_difficulty:
             questions.find((q) => q.id === r.question_id)?.difficulty ?? 0,
         }));
