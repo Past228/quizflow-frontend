@@ -66,7 +66,28 @@ export default function TeacherControlPanel({ session }) {
         .eq('teacher_id', session.user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setTests(data || []);
+
+      const testsList = data || [];
+      const testIds = testsList.map((t) => t.id);
+      if (testIds.length > 0) {
+        const { data: questionRows, error: qErr } = await supabase
+          .from('test_questions')
+          .select('test_id')
+          .in('test_id', testIds);
+        if (qErr) throw qErr;
+        const actualCountMap = {};
+        (questionRows || []).forEach((row) => {
+          actualCountMap[row.test_id] = (actualCountMap[row.test_id] || 0) + 1;
+        });
+        setTests(
+          testsList.map((test) => ({
+            ...test,
+            questions_count: actualCountMap[test.id] ?? 0,
+          }))
+        );
+      } else {
+        setTests(testsList);
+      }
     } catch (err) {
       console.error('Failed to load tests:', err);
       setNotice({ type: 'error', text: 'Не удалось загрузить тесты.' });

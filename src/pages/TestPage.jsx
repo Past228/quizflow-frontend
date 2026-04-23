@@ -89,15 +89,23 @@ export default function TestPage() {
           throw new Error('Вы исчерпали лимит попыток для этого теста.');
         }
 
-        const { data: questionRows, error: questionError } = await supabase
+        const { data: activeQuestions, error: questionError } = await supabase
           .from('test_questions')
           .select('id, question_text, difficulty, estimated_time_seconds, is_active')
           .eq('test_id', testId)
           .eq('is_active', true);
         if (questionError) throw questionError;
-        if (!questionRows?.length) {
-          throw new Error('В этом тесте пока нет вопросов.');
+        let questionRows = activeQuestions || [];
+        // Fallback for legacy rows where is_active wasn't set explicitly.
+        if (!questionRows.length) {
+          const { data: anyQuestions, error: anyQuestionError } = await supabase
+            .from('test_questions')
+            .select('id, question_text, difficulty, estimated_time_seconds, is_active')
+            .eq('test_id', testId);
+          if (anyQuestionError) throw anyQuestionError;
+          questionRows = anyQuestions || [];
         }
+        if (!questionRows.length) throw new Error('В этом тесте пока нет вопросов.');
 
         const questionIds = questionRows.map((q) => q.id);
         const { data: optionRows, error: optionsError } = await supabase

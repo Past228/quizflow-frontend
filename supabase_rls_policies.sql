@@ -324,3 +324,125 @@ GRANT EXECUTE ON FUNCTION public.qf_leaderboard_profiles() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.qf_profiles_for_building(bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.qf_students_in_group(bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.qf_profile_by_id(uuid) TO authenticated;
+
+-- ── test_questions / test_question_options ─────────────────────────────
+-- Students need SELECT to load assigned tests' questions.
+-- Teachers need full management for questions/options of their own tests.
+
+ALTER TABLE test_questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE test_question_options ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can read active test questions" ON test_questions;
+DROP POLICY IF EXISTS "Teachers can manage own test questions" ON test_questions;
+DROP POLICY IF EXISTS "Authenticated users can read question options" ON test_question_options;
+DROP POLICY IF EXISTS "Teachers can manage own question options" ON test_question_options;
+
+CREATE POLICY "Authenticated users can read active test questions"
+  ON test_questions FOR SELECT TO authenticated
+  USING (is_active = true);
+
+CREATE POLICY "Teachers can manage own test questions"
+  ON test_questions FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM tests t
+      WHERE t.id = test_questions.test_id
+        AND t.teacher_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM tests t
+      WHERE t.id = test_questions.test_id
+        AND t.teacher_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Authenticated users can read question options"
+  ON test_question_options FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM test_questions q
+      WHERE q.id = test_question_options.question_id
+        AND q.is_active = true
+    )
+  );
+
+CREATE POLICY "Teachers can manage own question options"
+  ON test_question_options FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM test_questions q
+      JOIN tests t ON t.id = q.test_id
+      WHERE q.id = test_question_options.question_id
+        AND t.teacher_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM test_questions q
+      JOIN tests t ON t.id = q.test_id
+      WHERE q.id = test_question_options.question_id
+        AND t.teacher_id = auth.uid()
+    )
+  );
+
+-- ── Legacy tests repair (safe backfill) ──────────────────────────────────
+-- Run this block once after deploying the new test builder.
+-- It fixes old rows created before the new schema wiring:
+-- 1) sets default values in tests
+-- 2) activates old questions where is_active is NULL
+-- 3) recalculates tests.questions_count from test_questions
+-- 4) fixes option positions where NULL
+
+UPDATE tests
+SET
+  attempts_allowed = COALESCE(attempts_allowed, 1),
+  time_limit_minutes = COALESCE(time_limit_minutes, 20),
+  is_active = COALESCE(is_active, true),
+  updated_at = now()
+WHERE
+  attempts_allowed IS NULL
+  OR time_limit_minutes IS NULL
+  OR is_active IS NULL;
+
+UPDATE test_questions
+SET is_active = true
+WHERE is_active IS NULL;
+
+UPDATE test_question_options
+SET position = 0
+WHERE position IS NULL;
+
+UPDATE tests t
+SET
+  questions_count = q.cnt,
+  updated_at = now()
+FROM (
+  SELECT test_id, COUNT(*)::int AS cnt
+  FROM test_questions
+  GROUP BY test_id
+) q
+WHERE t.id = q.test_id;
+
+UPDATE tests
+SET
+  questions_count = 0,
+  updated_at = now()
+WHERE id NOT IN (SELECT DISTINCT test_id FROM test_questions);
+
+-- Optional diagnostic check:
+-- SELECT
+--   t.id,
+--   t.title,
+--   t.questions_count AS stored_questions_count,
+--   COUNT(q.id) AS actual_questions_count
+-- FROM tests t
+-- LEFT JOIN test_questions q ON q.test_id = t.id
+-- GROUP BY t.id, t.title, t.questions_count
+-- ORDER BY t.id DESC;
