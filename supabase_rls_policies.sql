@@ -767,3 +767,37 @@ $$;
 
 REVOKE ALL ON FUNCTION public.qf_teacher_delete_test(integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.qf_teacher_delete_test(integer) TO authenticated;
+
+-- ── RPC: teacher test results (RLS-safe read) ──────────────────────────────
+CREATE OR REPLACE FUNCTION public.qf_teacher_test_results(p_test_id integer DEFAULT NULL)
+RETURNS TABLE (
+  test_id integer,
+  student_id uuid,
+  percentage numeric,
+  score integer,
+  status text,
+  started_at timestamptz,
+  completed_at timestamptz
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT
+    tr.test_id,
+    tr.student_id,
+    tr.percentage,
+    tr.score,
+    tr.status,
+    tr.started_at,
+    tr.completed_at
+  FROM test_results tr
+  INNER JOIN tests t ON t.id = tr.test_id
+  WHERE auth.uid() IS NOT NULL
+    AND t.teacher_id = auth.uid()
+    AND (p_test_id IS NULL OR tr.test_id = p_test_id);
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_teacher_test_results(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_teacher_test_results(integer) TO authenticated;

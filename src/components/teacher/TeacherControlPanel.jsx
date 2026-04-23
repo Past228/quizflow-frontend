@@ -162,18 +162,31 @@ export default function TeacherControlPanel({ session }) {
 
       const [assignmentsRes, attemptsRes] = await Promise.all([
         supabase.from('group_tests').select('test_id, group_id').in('test_id', testIds),
-        supabase
-          .from('test_results')
-          .select('test_id, student_id, percentage, score, status, started_at, completed_at')
-          .in('test_id', testIds)
-          .eq('status', 'completed'),
+        supabase.rpc('qf_teacher_test_results', { p_test_id: null }),
       ]);
 
       if (assignmentsRes.error) throw assignmentsRes.error;
-      if (attemptsRes.error) throw attemptsRes.error;
+      let attempts = [];
+      if (attemptsRes.error) {
+        const msg = String(attemptsRes.error.message || '');
+        const rpcMissing =
+          msg.includes('qf_teacher_test_results') ||
+          msg.includes('function') ||
+          msg.includes('does not exist') ||
+          attemptsRes.error.code === 'PGRST202';
+        if (!rpcMissing) throw attemptsRes.error;
+        const fallback = await supabase
+          .from('test_results')
+          .select('test_id, student_id, percentage, score, status, started_at, completed_at')
+          .in('test_id', testIds);
+        if (fallback.error) throw fallback.error;
+        attempts = fallback.data || [];
+      } else {
+        attempts = attemptsRes.data || [];
+      }
 
       const assignments = assignmentsRes.data || [];
-      const attempts = attemptsRes.data || [];
+      attempts = attempts.filter((row) => testIds.includes(row.test_id));
 
       const allGroupIds = [...new Set(assignments.map((a) => a.group_id).filter(Boolean))];
       const [groupsRes, studentsRes] = await Promise.all([
@@ -205,9 +218,12 @@ export default function TeacherControlPanel({ session }) {
         if (assignedStudentIds.size > 0) {
           testAttempts = testAttempts.filter((a) => assignedStudentIds.has(String(a.student_id)));
         }
+        const completedAttempts = testAttempts.filter(
+          (a) => a.status === 'completed' || !!a.completed_at
+        );
 
         const bestAttemptByStudent = {};
-        testAttempts.forEach((attempt) => {
+        completedAttempts.forEach((attempt) => {
           const key = String(attempt.student_id || '');
           if (!key) return;
           const pct =

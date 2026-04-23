@@ -95,6 +95,9 @@ const elements = {
     testsLoading: document.getElementById('testsLoading'),
     testsGrid: document.getElementById('testsGrid'),
     emptyTests: document.getElementById('emptyTests'),
+    studentResultsLoading: document.getElementById('studentResultsLoading'),
+    studentResultsGrid: document.getElementById('studentResultsGrid'),
+    studentResultsEmpty: document.getElementById('studentResultsEmpty'),
 
     // Inventory elements
     inventoryLoading: document.getElementById('inventoryLoading'),
@@ -343,6 +346,9 @@ window.addEventListener('message', function (event) {
         case 'INVENTORY_LOADED':
             handleInventoryLoaded(data.cosmetics, data.bonuses);
             break;
+        case 'STUDENT_RESULTS_LOADED':
+            handleStudentResultsLoaded(data.rows);
+            break;
 
         case 'ITEM_APPLIED':
             handleItemApplied(data.itemType, data.itemId);
@@ -476,6 +482,11 @@ function handleProfileLoaded(profile, role) {
             showEmptyTests();
         }
         sendMessageToParent({ type: 'LOAD_INVENTORY_REQUEST', data: { profileId: profile.id } });
+        showStudentResultsLoading();
+        sendMessageToParent({
+            type: 'LOAD_STUDENT_RESULTS_REQUEST',
+            data: { profileId: profile.id, groupId: profile.group_id || null }
+        });
     }
 }
 
@@ -598,6 +609,47 @@ function showEmptyTests() {
     elements.testsGrid.style.display = 'none';
     elements.testsLoading.style.display = 'none';
     elements.emptyTests.style.display = 'block';
+}
+
+function showStudentResultsLoading() {
+    if (!elements.studentResultsLoading || !elements.studentResultsGrid || !elements.studentResultsEmpty) return;
+    elements.studentResultsGrid.style.display = 'none';
+    elements.studentResultsEmpty.style.display = 'none';
+    elements.studentResultsLoading.style.display = 'flex';
+}
+
+function handleStudentResultsLoaded(rows) {
+    if (!elements.studentResultsLoading || !elements.studentResultsGrid || !elements.studentResultsEmpty) return;
+    const items = rows || [];
+    elements.studentResultsLoading.style.display = 'none';
+    if (items.length === 0) {
+        elements.studentResultsGrid.style.display = 'none';
+        elements.studentResultsEmpty.style.display = 'block';
+        return;
+    }
+    elements.studentResultsEmpty.style.display = 'none';
+    elements.studentResultsGrid.style.display = 'grid';
+
+    let html = '';
+    items.forEach((row) => {
+        const statusText = row.passed ? 'Пройден' : 'Не пройден';
+        const resultText = row.bestResult == null ? '—' : `${Number(row.bestResult).toFixed(1)}%`;
+        const durationText = row.durationSec == null ? '—' : formatDurationSec(row.durationSec);
+        html += `
+            <div class="test-card">
+                <div class="test-header">
+                    <div><h4 class="test-title">${escapeHtml(row.testTitle || 'Без названия')}</h4></div>
+                    <span class="test-status ${row.passed ? 'active' : 'inactive'}">${statusText}</span>
+                </div>
+                <div class="test-meta">
+                    <span>Попыток: ${row.attemptsUsed ?? 0}</span>
+                    <span>Результат: ${resultText}</span>
+                    <span>Время: ${durationText}</span>
+                </div>
+            </div>
+        `;
+    });
+    elements.studentResultsGrid.innerHTML = html;
 }
 
 function showAvatarModal() {
@@ -901,6 +953,14 @@ function handleTestDeleted(testId) {
 }
 
 // Helper functions
+function formatDurationSec(sec) {
+    const n = Number(sec);
+    if (!Number.isFinite(n) || n < 0) return '—';
+    const mins = Math.floor(n / 60);
+    const secs = Math.floor(n % 60);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
 function getRussianPlural(number) {
     if (number % 10 === 1 && number % 100 !== 11) {
         return '';

@@ -111,6 +111,9 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 case 'LOAD_INVENTORY_REQUEST':
                     await handleLoadInventory(data.profileId);
                     break;
+                case 'LOAD_STUDENT_RESULTS_REQUEST':
+                    await handleLoadStudentResults(data.profileId, data.groupId);
+                    break;
 
                 case 'APPLY_ITEM_REQUEST':
                     await handleApplyItem(data.itemType, data.itemId);
@@ -536,6 +539,89 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
         }
     };
 
+    const handleLoadStudentResults = async (profileId, groupId) => {
+        try {
+            if (!profileId) {
+                sendMessageToIframe({ type: 'STUDENT_RESULTS_LOADED', data: { rows: [] } });
+                return;
+            }
+
+            let assignedTestIds = [];
+            if (groupId) {
+                const { data: assignments, error: assErr } = await supabase
+                    .from('group_tests')
+                    .select('test_id')
+                    .eq('group_id', groupId);
+                if (assErr) throw assErr;
+                assignedTestIds = [...new Set((assignments || []).map((a) => a.test_id).filter(Boolean))];
+            }
+
+            const { data: results, error: resErr } = await supabase
+                .from('test_results')
+                .select('test_id, percentage, score, status, started_at, completed_at')
+                .eq('student_id', profileId);
+            if (resErr) throw resErr;
+
+            const resultTestIds = [...new Set((results || []).map((r) => r.test_id).filter(Boolean))];
+            const testIdsForList = [...new Set([...assignedTestIds, ...resultTestIds])];
+
+            let tests = [];
+            if (testIdsForList.length > 0) {
+                const { data: testsData, error: testsErr } = await supabase
+                    .from('tests')
+                    .select('id, title')
+                    .in('id', testIdsForList);
+                if (testsErr) throw testsErr;
+                tests = testsData || [];
+            }
+
+            const byTest = {};
+            (results || []).forEach((r) => {
+                const tid = r.test_id;
+                if (!tid) return;
+                if (!byTest[tid]) byTest[tid] = [];
+                byTest[tid].push(r);
+            });
+
+            const rows = (tests || []).map((test) => {
+                const attempts = (byTest[test.id] || []).filter((r) => r.status === 'completed' || !!r.completed_at);
+                let best = null;
+                attempts.forEach((r) => {
+                    const score = r.percentage != null ? Number(r.percentage) || 0 : Number(r.score) || 0;
+                    const bestScore =
+                        best == null
+                            ? -1
+                            : best.percentage != null
+                                ? Number(best.percentage) || 0
+                                : Number(best.score) || 0;
+                    if (best == null || score > bestScore) best = r;
+                });
+                const started = best?.started_at ? new Date(best.started_at).getTime() : null;
+                const completed = best?.completed_at ? new Date(best.completed_at).getTime() : null;
+                const durationSec =
+                    started && completed && completed >= started ? Math.round((completed - started) / 1000) : null;
+                return {
+                    testId: test.id,
+                    testTitle: test.title || 'Без названия',
+                    attemptsUsed: attempts.length,
+                    passed: !!best,
+                    bestResult:
+                        best?.percentage != null
+                            ? Number(best.percentage) || 0
+                            : best?.score != null
+                                ? Number(best.score) || 0
+                                : null,
+                    durationSec,
+                };
+            });
+
+            sendMessageToIframe({ type: 'STUDENT_RESULTS_LOADED', data: { rows } });
+        } catch (err) {
+            console.error('Student results loading error:', err);
+            sendMessageToIframe({ type: 'STUDENT_RESULTS_LOADED', data: { rows: [] } });
+        }
+    };
+
     const handleApplyItem = async (itemType, itemId) => {
         try {
             const patch = itemType === 'frame' ? { active_frame_id: itemId }
@@ -666,18 +752,33 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
 
             let attemptsData = [];
             if (studentIds.length > 0) {
-                const attRes = await supabase
-                    .from('test_results')
-                    .select('student_id, percentage, score, status, started_at, completed_at')
-                    .eq('test_id', testId)
-                    .in('student_id', studentIds)
-                    .eq('status', 'completed');
-                if (attRes.error) throw attRes.error;
-                attemptsData = attRes.data || [];
+                const attRes = await supabase.rpc('qf_teacher_test_results', {
+                    p_test_id: Number(testId),
+                });
+                if (attRes.error) {
+                    const msg = String(attRes.error.message || '');
+                    const rpcMissing =
+                        msg.includes('qf_teacher_test_results') ||
+                        msg.includes('function') ||
+                        msg.includes('does not exist') ||
+                        attRes.error.code === 'PGRST202';
+                    if (!rpcMissing) throw attRes.error;
+                    const fallback = await supabase
+                        .from('test_results')
+                        .select('student_id, percentage, score, status, started_at, completed_at')
+                        .eq('test_id', testId)
+                        .in('student_id', studentIds);
+                    if (fallback.error) throw fallback.error;
+                    attemptsData = fallback.data || [];
+                } else {
+                    attemptsData = (attRes.data || []).filter((row) => studentIds.includes(row.student_id));
+                }
             }
 
             const bestAttemptByStudent = {};
-            attemptsData.forEach((attempt) => {
+            attemptsData
+                .filter((attempt) => attempt.status === 'completed' || !!attempt.completed_at)
+                .forEach((attempt) => {
                 const sid = attempt.student_id;
                 if (!sid) return;
                 const pct =
@@ -690,7 +791,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 if (!prev || pct > prevPct) {
                     bestAttemptByStudent[sid] = attempt;
                 }
-            });
+                });
 
             const studentRows = profilesData
                 .map((student) => {
