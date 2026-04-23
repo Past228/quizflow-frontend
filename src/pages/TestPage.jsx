@@ -8,6 +8,11 @@ const QUESTION_TYPES = {
   multiple: 'multiple',
   matching: 'matching',
 };
+const BONUS_FIELDS = {
+  hint: 'bonus_hint_count',
+  skip: 'bonus_skip_count',
+  attempt: 'bonus_extra_attempt_count',
+};
 
 function detectQuestionType(options) {
   if (!options?.length) return QUESTION_TYPES.single;
@@ -45,6 +50,11 @@ export default function TestPage() {
   const [error, setError] = useState('');
   const [warning, setWarning] = useState('');
   const [result, setResult] = useState(null);
+  const [hiddenOptionIdsByQuestion, setHiddenOptionIdsByQuestion] = useState({});
+  const [bonusLoading, setBonusLoading] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [needsExtraAttempt, setNeedsExtraAttempt] = useState(false);
+  const [extraAttemptGranted, setExtraAttemptGranted] = useState(false);
   const startedAtRef = useRef(Date.now());
 
   useEffect(() => {
@@ -57,6 +67,7 @@ export default function TestPage() {
       setLoading(true);
       setError('');
       setWarning('');
+      setNeedsExtraAttempt(false);
       try {
         const { data: testData, error: testError } = await supabase
           .from('tests')
@@ -87,8 +98,20 @@ export default function TestPage() {
           .eq('status', 'completed');
         if (completedError) throw completedError;
         const attemptsUsed = completed?.length || 0;
-        if (attemptsUsed >= (testData.attempts_allowed || 1)) {
-          throw new Error('Вы исчерпали лимит попыток для этого теста.');
+        const baseAttempts = testData.attempts_allowed || 1;
+        const extraAttempts = profile?.bonus_extra_attempt_count || 0;
+        if (attemptsUsed >= baseAttempts) {
+          if (extraAttemptGranted) {
+            setExtraAttemptGranted(false);
+          } else {
+            if (extraAttempts > 0) {
+              setNeedsExtraAttempt(true);
+              setTestMeta(testData);
+              setQuestions([]);
+              return;
+            }
+            throw new Error('Вы исчерпали лимит попыток для этого теста.');
+          }
         }
 
         const { data: activeQuestions, error: questionError } = await supabase
@@ -136,6 +159,7 @@ export default function TestPage() {
           setAnswers({});
           setIndex(0);
           setResult(null);
+          setHiddenOptionIdsByQuestion({});
           setTimeLeft((testData.time_limit_minutes || 20) * 60);
           startedAtRef.current = Date.now();
         }
@@ -151,7 +175,7 @@ export default function TestPage() {
     return () => {
       cancelled = true;
     };
-  }, [testId, profile?.id, profile?.group_id]);
+  }, [testId, profile?.id, profile?.group_id, profile?.bonus_extra_attempt_count, retryNonce, extraAttemptGranted]);
 
   useEffect(() => {
     if (loading || result) return undefined;
@@ -168,6 +192,14 @@ export default function TestPage() {
   const title = testMeta?.title ? `ТЕСТ: ${testMeta.title}` : 'ТЕСТ';
   const currentQuestion = questions[index];
   const progressPct = questions.length > 0 ? ((index + 1) / questions.length) * 100 : 0;
+  const hintCount = profile?.bonus_hint_count || 0;
+  const skipCount = profile?.bonus_skip_count || 0;
+  const extraAttemptCount = profile?.bonus_extra_attempt_count || 0;
+  const hiddenSet = new Set(currentQuestion ? (hiddenOptionIdsByQuestion[currentQuestion.id] || []) : []);
+  const visibleOptions =
+    currentQuestion?.type && currentQuestion.type !== QUESTION_TYPES.matching
+      ? currentQuestion.options.filter((o) => !hiddenSet.has(o.id))
+      : currentQuestion?.options || [];
 
   const clock = useMemo(() => {
     const m = Math.floor(timeLeft / 60);
@@ -193,6 +225,97 @@ export default function TestPage() {
       ...prev,
       [questionId]: { ...(prev[questionId] || {}), [optionId]: value },
     }));
+  };
+
+  const consumeBonus = async (bonusKey) => {
+    const field = BONUS_FIELDS[bonusKey];
+    if (!field || !profile?.id) return false;
+    setBonusLoading(bonusKey);
+    try {
+      const { data: latestProfile, error: pErr } = await supabase
+        .from('profiles')
+        .select(field)
+        .eq('id', profile.id)
+        .single();
+      if (pErr) throw pErr;
+      const current = latestProfile?.[field] || 0;
+      if (current <= 0) {
+        setWarning('Этот бонус закончился.');
+        return false;
+      }
+      const { error: updErr } = await supabase
+        .from('profiles')
+        .update({ [field]: current - 1 })
+        .eq('id', profile.id);
+      if (updErr) throw updErr;
+      await refreshProfile();
+      return true;
+    } catch (err) {
+      setWarning(err.message || 'Не удалось применить бонус.');
+      return false;
+    } finally {
+      setBonusLoading('');
+    }
+  };
+
+  const handleUseHint = async () => {
+    if (!currentQuestion || result) return;
+    const applied = await consumeBonus('hint');
+    if (!applied) return;
+
+    if (currentQuestion.type === QUESTION_TYPES.matching) {
+      const unresolved = currentQuestion.options.find(
+        (o) => !String((answers[currentQuestion.id] || {})[o.id] || '').trim()
+      );
+      if (!unresolved) {
+        setWarning('Для этого вопроса уже все заполнено.');
+        return;
+      }
+      setMatchingAnswer(currentQuestion.id, unresolved.id, unresolved.explanation || '');
+      setWarning('Подсказка использована: заполнена одна пара.');
+      return;
+    }
+
+    const hidden = new Set(hiddenOptionIdsByQuestion[currentQuestion.id] || []);
+    const wrongOption = currentQuestion.options.find((o) => !o.is_correct && !hidden.has(o.id));
+    if (!wrongOption) {
+      setWarning('Для этого вопроса больше нет доступных подсказок.');
+      return;
+    }
+    setHiddenOptionIdsByQuestion((prev) => ({
+      ...prev,
+      [currentQuestion.id]: [...(prev[currentQuestion.id] || []), wrongOption.id],
+    }));
+    setAnswers((prev) => {
+      if (currentQuestion.type === QUESTION_TYPES.single) {
+        return prev[currentQuestion.id] === wrongOption.id
+          ? { ...prev, [currentQuestion.id]: null }
+          : prev;
+      }
+      const arr = Array.isArray(prev[currentQuestion.id]) ? prev[currentQuestion.id] : [];
+      return { ...prev, [currentQuestion.id]: arr.filter((id) => id !== wrongOption.id) };
+    });
+    setWarning('Подсказка использована: один неверный вариант скрыт.');
+  };
+
+  const handleSkipQuestion = async () => {
+    if (!currentQuestion || result) return;
+    const applied = await consumeBonus('skip');
+    if (!applied) return;
+    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: null }));
+    if (index < questions.length - 1) {
+      setIndex((prev) => prev + 1);
+    } else {
+      await handleSubmit();
+    }
+  };
+
+  const handleUseExtraAttempt = async () => {
+    const applied = await consumeBonus('attempt');
+    if (!applied) return;
+    setNeedsExtraAttempt(false);
+    setExtraAttemptGranted(true);
+    setRetryNonce((v) => v + 1);
   };
 
   const evaluateQuestion = (question) => {
@@ -347,6 +470,36 @@ export default function TestPage() {
     );
   }
 
+  if (needsExtraAttempt && !result) {
+    return (
+      <div className="student-page-wrap">
+        <div className="student-page student-page--wide">
+          <div className="student-card" style={{ padding: 24, display: 'grid', gap: 12 }}>
+            <h2 style={{ margin: 0, fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)' }}>
+              Лимит попыток исчерпан
+            </h2>
+            <p style={{ margin: 0, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>
+              У вас есть бонус "Доп. попытка". Использовать его для запуска теста?
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="qf-btn-primary"
+                onClick={handleUseExtraAttempt}
+                disabled={bonusLoading === 'attempt'}
+              >
+                {bonusLoading === 'attempt' ? 'Применение…' : 'Использовать доп. попытку'}
+              </button>
+              <button type="button" className="qf-btn-primary" onClick={() => navigate('/catalog')}>
+                К каталогу
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="student-page-wrap">
       <div className="student-page student-page--wide" style={{ maxWidth: 'min(100%, 1200px)' }}>
@@ -363,8 +516,13 @@ export default function TestPage() {
           <h1 className="student-page-title" style={{ margin: 0, letterSpacing: '0.06em' }}>
             {title}
           </h1>
-          <div style={{ color: 'var(--qf-dark-blue)', fontWeight: 700, fontFamily: 'var(--qf-font)' }}>
-            Вопросов: {questions.length}
+          <div style={{ display: 'grid', gap: 4 }}>
+            <div style={{ color: 'var(--qf-dark-blue)', fontWeight: 700, fontFamily: 'var(--qf-font)' }}>
+              Вопросов: {questions.length}
+            </div>
+            <div style={{ color: 'var(--qf-text-muted)', fontSize: 13, fontFamily: 'var(--qf-font)' }}>
+              💡 {hintCount} • ⏭ {skipCount} • ↻ {extraAttemptCount}
+            </div>
           </div>
         </header>
 
@@ -437,6 +595,31 @@ export default function TestPage() {
                 >
                   {currentQuestion?.question_text}
                 </p>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+                  <button
+                    type="button"
+                    className="qf-btn-primary"
+                    style={{ padding: '8px 12px', fontSize: 14 }}
+                    disabled={hintCount <= 0 || !!bonusLoading}
+                    onClick={handleUseHint}
+                  >
+                    {bonusLoading === 'hint' ? 'Подсказка…' : `Подсказка (${hintCount})`}
+                  </button>
+                  <button
+                    type="button"
+                    className="qf-btn-primary"
+                    style={{ padding: '8px 12px', fontSize: 14, background: '#6b7280' }}
+                    disabled={skipCount <= 0 || !!bonusLoading}
+                    onClick={handleSkipQuestion}
+                  >
+                    {bonusLoading === 'skip' ? 'Пропуск…' : `Пропуск (${skipCount})`}
+                  </button>
+                </div>
+                {warning && (
+                  <p style={{ margin: '0 0 12px', color: '#b45309', fontFamily: 'var(--qf-font)', fontWeight: 600 }}>
+                    {warning}
+                  </p>
+                )}
 
                 {currentQuestion?.type !== QUESTION_TYPES.matching && (
                   <div
@@ -446,7 +629,7 @@ export default function TestPage() {
                       gap: 14,
                     }}
                   >
-                    {currentQuestion.options.map((option) => {
+                    {visibleOptions.map((option) => {
                       const selectedSingle = answers[currentQuestion.id] === option.id;
                       const selectedMulti = (answers[currentQuestion.id] || []).includes(option.id);
                       const isSel = currentQuestion.type === QUESTION_TYPES.single ? selectedSingle : selectedMulti;

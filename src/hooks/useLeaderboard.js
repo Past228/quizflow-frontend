@@ -95,14 +95,13 @@ export function useLeaderboard(currentGroupId) {
         });
 
         if (!cancelled) {
+          const groupOnly = currentGroupId
+            ? ranked
+                .filter((r) => String(r.groupId ?? '') === String(currentGroupId ?? ''))
+                .map((row, idx) => ({ ...row, rank: idx + 1 }))
+            : [];
           setAll(ranked);
-          setGroupRanking(
-            currentGroupId
-              ? ranked.filter(
-                  (r) => String(r.groupId ?? '') === String(currentGroupId ?? '')
-                )
-              : []
-          );
+          setGroupRanking(groupOnly);
         }
       } catch (err) {
         console.error('useLeaderboard error:', err);
