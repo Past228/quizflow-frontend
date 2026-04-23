@@ -1,7 +1,9 @@
-name: Vercel Production Deploymenton:
+name: Vercel Production Deployment
+on:
   push:
     branches:
-      - main  # или master, смотря какая у вас веткаjobs:
+      - main
+jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
