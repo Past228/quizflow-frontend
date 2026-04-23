@@ -261,6 +261,13 @@ export default function TestPage() {
     setSubmitting(true);
     setWarning('');
     try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      const sessionUserId = userData?.user?.id;
+      if (!sessionUserId) {
+        throw new Error('Сессия истекла. Войдите в аккаунт снова.');
+      }
+
       const evaluations = questions.map((q) => evaluateQuestion(q));
       const points = evaluations.reduce((s, v) => s + v.points, 0);
       const maxPoints = evaluations.reduce((s, v) => s + v.maxPoints, 0) || 1;
@@ -276,7 +283,7 @@ export default function TestPage() {
         .from('test_results')
         .insert({
           test_id: testMeta.id,
-          student_id: profile.id,
+          student_id: sessionUserId,
           score,
           max_score: 100,
           percentage: roundedPercentage,
@@ -311,20 +318,25 @@ export default function TestPage() {
       const { data: latestProfile, error: latestProfileError } = await supabase
         .from('profiles')
         .select('sp_coins')
-        .eq('id', profile.id)
+        .eq('id', sessionUserId)
         .single();
       if (latestProfileError) throw latestProfileError;
       const currentCoins = latestProfile?.sp_coins || 0;
       const { error: coinsError } = await supabase
         .from('profiles')
         .update({ sp_coins: currentCoins + earnedCoins })
-        .eq('id', profile.id);
+        .eq('id', sessionUserId);
       if (coinsError) throw coinsError;
 
       await refreshProfile();
       setResult({ score, percentage: roundedPercentage, earnedCoins });
     } catch (err) {
-      setError(err.message || 'Не удалось сохранить результат теста.');
+      const msg = String(err?.message || '');
+      if (msg.includes('row-level security') || msg.includes('violates row-level security policy')) {
+        setError('Нет прав на сохранение результата теста (RLS). Примените SQL-политики и повторите.');
+      } else {
+        setError(err.message || 'Не удалось сохранить результат теста.');
+      }
     } finally {
       setSubmitting(false);
     }
