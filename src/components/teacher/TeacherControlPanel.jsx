@@ -41,6 +41,14 @@ function createTestDraft() {
   };
 }
 
+function formatDuration(seconds) {
+  const safe = Number(seconds);
+  if (!Number.isFinite(safe) || safe < 0) return '—';
+  const mins = Math.floor(safe / 60);
+  const secs = Math.floor(safe % 60);
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
 export default function TeacherControlPanel({ session }) {
   const [tests, setTests] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -147,7 +155,11 @@ export default function TeacherControlPanel({ session }) {
 
       const [assignmentsRes, attemptsRes] = await Promise.all([
         supabase.from('group_tests').select('test_id, group_id').in('test_id', testIds),
-        supabase.from('test_results').select('test_id, student_id, percentage, status').in('test_id', testIds),
+        supabase
+          .from('test_results')
+          .select('test_id, student_id, percentage, score, status, started_at, completed_at')
+          .in('test_id', testIds)
+          .eq('status', 'completed'),
       ]);
 
       if (assignmentsRes.error) throw assignmentsRes.error;
@@ -156,22 +168,102 @@ export default function TeacherControlPanel({ session }) {
       const assignments = assignmentsRes.data || [];
       const attempts = attemptsRes.data || [];
 
+      const allGroupIds = [...new Set(assignments.map((a) => a.group_id).filter(Boolean))];
+      const [groupsRes, studentsRes] = await Promise.all([
+        allGroupIds.length > 0
+          ? supabase
+              .from('student_groups')
+              .select('id, group_number, courses(course_number, buildings(name))')
+              .in('id', allGroupIds)
+          : Promise.resolve({ data: [] }),
+        allGroupIds.length > 0
+          ? supabase
+              .from('profiles')
+              .select('id, first_name, last_name, email, group_id')
+              .in('group_id', allGroupIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+      if (groupsRes.error) throw groupsRes.error;
+      if (studentsRes.error) throw studentsRes.error;
+
+      const groupsMap = Object.fromEntries((groupsRes.data || []).map((g) => [String(g.id), g]));
+      const students = studentsRes.data || [];
+
       const rows = tests.map((test) => {
         const testAssignments = assignments.filter((a) => a.test_id === test.id);
-        const testAttempts = attempts.filter((a) => a.test_id === test.id);
-        const completedAttempts = testAttempts.filter((a) => a.status === 'completed');
-        const uniqueStudents = new Set(testAttempts.map((a) => a.student_id).filter(Boolean)).size;
-        const scored = completedAttempts.filter((a) => a.percentage != null).map((a) => Number(a.percentage));
-        const avgScore = scored.length > 0 ? scored.reduce((sum, value) => sum + value, 0) / scored.length : null;
+        const assignedGroupIdsForTest = [...new Set(testAssignments.map((a) => String(a.group_id)).filter(Boolean))];
+        const assignedStudents = students.filter((s) => assignedGroupIdsForTest.includes(String(s.group_id)));
+        const assignedStudentIds = assignedStudents.map((s) => s.id);
+        const testAttempts = attempts.filter(
+          (a) => a.test_id === test.id && assignedStudentIds.includes(a.student_id)
+        );
+
+        const bestAttemptByStudent = {};
+        testAttempts.forEach((attempt) => {
+          const key = attempt.student_id;
+          if (!key) return;
+          const pct =
+            attempt.percentage != null
+              ? Number(attempt.percentage) || 0
+              : Number(attempt.score) || 0;
+          const prev = bestAttemptByStudent[key];
+          const prevPct =
+            prev?.percentage != null ? Number(prev.percentage) || 0 : Number(prev?.score) || 0;
+          if (!prev || pct > prevPct) {
+            bestAttemptByStudent[key] = attempt;
+          }
+        });
+
+        const studentRows = assignedStudents
+          .map((student) => {
+            const best = bestAttemptByStudent[student.id] || null;
+            const started = best?.started_at ? new Date(best.started_at).getTime() : null;
+            const completed = best?.completed_at ? new Date(best.completed_at).getTime() : null;
+            const durationSeconds =
+              started && completed && completed >= started ? Math.round((completed - started) / 1000) : null;
+            const groupMeta = groupsMap[String(student.group_id)];
+            const groupTitle = groupMeta
+              ? `Группа ${groupMeta.group_number}${
+                  groupMeta.courses
+                    ? ` (${groupMeta.courses.course_number} курс${
+                        groupMeta.courses.buildings?.name ? `, ${groupMeta.courses.buildings.name}` : ''
+                      })`
+                    : ''
+                }`
+              : 'Группа не указана';
+            return {
+              studentId: student.id,
+              studentName:
+                [student.last_name, student.first_name].filter(Boolean).join(' ').trim() ||
+                student.email ||
+                'Студент',
+              groupTitle,
+              passed: !!best,
+              percentage:
+                best?.percentage != null
+                  ? Number(best.percentage) || 0
+                  : best?.score != null
+                    ? Number(best.score) || 0
+                    : null,
+              durationSeconds,
+            };
+          })
+          .sort((a, b) => Number(b.percentage || -1) - Number(a.percentage || -1));
+
+        const passedRows = studentRows.filter((row) => row.passed && row.percentage != null);
+        const avgScore =
+          passedRows.length > 0
+            ? passedRows.reduce((sum, row) => sum + Number(row.percentage || 0), 0) / passedRows.length
+            : null;
 
         return {
           testId: test.id,
           testTitle: test.title || 'Без названия',
-          assignedGroups: new Set(testAssignments.map((a) => a.group_id).filter(Boolean)).size,
-          attemptsTotal: testAttempts.length,
-          completedTotal: completedAttempts.length,
-          uniqueStudents,
+          assignedGroups: assignedGroupIdsForTest.length,
+          assignedStudentsTotal: assignedStudents.length,
+          passedStudentsTotal: studentRows.filter((row) => row.passed).length,
           avgScore,
+          studentRows,
         };
       });
 
@@ -433,15 +525,28 @@ export default function TeacherControlPanel({ session }) {
   const handleDelete = async (id) => {
     if (!confirm('Удалить этот тест?')) return;
     try {
-      const { error } = await supabase.from('tests').delete().eq('id', id).eq('teacher_id', session.user.id);
-      if (error) throw error;
+      const { error: rpcError } = await supabase.rpc('qf_teacher_delete_test', {
+        p_test_id: Number(id),
+      });
+      if (rpcError) {
+        const msg = String(rpcError.message || '');
+        const rpcMissing =
+          msg.includes('qf_teacher_delete_test') ||
+          msg.includes('function') ||
+          msg.includes('does not exist') ||
+          rpcError.code === 'PGRST202';
+        if (!rpcMissing) throw rpcError;
+        const { error } = await supabase.from('tests').delete().eq('id', id).eq('teacher_id', session.user.id);
+        if (error) throw error;
+      }
       if (selectedTestId === String(id)) {
         setSelectedTestId('');
         setAssignedGroupIds([]);
         setSelectedGroupIds([]);
       }
       setNotice({ type: 'success', text: 'Тест удален.' });
-      loadTests();
+      await loadTests();
+      if (view === 'results') await loadResults();
     } catch (err) {
       setNotice({ type: 'error', text: 'Ошибка удаления теста: ' + err.message });
     }
@@ -818,10 +923,40 @@ export default function TeacherControlPanel({ session }) {
                       Групп назначено: {row.assignedGroups}
                     </div>
                     <div style={{ fontSize: 14, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>
-                      Попыток: {row.attemptsTotal} • Завершено: {row.completedTotal} • Учеников: {row.uniqueStudents}
+                      Студентов назначено: {row.assignedStudentsTotal} • Прошли тест: {row.passedStudentsTotal}
                     </div>
                     <div style={{ fontSize: 14, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>
                       Средний балл: {row.avgScore == null ? '—' : `${Math.round(row.avgScore * 10) / 10}%`}
+                    </div>
+                    <div style={{ overflowX: 'auto', marginTop: 6 }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--qf-accent-border-soft)' }}>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>Студент</th>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>Группа</th>
+                            <th style={{ textAlign: 'center', padding: '6px 4px' }}>Статус</th>
+                            <th style={{ textAlign: 'center', padding: '6px 4px' }}>Результат</th>
+                            <th style={{ textAlign: 'center', padding: '6px 4px' }}>Время</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {row.studentRows.map((student) => (
+                            <tr key={student.studentId} style={{ borderBottom: '1px solid rgba(229,231,235,0.6)' }}>
+                              <td style={{ padding: '6px 4px' }}>{student.studentName}</td>
+                              <td style={{ padding: '6px 4px', color: 'var(--qf-text-muted)' }}>{student.groupTitle}</td>
+                              <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                                {student.passed ? 'Пройден' : 'Не пройден'}
+                              </td>
+                              <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                                {student.percentage == null ? '—' : `${Math.round(student.percentage * 10) / 10}%`}
+                              </td>
+                              <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                                {formatDuration(student.durationSeconds)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 ))}

@@ -713,6 +713,7 @@ function updateStudentTestsUI(tests) {
     tests.forEach(test => {
         const questionsCount = test.questions_count || 'Не указано';
         const timeLimit = test.time_limit_minutes ? `${test.time_limit_minutes} мин` : 'Не ограничено';
+        const attemptsAllowed = test.attempts_allowed || 1;
 
         const card = document.createElement('div');
         card.className = 'test-card';
@@ -746,8 +747,12 @@ function updateStudentTestsUI(tests) {
         const limitEl = document.createElement('span');
         limitEl.textContent = `Лимит: ${timeLimit}`;
 
+        const attemptsEl = document.createElement('span');
+        attemptsEl.textContent = `Попыток: ${attemptsAllowed}`;
+
         metaEl.appendChild(qEl);
         metaEl.appendChild(limitEl);
+        metaEl.appendChild(attemptsEl);
 
         const startBtn = document.createElement('button');
         startBtn.className = 'start-test-btn';
@@ -883,7 +888,7 @@ function handleDeleteTest(testId) {
 
 function handleTestDeleted(testId) {
     // Удаляем тест из состояния
-    state.teacherTests = state.teacherTests.filter(test => test.id !== testId);
+    state.teacherTests = state.teacherTests.filter(test => String(test.id) !== String(testId));
 
     // Обновляем UI
     updateTeacherTestsUI(state.teacherTests);
@@ -1264,12 +1269,16 @@ function handleStatsByTestLoaded(stats) {
     const div = document.getElementById('statsTestResult');
     if (!div) return;
 
-    if (!stats || !stats.rows) {
+    if (!stats) {
         div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет данных по этому тесту.</p>';
         return;
     }
 
-    if (stats.rows.length === 0) {
+    const studentRows = Array.isArray(stats.studentRows) ? stats.studentRows : [];
+    const groupRows = Array.isArray(stats.groupRows) ? stats.groupRows : [];
+    const summary = stats.summary || {};
+
+    if (studentRows.length === 0) {
         div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет назначенных групп или данных по этому тесту.</p>';
         return;
     }
@@ -1281,31 +1290,73 @@ function handleStatsByTestLoaded(stats) {
     let html =
         title +
         `
-        <div style="overflow-x:auto; margin-top:8px;">
+        <div style="display:flex; gap:16px; flex-wrap:wrap; margin:8px 0 14px;">
+            <span style="padding:6px 10px; border-radius:999px; background:#eef2ff; color:#3730a3; font-size:13px; font-weight:600;">
+                Назначено студентов: ${summary.assignedStudents ?? studentRows.length}
+            </span>
+            <span style="padding:6px 10px; border-radius:999px; background:#ecfdf5; color:#065f46; font-size:13px; font-weight:600;">
+                Прошли тест: ${summary.passedStudents ?? studentRows.filter(s => s.passed).length}
+            </span>
+            <span style="padding:6px 10px; border-radius:999px; background:#fff7ed; color:#9a3412; font-size:13px; font-weight:600;">
+                Средний балл: ${summary.avgScore != null ? Number(summary.avgScore).toFixed(1) + '%' : '—'}
+            </span>
+        </div>
+        <div style="overflow-x:auto; margin-top:8px; margin-bottom:14px;">
             <table style="width:100%; border-collapse:collapse; font-size:14px; font-family:inherit;">
                 <thead>
                     <tr style="border-bottom:2px solid #e5e7eb;">
+                        <th style="text-align:left; padding:10px 12px; font-weight:700; color:#374151;">Студент</th>
                         <th style="text-align:left; padding:10px 12px; font-weight:700; color:#374151;">Группа</th>
-                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Прошли (чел.)</th>
-                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Средний балл</th>
-                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Завершено попыток</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Статус</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Результат</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Время</th>
                     </tr>
                 </thead>
                 <tbody>
     `;
 
-    stats.rows.forEach((row) => {
+    studentRows.forEach((row) => {
         html += `
             <tr style="border-bottom:1px solid #f3f4f6;">
-                <td style="padding:10px 12px; color:#111827; font-weight:500;">${escapeHtml(row.groupTitle || '—')}</td>
-                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.peoplePassed ?? 0}</td>
-                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.avgScore != null ? row.avgScore.toFixed(1) + '%' : '—'}</td>
-                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.completedAttempts ?? 0}</td>
+                <td style="padding:10px 12px; color:#111827; font-weight:500;">${escapeHtml(row.studentName || '—')}</td>
+                <td style="padding:10px 12px; color:#6b7280;">${escapeHtml(row.groupTitle || '—')}</td>
+                <td style="text-align:center; padding:10px 12px; color:${row.passed ? '#166534' : '#6b7280'};">${row.passed ? 'Пройден' : 'Не пройден'}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.score != null ? Number(row.score).toFixed(1) + '%' : '—'}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${escapeHtml(row.duration || '—')}</td>
             </tr>
         `;
     });
 
     html += '</tbody></table></div>';
+
+    if (groupRows.length > 0) {
+        html += `
+        <div style="overflow-x:auto; margin-top:8px;">
+            <table style="width:100%; border-collapse:collapse; font-size:14px; font-family:inherit;">
+                <thead>
+                    <tr style="border-bottom:2px solid #e5e7eb;">
+                        <th style="text-align:left; padding:10px 12px; font-weight:700; color:#374151;">Группа</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Назначено (чел.)</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Прошли (чел.)</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Средний балл</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    groupRows.forEach((row) => {
+        html += `
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:10px 12px; color:#111827; font-weight:500;">${escapeHtml(row.groupTitle || '—')}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.assignedStudents ?? 0}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.peoplePassed ?? 0}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.avgScore != null ? row.avgScore.toFixed(1) + '%' : '—'}</td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table></div>';
+    }
     div.innerHTML = html;
 }
 

@@ -286,7 +286,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 // Step 2 — fetch only active tests whose ids match
                 const { data: testsData, error: testsError } = await supabase
                     .from('tests')
-                    .select('id, title, description, time_limit_minutes, questions_count')
+                    .select('id, title, description, time_limit_minutes, questions_count, attempts_allowed')
                     .in('id', testIds)
                     .eq('is_active', true);
 
@@ -376,18 +376,31 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
 
     const handleDeleteTest = async (testId) => {
         try {
-            const { error } = await supabase
-                .from('tests')
-                .delete()
-                .eq('id', testId)
-                .eq('teacher_id', session.user.id);
-
-            if (error) throw error;
+            const { error: rpcError } = await supabase.rpc('qf_teacher_delete_test', {
+                p_test_id: Number(testId),
+            });
+            if (rpcError) {
+                const msg = String(rpcError.message || '');
+                const rpcMissing =
+                    msg.includes('qf_teacher_delete_test') ||
+                    msg.includes('function') ||
+                    msg.includes('does not exist') ||
+                    rpcError.code === 'PGRST202';
+                if (!rpcMissing) throw rpcError;
+                const { error } = await supabase
+                    .from('tests')
+                    .delete()
+                    .eq('id', testId)
+                    .eq('teacher_id', session.user.id);
+                if (error) throw error;
+            }
 
             sendMessageToIframe({
                 type: 'TEST_DELETED',
                 data: { testId }
             });
+
+            await handleLoadTeacherData(session.user.id);
 
         } catch (error) {
             console.error('Test deletion error:', error);
@@ -626,7 +639,6 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 if (gm.error) throw gm.error;
                 groupsMeta = gm.data || [];
             }
-
             const metaMap = {};
             groupsMeta.forEach((g) => {
                 metaMap[g.id] = g;
@@ -641,48 +653,93 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 return `${gn} (${c.course_number} курс${b ? ', ' + b : ''})`;
             };
 
-            let attemptsData = [];
-            const attRes = await supabase
-                .from('test_results')
-                .select('student_id, percentage, status')
-                .eq('test_id', testId);
-            if (attRes.error) throw attRes.error;
-            attemptsData = attRes.data || [];
-
             let profilesData = [];
             if (groupIds.length > 0) {
-                const pr = await supabase.from('profiles').select('id, group_id').in('group_id', groupIds);
+                const pr = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name, email, group_id')
+                    .in('group_id', groupIds);
                 if (pr.error) throw pr.error;
                 profilesData = pr.data || [];
             }
+            const studentIds = profilesData.map((p) => p.id);
 
-            const groupToUsers = {};
-            profilesData.forEach((p) => {
-                if (!p.group_id) return;
-                if (!groupToUsers[p.group_id]) groupToUsers[p.group_id] = [];
-                groupToUsers[p.group_id].push(p.id);
+            let attemptsData = [];
+            if (studentIds.length > 0) {
+                const attRes = await supabase
+                    .from('test_results')
+                    .select('student_id, percentage, score, status, started_at, completed_at')
+                    .eq('test_id', testId)
+                    .in('student_id', studentIds)
+                    .eq('status', 'completed');
+                if (attRes.error) throw attRes.error;
+                attemptsData = attRes.data || [];
+            }
+
+            const bestAttemptByStudent = {};
+            attemptsData.forEach((attempt) => {
+                const sid = attempt.student_id;
+                if (!sid) return;
+                const pct =
+                    attempt.percentage != null
+                        ? Number(attempt.percentage) || 0
+                        : Number(attempt.score) || 0;
+                const prev = bestAttemptByStudent[sid];
+                const prevPct =
+                    prev?.percentage != null ? Number(prev.percentage) || 0 : Number(prev?.score) || 0;
+                if (!prev || pct > prevPct) {
+                    bestAttemptByStudent[sid] = attempt;
+                }
             });
 
-            const rows = groupIds.map((gid) => {
-                const uids = groupToUsers[gid] || [];
-                const rel = attemptsData.filter((a) => uids.includes(a.student_id));
-                const completed = rel.filter((a) => a.status === 'completed');
-                const peoplePassed = new Set(completed.map((a) => a.student_id)).size;
-                const scores = completed.filter((a) => a.percentage != null).map((a) => Number(a.percentage));
-                const avgScore =
-                    scores.length > 0 ? scores.reduce((s, v) => s + v, 0) / scores.length : null;
-                const completedAttempts = completed.length;
+            const studentRows = profilesData
+                .map((student) => {
+                    const best = bestAttemptByStudent[student.id] || null;
+                    const started = best?.started_at ? new Date(best.started_at).getTime() : null;
+                    const completed = best?.completed_at ? new Date(best.completed_at).getTime() : null;
+                    const durationSec =
+                        started && completed && completed >= started
+                            ? Math.round((completed - started) / 1000)
+                            : null;
+                    const score =
+                        best?.percentage != null
+                            ? Number(best.percentage) || 0
+                            : best?.score != null
+                                ? Number(best.score) || 0
+                                : null;
+                    return {
+                        studentId: student.id,
+                        studentName: displayNameFromProfile(student),
+                        groupTitle: groupTitle(metaMap[student.group_id]),
+                        passed: !!best,
+                        score,
+                        duration: formatDurationSec(durationSec),
+                    };
+                })
+                .sort((a, b) => Number(b.score ?? -1) - Number(a.score ?? -1));
+
+            const groupRows = groupIds.map((gid) => {
+                const rows = studentRows.filter((row) => String(profilesData.find((p) => p.id === row.studentId)?.group_id) === String(gid));
+                const passed = rows.filter((r) => r.passed && r.score != null);
+                const avgScore = passed.length > 0 ? passed.reduce((s, r) => s + Number(r.score || 0), 0) / passed.length : null;
                 return {
                     groupTitle: groupTitle(metaMap[gid]),
-                    peoplePassed,
+                    assignedStudents: rows.length,
+                    peoplePassed: passed.length,
                     avgScore,
-                    completedAttempts,
                 };
             });
 
+            const passedRows = studentRows.filter((r) => r.passed && r.score != null);
+            const summary = {
+                assignedStudents: studentRows.length,
+                passedStudents: passedRows.length,
+                avgScore: passedRows.length > 0 ? passedRows.reduce((s, r) => s + Number(r.score || 0), 0) / passedRows.length : null,
+            };
+
             sendMessageToIframe({
                 type: 'STATS_BY_TEST_LOADED',
-                data: { stats: { testTitle: testRow.title, rows } },
+                data: { stats: { testTitle: testRow.title, summary, groupRows, studentRows } },
             });
         } catch (err) {
             console.error('Stats by test error:', err);

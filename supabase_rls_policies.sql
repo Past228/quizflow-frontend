@@ -716,3 +716,54 @@ $$;
 
 REVOKE ALL ON FUNCTION public.qf_consume_bonus(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.qf_consume_bonus(text) TO authenticated;
+
+-- ── RPC: teacher deletes own test with dependencies ────────────────────────
+CREATE OR REPLACE FUNCTION public.qf_teacher_delete_test(p_test_id integer)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM tests t
+    WHERE t.id = p_test_id
+      AND t.teacher_id = v_uid
+  ) THEN
+    RAISE EXCEPTION 'Тест не найден или нет доступа на удаление';
+  END IF;
+
+  DELETE FROM user_question_responses uqr
+  USING test_results tr
+  WHERE uqr.test_result_id = tr.id
+    AND tr.test_id = p_test_id;
+
+  DELETE FROM test_results
+  WHERE test_id = p_test_id;
+
+  DELETE FROM test_question_options tqo
+  USING test_questions tq
+  WHERE tqo.question_id = tq.id
+    AND tq.test_id = p_test_id;
+
+  DELETE FROM test_questions
+  WHERE test_id = p_test_id;
+
+  DELETE FROM group_tests
+  WHERE test_id = p_test_id;
+
+  DELETE FROM tests
+  WHERE id = p_test_id
+    AND teacher_id = v_uid;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_teacher_delete_test(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_teacher_delete_test(integer) TO authenticated;
