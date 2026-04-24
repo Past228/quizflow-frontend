@@ -551,9 +551,37 @@ DECLARE
   v_curr_coins integer;
   v_points integer := 0;
   v_completed_tests integer := 0;
+  v_attempts_limit integer := 1;
+  v_attempts_used integer := 0;
+  v_extra_granted integer := 0;
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT COALESCE(t.attempts_allowed, 1)
+  INTO v_attempts_limit
+  FROM tests t
+  WHERE t.id = p_test_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Тест не найден';
+  END IF;
+
+  SELECT COUNT(*)::int
+  INTO v_attempts_used
+  FROM test_results tr
+  WHERE tr.test_id = p_test_id
+    AND tr.student_id = v_uid
+    AND tr.status = 'completed';
+
+  SELECT COALESCE(tea.granted_count, 0)
+  INTO v_extra_granted
+  FROM test_extra_attempts tea
+  WHERE tea.test_id = p_test_id
+    AND tea.student_id = v_uid;
+
+  IF v_attempts_used >= (v_attempts_limit + COALESCE(v_extra_granted, 0)) THEN
+    RAISE EXCEPTION 'Лимит попыток исчерпан';
   END IF;
 
   INSERT INTO test_results (

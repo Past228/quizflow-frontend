@@ -45,11 +45,46 @@ function calculateCoins(percentage) {
   return Math.max(5, Math.round(pct / 10) * 2);
 }
 
+function toDifficulty(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n);
+}
+
+function getNextDifficulty(currentDifficulty, lastAnswerCorrect, minDifficulty, maxDifficulty) {
+  const current = toDifficulty(currentDifficulty);
+  if (lastAnswerCorrect) return Math.min(current + 1, maxDifficulty);
+  return Math.max(current - 1, minDifficulty);
+}
+
+function pickRandom(arr) {
+  if (!arr || arr.length === 0) return null;
+  const idx = Math.floor(Math.random() * arr.length);
+  return arr[idx] || null;
+}
+
+function pickQuestionByDifficulty(pool, targetDifficulty, usedIds) {
+  const remaining = (pool || []).filter((q) => !usedIds.has(String(q.id)));
+  if (remaining.length === 0) return null;
+
+  const exact = remaining.filter((q) => toDifficulty(q.difficulty) === targetDifficulty);
+  if (exact.length > 0) return pickRandom(exact);
+
+  const sortedDiffs = [...new Set(remaining.map((q) => toDifficulty(q.difficulty)))].sort((a, b) => a - b);
+  for (let radius = 1; radius <= 10; radius += 1) {
+    const near = remaining.filter((q) => Math.abs(toDifficulty(q.difficulty) - targetDifficulty) === radius);
+    if (near.length > 0) return pickRandom(near);
+    if (sortedDiffs.length === 0) break;
+  }
+  return pickRandom(remaining);
+}
+
 export default function TestPage() {
   const { testId } = useParams();
   const navigate = useNavigate();
   const { profile, refreshProfile } = useStudentProfile();
   const [testMeta, setTestMeta] = useState(null);
+  const [questionPool, setQuestionPool] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [index, setIndex] = useState(0);
@@ -79,6 +114,7 @@ export default function TestPage() {
       setWarning('');
       setNeedsExtraAttempt(false);
       setAttemptGate(null);
+      setQuestionPool([]);
       try {
         const { data: testData, error: testError } = await supabase
           .from('tests')
@@ -213,7 +249,12 @@ export default function TestPage() {
 
         if (!cancelled) {
           setTestMeta(testData);
-          setQuestions(normalized);
+          const used = new Set();
+          const firstQuestion = pickQuestionByDifficulty(normalized, 0, used) || normalized[0];
+          if (!firstQuestion) throw new Error('Не удалось выбрать стартовый вопрос.');
+          used.add(String(firstQuestion.id));
+          setQuestionPool(normalized);
+          setQuestions([firstQuestion]);
           setAnswers({});
           setSkipCorrectByQuestion({});
           setIndex(0);
@@ -250,7 +291,11 @@ export default function TestPage() {
 
   const title = testMeta?.title ? `ТЕСТ: ${testMeta.title}` : 'ТЕСТ';
   const currentQuestion = questions[index];
-  const progressPct = questions.length > 0 ? ((index + 1) / questions.length) * 100 : 0;
+  const targetQuestionsCount = Math.min(
+    Number(testMeta?.questions_count || questionPool.length || questions.length || 1),
+    Math.max(questionPool.length, 1)
+  );
+  const progressPct = targetQuestionsCount > 0 ? ((index + 1) / targetQuestionsCount) * 100 : 0;
   const hintCount = profile?.bonus_hint_count || 0;
   const skipCount = profile?.bonus_skip_count || 0;
   const extraAttemptCount = profile?.bonus_extra_attempt_count || 0;
@@ -462,6 +507,27 @@ export default function TestPage() {
     }
   };
 
+  const handleNextQuestion = () => {
+    if (!currentQuestion) return;
+    if (index < questions.length - 1) {
+      setIndex((prev) => Math.min(questions.length - 1, prev + 1));
+      return;
+    }
+    if (questions.length >= targetQuestionsCount) return;
+
+    const currentEval = evaluateQuestion(currentQuestion);
+    const lastCorrect = Number(currentEval.points || 0) >= 1;
+    const diffs = questionPool.map((q) => toDifficulty(q.difficulty));
+    const minDifficulty = diffs.length > 0 ? Math.min(...diffs) : -3;
+    const maxDifficulty = diffs.length > 0 ? Math.max(...diffs) : 3;
+    const nextDifficulty = getNextDifficulty(currentQuestion.difficulty, lastCorrect, minDifficulty, maxDifficulty);
+    const usedIds = new Set(questions.map((q) => String(q.id)));
+    const nextQuestion = pickQuestionByDifficulty(questionPool, nextDifficulty, usedIds);
+    if (!nextQuestion) return;
+    setQuestions((prev) => [...prev, nextQuestion]);
+    setIndex((prev) => prev + 1);
+  };
+
   const evaluateQuestion = (question) => {
     if (skipCorrectByQuestion[question.id]) {
       return {
@@ -552,6 +618,39 @@ export default function TestPage() {
       if (userError) throw userError;
       if (!userData?.user?.id) {
         throw new Error('Сессия истекла. Войдите в аккаунт снова.');
+      }
+
+      const gateRpc = await supabase.rpc('qf_can_start_test_attempt', {
+        p_test_id: Number(testMeta.id),
+      });
+      if (!gateRpc.error && gateRpc.data != null) {
+        const gate = Array.isArray(gateRpc.data) ? gateRpc.data[0] : gateRpc.data;
+        if (!gate?.can_start) {
+          throw new Error('Лимит попыток исчерпан для этого теста.');
+        }
+      } else {
+        const { data: completedRows, error: completedErr } = await supabase
+          .from('test_results')
+          .select('id')
+          .eq('test_id', testMeta.id)
+          .eq('student_id', profile.id)
+          .eq('status', 'completed');
+        if (completedErr) throw completedErr;
+        const attemptsUsed = (completedRows || []).length;
+        let extraGranted = 0;
+        const extra = await supabase
+          .from('test_extra_attempts')
+          .select('granted_count')
+          .eq('test_id', testMeta.id)
+          .eq('student_id', profile.id)
+          .maybeSingle();
+        if (!extra.error) {
+          extraGranted = Number(extra.data?.granted_count || 0);
+        }
+        const attemptsLimit = Number(testMeta.attempts_allowed || 1) + extraGranted;
+        if (attemptsUsed >= attemptsLimit) {
+          throw new Error('Лимит попыток исчерпан для этого теста.');
+        }
       }
 
       const evaluations = questions.map((q) => evaluateQuestion(q));
@@ -956,12 +1055,12 @@ export default function TestPage() {
                   >
                     Назад
                   </button>
-                  {index < questions.length - 1 ? (
+                  {index < targetQuestionsCount - 1 ? (
                     <button
                       type="button"
                       className="qf-btn-primary"
                       style={{ background: '#20aeb9' }}
-                      onClick={() => setIndex((prev) => Math.min(questions.length - 1, prev + 1))}
+                      onClick={handleNextQuestion}
                     >
                       Далее
                     </button>
