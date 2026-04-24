@@ -42,12 +42,17 @@ function ShopColumn({ title, items, loading, children }) {
 
 // ─── Item card ───────────────────────────────────────────────────────────────
 
-function ShopCard({ preview, name, description, price, btnLabel, btnDisabled, btnVariant, onBuy }) {
+function ShopCard({ preview, name, description, price, btnLabel, btnDisabled, btnVariant, onBuy, hideDescription }) {
+  const hoverHint = description ? `${name} — ${description}` : undefined;
   return (
-    <article className="student-card shop-card">
+    <article className="student-card shop-card" title={hoverHint}>
       <div className="shop-card__preview">{preview}</div>
       <h3 className="shop-card__title">{name}</h3>
-      {description && <p className="shop-card__desc">{description}</p>}
+      {description && (hideDescription ? (
+        <span className="shop-card__sr-only">{description}</span>
+      ) : (
+        <p className="shop-card__desc">{description}</p>
+      ))}
       <div className="shop-card__price">
         <img src="/icons/sp_coins.png" alt="" width={22} height={22} style={{ verticalAlign: 'middle' }} />
         <span className="shop-card__price-num">{price}</span>
@@ -397,9 +402,10 @@ export default function ShopPage() {
                   key={item.id}
                   name={item.name}
                   description={item.description}
+                  hideDescription
                   price={item.price}
                   preview={
-                    <span style={{ fontSize: 52, lineHeight: 1 }} aria-hidden>
+                    <span className="shop-card__bonus-glyph" aria-hidden>
                       {BONUS_GLYPH[item.id] || '★'}
                     </span>
                   }
@@ -513,20 +519,40 @@ export default function ShopPage() {
           animation: spin 0.8s linear infinite;
         }
         .shop-card {
+          position: relative;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: space-between;
           text-align: center;
           padding: 18px 14px 16px;
+          min-height: 228px;
+          box-sizing: border-box;
         }
         .shop-card__preview {
+          flex: 0 0 80px;
           min-height: 80px;
+          max-height: 80px;
           width: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
           margin-bottom: 12px;
+        }
+        .shop-card__bonus-glyph {
+          font-size: 30px;
+          line-height: 1;
+        }
+        .shop-card__sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
         }
         .shop-card__title {
           font-size: 15px;
