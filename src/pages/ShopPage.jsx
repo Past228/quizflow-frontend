@@ -563,13 +563,25 @@ export default function ShopPage() {
           font-weight: var(--qf-fw-semibold);
           font-family: var(--qf-font);
           cursor: pointer;
-          transition: opacity 0.15s, background 0.15s;
+          transition:
+            filter 0.18s ease,
+            background 0.18s ease,
+            box-shadow 0.18s ease,
+            transform 0.15s ease;
         }
         .shop-card__btn--buy {
           background: var(--qf-dark-blue, #127ab6);
           color: #fff;
+          box-shadow: 0 2px 8px rgba(18, 122, 182, 0.35);
         }
-        .shop-card__btn--buy:hover { opacity: 0.88; }
+        .shop-card__btn--buy:hover {
+          filter: brightness(1.12);
+          box-shadow: 0 5px 16px rgba(18, 122, 182, 0.5);
+          transform: translateY(-1px);
+        }
+        .shop-card__btn--buy:active {
+          transform: translateY(0);
+        }
         .shop-card__btn--broke {
           background: #fee2e2;
           color: #b91c1c;
@@ -579,7 +591,11 @@ export default function ShopPage() {
           background: #dbeafe;
           color: #1e40af;
         }
-        .shop-card__btn--activate:hover { background: #bfdbfe; }
+        .shop-card__btn--activate:hover {
+          background: #93c5fd;
+          box-shadow: 0 3px 12px rgba(30, 64, 175, 0.2);
+          transform: translateY(-1px);
+        }
         .shop-card__btn--active {
           background: #d1fae5;
           color: #065f46;

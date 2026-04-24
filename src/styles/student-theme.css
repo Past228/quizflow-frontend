@@ -14,7 +14,7 @@
   --qf-sidebar-bg: #ffffff;
   --qf-sidebar-fg: #000000;
   --qf-nav-link-bg: transparent;
-  --qf-nav-hover: rgba(51, 143, 249, 0.06);
+  --qf-nav-hover: rgba(51, 143, 249, 0.11);
   --qf-avatar-border: rgba(51, 143, 249, 0.45);
   --qf-input-placeholder: #64748b;
   --qf-accent-border-soft: rgba(51, 143, 249, 0.25);
@@ -345,15 +345,90 @@ body {
   font-weight: var(--qf-fw-semibold);
   font-size: 20px;
   cursor: pointer;
-  transition: filter 0.2s ease, transform 0.15s ease;
+  box-shadow: 0 3px 12px rgba(51, 143, 249, 0.32);
+  transition:
+    filter 0.2s ease,
+    transform 0.18s ease,
+    box-shadow 0.2s ease;
 }
 
-.qf-btn-primary:hover {
-  filter: brightness(1.05);
+.qf-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  box-shadow: 0 8px 22px rgba(51, 143, 249, 0.48);
+  transform: translateY(-2px);
 }
 
-.qf-btn-primary:active {
-  transform: scale(0.98);
+.qf-btn-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(51, 143, 249, 0.38);
+}
+
+.qf-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* ВКЛ/ВЫКЛ и аналогичные «таблетки» (настройки преподавателя и др.) */
+.qf-pill-toggle {
+  min-width: 88px;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-family: var(--qf-font);
+  font-weight: 700;
+  font-size: 20px;
+  cursor: pointer;
+  transition:
+    filter 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
+}
+
+.qf-pill-toggle--on {
+  background: #338ff9;
+}
+
+.qf-pill-toggle--off {
+  background: #94a3b8;
+}
+
+.qf-pill-toggle:hover:not(:disabled) {
+  filter: brightness(1.12);
+  box-shadow: 0 6px 18px rgba(51, 143, 249, 0.4);
+  transform: translateY(-1px);
+}
+
+.qf-pill-toggle--off:hover:not(:disabled) {
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+}
+
+.qf-pill-toggle:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Переключатель-трек (круглый), фон задаётся инлайном */
+.qf-switch-track {
+  position: relative;
+  width: 54px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+.qf-switch-track:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.2);
+}
+
+html.qf-theme-alt .qf-switch-track:hover {
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
 }
 
 .qf-search {
@@ -421,7 +496,7 @@ html.qf-theme-alt {
   --qf-sidebar-fg:      #b2c2d4;
   /* Навигация */
   --qf-nav-link-bg:     transparent;
-  --qf-nav-hover:       rgba(96, 165, 250, 0.12);
+  --qf-nav-hover:       rgba(96, 165, 250, 0.2);
   /* Акцент — blue-400, мягче и без слепящего sky-300 */
   --qf-dark-blue:       #60a5fa;
   /* Аватар */
@@ -519,6 +594,12 @@ html.qf-a11y .qf-btn-primary {
   font-weight: var(--qf-fw-bold);
   letter-spacing: 0.04em;
   border: 2px solid rgba(18, 122, 182, 0.35);
+}
+
+html.qf-a11y .qf-pill-toggle {
+  min-height: 52px;
+  font-size: 22px;
+  padding: 14px 24px;
 }
 
 html.qf-a11y .qf-search {

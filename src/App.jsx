@@ -98,12 +98,15 @@ function TeacherSettingsToggle({ label, on, onToggle, isSwitch }) {
           fontWeight: 'var(--qf-fw-medium)', fontSize: 20,
           fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)',
         }}>{label}</div>
-        <button type="button" onClick={onToggle} style={{
-          position: 'relative', width: 54, height: 30, padding: 0,
-          border: 'none', borderRadius: 999, cursor: 'pointer',
-          background: on ? 'linear-gradient(135deg, #338ff9 0%, #127ab6 100%)' : '#94a3b8',
-          transition: 'background 0.22s ease', flexShrink: 0,
-        }}>
+        <button
+          type="button"
+          className="qf-switch-track"
+          onClick={onToggle}
+          style={{
+            background: on ? 'linear-gradient(135deg, #338ff9 0%, #127ab6 100%)' : '#94a3b8',
+            transition: 'background 0.22s ease',
+          }}
+        >
           <span style={{
             position: 'absolute', top: 3, left: 3, width: 24, height: 24,
             borderRadius: '50%', background: '#fff',
@@ -125,12 +128,11 @@ function TeacherSettingsToggle({ label, on, onToggle, isSwitch }) {
         fontWeight: 'var(--qf-fw-medium)', fontSize: 20,
         fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)',
       }}>{label}</div>
-      <button type="button" onClick={onToggle} style={{
-        minWidth: 88, padding: '14px 20px', border: 'none', borderRadius: 12,
-        background: on ? '#338ff9' : '#94a3b8', color: '#fff',
-        fontFamily: 'var(--qf-font)', fontWeight: 700, fontSize: 20, cursor: 'pointer',
-        transition: 'filter 0.2s ease',
-      }}>
+      <button
+        type="button"
+        className={'qf-pill-toggle' + (on ? ' qf-pill-toggle--on' : ' qf-pill-toggle--off')}
+        onClick={onToggle}
+      >
         {on ? 'ВКЛ' : 'ВЫКЛ'}
       </button>
     </div>
@@ -155,11 +157,10 @@ function TeacherA11yRow({ on, onToggle }) {
         >
           Версия для слабовидящих
         </div>
-        <button type="button" onClick={onToggle} style={{
-          minWidth: 88, padding: '14px 20px', border: 'none', borderRadius: 12,
-          background: on ? '#338ff9' : '#94a3b8', color: '#fff',
-          fontFamily: 'var(--qf-font)', fontWeight: 700, fontSize: 20, cursor: 'pointer',
-        }}
+        <button
+          type="button"
+          className={'qf-pill-toggle' + (on ? ' qf-pill-toggle--on' : ' qf-pill-toggle--off')}
+          onClick={onToggle}
         >
           {on ? 'ВКЛ' : 'ВЫКЛ'}
         </button>

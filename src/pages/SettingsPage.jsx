@@ -172,7 +172,10 @@ export default function SettingsPage() {
           box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
         }
         .settings-switch:hover {
-          filter: brightness(1.05);
+          filter: brightness(1.12);
+          box-shadow:
+            inset 0 1px 3px rgba(0, 0, 0, 0.12),
+            0 4px 14px rgba(51, 143, 249, 0.25);
         }
         .settings-switch:focus-visible {
           outline: none;
@@ -210,10 +213,23 @@ export default function SettingsPage() {
           font-weight: var(--qf-fw-bold);
           font-size: 20px;
           cursor: pointer;
-          transition: filter 0.2s ease, transform 0.15s ease;
+          box-shadow: 0 2px 10px rgba(51, 143, 249, 0.28);
+          transition:
+            filter 0.2s ease,
+            transform 0.15s ease,
+            box-shadow 0.2s ease;
         }
         .settings-toggle:hover {
-          filter: brightness(1.06);
+          filter: brightness(1.12);
+          box-shadow: 0 8px 22px rgba(51, 143, 249, 0.45);
+          transform: translateY(-2px);
+        }
+        .settings-toggle--off:hover {
+          filter: brightness(1.1);
+          box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2);
+        }
+        .settings-toggle:active {
+          transform: translateY(0);
         }
         .settings-toggle--off {
           background: #94a3b8;
