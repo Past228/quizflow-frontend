@@ -252,6 +252,14 @@
             font-weight: 500;
         }
 
+        .password-hint {
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 4px;
+            line-height: 1.45;
+        }
+
         .loading { display: flex; align-items: center; justify-content: center; gap: 8px; }
 
         .spinner {
@@ -293,27 +301,28 @@
                 <div class="form-section">
                     <div class="form-group">
                         <label for="email">Email:</label>
-                        <input type="email" id="email" name="email" required placeholder="Введите ваш email">
+                        <input type="email" id="email" name="email" required minlength="5" maxlength="254" placeholder="Введите ваш email">
                         <div class="error-text" id="emailError"></div>
                     </div>
 
                     <div class="form-group">
                         <label for="password">Пароль:</label>
-                        <input type="password" id="password" name="password" required placeholder="Введите ваш пароль" minlength="6">
+                        <input type="password" id="password" name="password" required placeholder="Введите ваш пароль" minlength="8" maxlength="64">
                         <div class="error-text" id="passwordError"></div>
+                        <p class="password-hint">8–64 символа: латиница a–z и A–Z, цифра и спецсимвол (как в Supabase).</p>
                     </div>
                 </div>
 
                 <div class="form-section">
                     <div class="form-group">
                         <label for="lastName">Фамилия:</label>
-                        <input type="text" id="lastName" name="lastName" required placeholder="Введите вашу фамилию">
+                        <input type="text" id="lastName" name="lastName" required minlength="2" maxlength="32" placeholder="Введите вашу фамилию">
                         <div class="error-text" id="lastNameError"></div>
                     </div>
 
                     <div class="form-group">
                         <label for="firstName">Имя:</label>
-                        <input type="text" id="firstName" name="firstName" required placeholder="Введите ваше имя">
+                        <input type="text" id="firstName" name="firstName" required minlength="2" maxlength="32" placeholder="Введите ваше имя">
                         <div class="error-text" id="firstNameError"></div>
                     </div>
                 </div>

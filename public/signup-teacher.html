@@ -319,27 +319,28 @@
                 <div class="form-section">
                     <div class="form-group">
                         <label for="email">Email:</label>
-                        <input type="email" id="email" name="email" required placeholder="Введите ваш email">
+                        <input type="email" id="email" name="email" required minlength="5" maxlength="254" placeholder="Введите ваш email">
                         <div class="error-text" id="emailError"></div>
                     </div>
 
                     <div class="form-group">
                         <label for="password">Пароль:</label>
-                        <input type="password" id="password" name="password" required placeholder="Введите ваш пароль" minlength="6">
+                        <input type="password" id="password" name="password" required placeholder="Введите ваш пароль" minlength="8" maxlength="64">
                         <div class="error-text" id="passwordError"></div>
+                        <div class="field-hint">8–64 символа: латиница a–z и A–Z, цифра и спецсимвол (как в Supabase).</div>
                     </div>
                 </div>
 
                 <div class="form-section">
                     <div class="form-group">
                         <label for="lastName">Фамилия:</label>
-                        <input type="text" id="lastName" name="lastName" required placeholder="Введите вашу фамилию">
+                        <input type="text" id="lastName" name="lastName" required minlength="2" maxlength="32" placeholder="Введите вашу фамилию">
                         <div class="error-text" id="lastNameError"></div>
                     </div>
 
                     <div class="form-group">
                         <label for="firstName">Имя:</label>
-                        <input type="text" id="firstName" name="firstName" required placeholder="Введите ваше имя">
+                        <input type="text" id="firstName" name="firstName" required minlength="2" maxlength="32" placeholder="Введите ваше имя">
                         <div class="error-text" id="firstNameError"></div>
                     </div>
                 </div>
@@ -349,7 +350,7 @@
 
                     <div class="form-group">
                         <label for="inviteCode">Пригласительный код:</label>
-                        <input type="text" id="inviteCode" name="inviteCode" required
+                        <input type="text" id="inviteCode" name="inviteCode" required maxlength="20"
                                placeholder="Введите пригласительный код" style="text-transform: uppercase;">
                         <div class="error-text" id="inviteCodeError"></div>
                         <div class="field-hint">Код выдается администрацией учебного заведения</div>

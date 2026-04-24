@@ -268,33 +268,74 @@ function handleFormSubmit(e) {
     });
 }
 
+var EMAIL_MIN_LENGTH = 5;
+var EMAIL_MAX_LENGTH = 254;
+var PASSWORD_MIN_LENGTH = 8;
+var PASSWORD_MAX_LENGTH = 64;
+var PERSON_NAME_MIN_LENGTH = 2;
+var PERSON_NAME_MAX_LENGTH = 32;
+var INVITE_CODE_MAX_LENGTH = 20;
+
+/** Как пресет пароля в Supabase Email (латиница, цифра, спецсимвол) */
+function getSignupPasswordPolicyError(password) {
+    if (password == null || password === '') return 'Пароль обязателен';
+    if (password.length < PASSWORD_MIN_LENGTH) return 'Минимум ' + PASSWORD_MIN_LENGTH + ' символов';
+    if (password.length > PASSWORD_MAX_LENGTH) return 'Не более ' + PASSWORD_MAX_LENGTH + ' символов';
+    if (!/[a-z]/.test(password)) return 'Нужна строчная латинская буква (a–z)';
+    if (!/[A-Z]/.test(password)) return 'Нужна прописная латинская буква (A–Z)';
+    if (!/[0-9]/.test(password)) return 'Нужна хотя бы одна цифра';
+    if (!/[^A-Za-z0-9]/.test(password)) {
+        return 'Нужен спецсимвол (например ! @ # $ % ^ & * . , - _)';
+    }
+    return null;
+}
+
 function validateFormClient(formData) {
-    const errors = {};
-    
-    if (!formData.email) {
+    var errors = {};
+    var emailTrim = (formData.email && formData.email.trim()) || '';
+    var firstTrim = (formData.firstName && formData.firstName.trim()) || '';
+    var lastTrim = (formData.lastName && formData.lastName.trim()) || '';
+    var codeTrim = (formData.inviteCode && formData.inviteCode.trim()) || '';
+
+    if (!emailTrim) {
         errors.email = 'Email обязателен';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    } else if (emailTrim.length < EMAIL_MIN_LENGTH) {
+        errors.email = 'Минимум ' + EMAIL_MIN_LENGTH + ' символов';
+    } else if (emailTrim.length > EMAIL_MAX_LENGTH) {
+        errors.email = 'Не более ' + EMAIL_MAX_LENGTH + ' символов';
+    } else if (!/\S+@\S+\.\S+/.test(emailTrim)) {
         errors.email = 'Некорректный формат email';
     }
-    
-    if (!formData.password) {
-        errors.password = 'Пароль обязателен';
-    } else if (formData.password.length < 6) {
-        errors.password = 'Пароль должен быть не менее 6 символов';
-    }
-    
-    if (!formData.firstName) {
+
+    var passwordErr = getSignupPasswordPolicyError(formData.password);
+    if (passwordErr) errors.password = passwordErr;
+
+    if (!firstTrim) {
         errors.firstName = 'Имя обязательно';
+    } else if (firstTrim.length < PERSON_NAME_MIN_LENGTH) {
+        errors.firstName = 'Минимум ' + PERSON_NAME_MIN_LENGTH + ' символа';
+    } else if (firstTrim.length > PERSON_NAME_MAX_LENGTH) {
+        errors.firstName = 'Не более ' + PERSON_NAME_MAX_LENGTH + ' символов';
+    } else if (/\d/.test(firstTrim)) {
+        errors.firstName = 'Имя не должно содержать цифры';
     }
-    
-    if (!formData.lastName) {
+
+    if (!lastTrim) {
         errors.lastName = 'Фамилия обязательна';
+    } else if (lastTrim.length < PERSON_NAME_MIN_LENGTH) {
+        errors.lastName = 'Минимум ' + PERSON_NAME_MIN_LENGTH + ' символа';
+    } else if (lastTrim.length > PERSON_NAME_MAX_LENGTH) {
+        errors.lastName = 'Не более ' + PERSON_NAME_MAX_LENGTH + ' символов';
+    } else if (/\d/.test(lastTrim)) {
+        errors.lastName = 'Фамилия не должна содержать цифры';
     }
-    
-    if (!formData.inviteCode) {
+
+    if (!codeTrim) {
         errors.inviteCode = 'Пригласительный код обязателен';
+    } else if (codeTrim.length > INVITE_CODE_MAX_LENGTH) {
+        errors.inviteCode = 'Не более ' + INVITE_CODE_MAX_LENGTH + ' символов';
     }
-    
+
     return errors;
 }
 

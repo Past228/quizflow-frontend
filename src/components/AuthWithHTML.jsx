@@ -14,6 +14,58 @@ const signupAttempts = new Map();
 const MAX_ATTEMPTS = 5;
 const TIME_WINDOW = 15 * 60 * 1000; // 15 минут
 
+const EMAIL_MIN_LENGTH = 5;
+const EMAIL_MAX_LENGTH = 254;
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MAX_LENGTH = 64;
+const PERSON_NAME_MIN_LENGTH = 2;
+const PERSON_NAME_MAX_LENGTH = 32;
+/** Пригласительный код (отдельно от email/пароля/ФИО) */
+const INVITE_CODE_MAX_LENGTH = 20;
+
+const personNameContainsDigit = (value) =>
+    typeof value === 'string' && /\d/.test(value.trim());
+
+/**
+ * Политика пароля при регистрации — как пресет Supabase Email:
+ * «Lowercase, uppercase letters, digits and symbols» (латиница + цифры + не-буквенно-цифровой символ).
+ * Возвращает текст ошибки или null, если пароль подходит.
+ */
+const getSignupPasswordPolicyError = (password) => {
+    if (password == null || password === '') return 'Пароль обязателен';
+    if (password.length < PASSWORD_MIN_LENGTH) return `Минимум ${PASSWORD_MIN_LENGTH} символов`;
+    if (password.length > PASSWORD_MAX_LENGTH) return `Не более ${PASSWORD_MAX_LENGTH} символов`;
+    if (!/[a-z]/.test(password)) return 'Нужна строчная латинская буква (a–z)';
+    if (!/[A-Z]/.test(password)) return 'Нужна прописная латинская буква (A–Z)';
+    if (!/[0-9]/.test(password)) return 'Нужна хотя бы одна цифра';
+    if (!/[^A-Za-z0-9]/.test(password)) {
+        return 'Нужен спецсимвол (например ! @ # $ % ^ & * . , - _)';
+    }
+    return null;
+};
+
+/**
+ * 429 / rate limit при signUp чаще всего — лимит запросов Auth с одного IP (аудитория за одним Wi‑Fi),
+ * а не «обязательно выключить почту». Сообщение не должно подменять причину.
+ */
+const getSignupRateLimitUserMessage = (authError) => {
+    devWarn('Auth signUp rate limited:', authError?.status, authError?.message);
+    const hint = (authError?.message || '').toLowerCase();
+    const seemsEmailQuota =
+        hint.includes('email') ||
+        hint.includes('smtp') ||
+        (hint.includes('mail') && (hint.includes('send') || hint.includes('quota')));
+
+    const base =
+        'Сервис временно ограничил число регистраций с вашей сети — так Supabase защищает проект. Это часто бывает, когда много человек регистрируются с одного Wi‑Fi. Подождите 1–2 минуты, повторите попытку или регистрируйтесь по одному.';
+    const admin = ' Администратор может увеличить лимиты: Supabase Dashboard → Authentication → Rate Limits.';
+    const emailNote = seemsEmailQuota
+        ? ' Если в панели видна ошибка именно отправки писем, дополнительно проверьте лимиты почты или настройку подтверждения email.'
+        : '';
+
+    return base + admin + emailNote;
+};
+
 export default function AuthWithHTML() {
     const [loading, setLoading] = useState(false);
     const [isSignUp, setIsSignUp] = useState(true);
@@ -140,6 +192,14 @@ export default function AuthWithHTML() {
                 return;
             }
 
+            if (cleanCode.length > INVITE_CODE_MAX_LENGTH) {
+                sendMessageToIframe({
+                    type: 'INVITE_CODE_VALIDATION_RESULT',
+                    data: { valid: false, message: `Код не длиннее ${INVITE_CODE_MAX_LENGTH} символов` }
+                });
+                return;
+            }
+
             // Try SECURITY DEFINER RPC first; fall back to direct query
             let valid = false;
             try {
@@ -211,8 +271,11 @@ export default function AuthWithHTML() {
                 throw new Error('Некорректный формат email');
             }
 
-            if (cleanData.password.length < 6) {
-                throw new Error('Пароль должен быть не менее 6 символов');
+            if (cleanData.password.length < PASSWORD_MIN_LENGTH) {
+                throw new Error(`Пароль не короче ${PASSWORD_MIN_LENGTH} символов`);
+            }
+            if (cleanData.password.length > PASSWORD_MAX_LENGTH) {
+                throw new Error(`Пароль не длиннее ${PASSWORD_MAX_LENGTH} символов`);
             }
 
             // 1. Сначала регистрация в Auth
@@ -238,7 +301,7 @@ export default function AuthWithHTML() {
                     throw new Error('Ненадежный пароль');
                 }
                 if (authError.status === 429 || authError.message.toLowerCase().includes('rate limit')) {
-                    throw new Error('Supabase ограничивает отправку email-писем для всего проекта. Отключите подтверждение email: Dashboard → Authentication → Settings → выключите «Enable email confirmations».');
+                    throw new Error(getSignupRateLimitUserMessage(authError));
                 }
                 throw new Error('Ошибка регистрации');
             }
@@ -334,6 +397,13 @@ export default function AuthWithHTML() {
                 throw new Error('Некорректный формат email');
             }
 
+            if (cleanData.password.length < PASSWORD_MIN_LENGTH) {
+                throw new Error(`Пароль не короче ${PASSWORD_MIN_LENGTH} символов`);
+            }
+            if (cleanData.password.length > PASSWORD_MAX_LENGTH) {
+                throw new Error(`Пароль не длиннее ${PASSWORD_MAX_LENGTH} символов`);
+            }
+
             // Validate the invite code. Try the SECURITY DEFINER RPC first;
             // if it doesn't exist (403/404) fall back to a direct table query.
             let codeValid = false;
@@ -395,7 +465,7 @@ export default function AuthWithHTML() {
                     throw new Error('Пользователь с таким email уже зарегистрирован в системе');
                 }
                 if (authError.status === 429 || authError.message.toLowerCase().includes('rate limit')) {
-                    throw new Error('Supabase ограничивает отправку email-писем. Отключите подтверждение email: Dashboard → Authentication → Settings → выключите «Enable email confirmations».');
+                    throw new Error(getSignupRateLimitUserMessage(authError));
                 }
                 throw new Error('Ошибка регистрации: ' + authError.message);
             }
@@ -693,21 +763,43 @@ export default function AuthWithHTML() {
 
     const validateStudentSignUpForm = (formData) => {
         const errors = {};
+        const emailTrim = formData.email?.trim() ?? '';
+        const firstTrim = formData.firstName?.trim() ?? '';
+        const lastTrim = formData.lastName?.trim() ?? '';
 
-        if (!formData.email) {
+        if (!emailTrim) {
             errors.email = 'Email обязателен';
-        } else if (!isValidEmail(formData.email)) {
+        } else if (emailTrim.length < EMAIL_MIN_LENGTH) {
+            errors.email = `Минимум ${EMAIL_MIN_LENGTH} символов`;
+        } else if (emailTrim.length > EMAIL_MAX_LENGTH) {
+            errors.email = `Не более ${EMAIL_MAX_LENGTH} символов`;
+        } else if (!isValidEmail(emailTrim)) {
             errors.email = 'Некорректный формат email';
         }
 
-        if (!formData.password) {
-            errors.password = 'Пароль обязателен';
-        } else if (formData.password.length < 6) {
-            errors.password = 'Пароль должен быть не менее 6 символов';
+        const passwordError = getSignupPasswordPolicyError(formData.password);
+        if (passwordError) errors.password = passwordError;
+
+        if (!firstTrim) {
+            errors.firstName = 'Имя обязательно';
+        } else if (firstTrim.length < PERSON_NAME_MIN_LENGTH) {
+            errors.firstName = `Минимум ${PERSON_NAME_MIN_LENGTH} символа`;
+        } else if (firstTrim.length > PERSON_NAME_MAX_LENGTH) {
+            errors.firstName = `Не более ${PERSON_NAME_MAX_LENGTH} символов`;
+        } else if (personNameContainsDigit(formData.firstName)) {
+            errors.firstName = 'Имя не должно содержать цифры';
         }
 
-        if (!formData.firstName) errors.firstName = 'Имя обязательно';
-        if (!formData.lastName) errors.lastName = 'Фамилия обязательна';
+        if (!lastTrim) {
+            errors.lastName = 'Фамилия обязательна';
+        } else if (lastTrim.length < PERSON_NAME_MIN_LENGTH) {
+            errors.lastName = `Минимум ${PERSON_NAME_MIN_LENGTH} символа`;
+        } else if (lastTrim.length > PERSON_NAME_MAX_LENGTH) {
+            errors.lastName = `Не более ${PERSON_NAME_MAX_LENGTH} символов`;
+        } else if (personNameContainsDigit(formData.lastName)) {
+            errors.lastName = 'Фамилия не должна содержать цифры';
+        }
+
         if (!formData.selectedGroupId) errors.group = 'Выберите учебную группу';
 
         return errors;
@@ -715,37 +807,73 @@ export default function AuthWithHTML() {
 
     const validateTeacherSignUpForm = (formData) => {
         const errors = {};
+        const emailTrim = formData.email?.trim() ?? '';
+        const firstTrim = formData.firstName?.trim() ?? '';
+        const lastTrim = formData.lastName?.trim() ?? '';
+        const codeTrim = formData.inviteCode?.trim() ?? '';
 
-        if (!formData.email) {
+        if (!emailTrim) {
             errors.email = 'Email обязателен';
-        } else if (!isValidEmail(formData.email)) {
+        } else if (emailTrim.length < EMAIL_MIN_LENGTH) {
+            errors.email = `Минимум ${EMAIL_MIN_LENGTH} символов`;
+        } else if (emailTrim.length > EMAIL_MAX_LENGTH) {
+            errors.email = `Не более ${EMAIL_MAX_LENGTH} символов`;
+        } else if (!isValidEmail(emailTrim)) {
             errors.email = 'Некорректный формат email';
         }
 
-        if (!formData.password) {
-            errors.password = 'Пароль обязателен';
-        } else if (formData.password.length < 6) {
-            errors.password = 'Пароль должен быть не менее 6 символов';
+        const passwordErrorTeacher = getSignupPasswordPolicyError(formData.password);
+        if (passwordErrorTeacher) errors.password = passwordErrorTeacher;
+
+        if (!firstTrim) {
+            errors.firstName = 'Имя обязательно';
+        } else if (firstTrim.length < PERSON_NAME_MIN_LENGTH) {
+            errors.firstName = `Минимум ${PERSON_NAME_MIN_LENGTH} символа`;
+        } else if (firstTrim.length > PERSON_NAME_MAX_LENGTH) {
+            errors.firstName = `Не более ${PERSON_NAME_MAX_LENGTH} символов`;
+        } else if (personNameContainsDigit(formData.firstName)) {
+            errors.firstName = 'Имя не должно содержать цифры';
         }
 
-        if (!formData.firstName) errors.firstName = 'Имя обязательно';
-        if (!formData.lastName) errors.lastName = 'Фамилия обязательна';
-        if (!formData.inviteCode) errors.inviteCode = 'Пригласительный код обязателен';
+        if (!lastTrim) {
+            errors.lastName = 'Фамилия обязательна';
+        } else if (lastTrim.length < PERSON_NAME_MIN_LENGTH) {
+            errors.lastName = `Минимум ${PERSON_NAME_MIN_LENGTH} символа`;
+        } else if (lastTrim.length > PERSON_NAME_MAX_LENGTH) {
+            errors.lastName = `Не более ${PERSON_NAME_MAX_LENGTH} символов`;
+        } else if (personNameContainsDigit(formData.lastName)) {
+            errors.lastName = 'Фамилия не должна содержать цифры';
+        }
+
+        if (!codeTrim) {
+            errors.inviteCode = 'Пригласительный код обязателен';
+        } else if (codeTrim.length > INVITE_CODE_MAX_LENGTH) {
+            errors.inviteCode = `Не более ${INVITE_CODE_MAX_LENGTH} символов`;
+        }
 
         return errors;
     };
 
     const validateLoginForm = (formData) => {
         const errors = {};
+        const emailTrim = formData.email?.trim() ?? '';
 
-        if (!formData.email) {
+        if (!emailTrim) {
             errors.email = 'Email обязателен';
-        } else if (!isValidEmail(formData.email)) {
+        } else if (emailTrim.length < EMAIL_MIN_LENGTH) {
+            errors.email = `Минимум ${EMAIL_MIN_LENGTH} символов`;
+        } else if (emailTrim.length > EMAIL_MAX_LENGTH) {
+            errors.email = `Не более ${EMAIL_MAX_LENGTH} символов`;
+        } else if (!isValidEmail(emailTrim)) {
             errors.email = 'Некорректный формат email';
         }
 
         if (!formData.password) {
             errors.password = 'Пароль обязателен';
+        } else if (formData.password.length < PASSWORD_MIN_LENGTH) {
+            errors.password = `Минимум ${PASSWORD_MIN_LENGTH} символов`;
+        } else if (formData.password.length > PASSWORD_MAX_LENGTH) {
+            errors.password = `Не более ${PASSWORD_MAX_LENGTH} символов`;
         }
 
         return errors;

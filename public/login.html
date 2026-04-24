@@ -239,13 +239,13 @@
             <form id="loginForm">
                 <div class="form-group">
                     <label for="email">Email:</label>
-                    <input type="email" id="email" name="email" required placeholder="Введите ваш email">
+                    <input type="email" id="email" name="email" required minlength="5" maxlength="254" placeholder="Введите ваш email">
                     <div class="error-text" id="emailError"></div>
                 </div>
 
                 <div class="form-group">
                     <label for="password">Пароль:</label>
-                    <input type="password" id="password" name="password" required placeholder="Введите ваш пароль">
+                    <input type="password" id="password" name="password" required minlength="8" maxlength="64" placeholder="Введите ваш пароль">
                     <div class="error-text" id="passwordError"></div>
                 </div>
 
