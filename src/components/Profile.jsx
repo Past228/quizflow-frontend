@@ -41,6 +41,14 @@ function normalizeGroupIdForProfileQuery(groupId) {
     return Number.isFinite(n) ? n : groupId;
 }
 
+function parseDurationSeconds(startedAt, completedAt) {
+    if (!startedAt || !completedAt) return null;
+    const started = new Date(startedAt).getTime();
+    const completed = new Date(completedAt).getTime();
+    if (!Number.isFinite(started) || !Number.isFinite(completed) || completed < started) return null;
+    return Math.round((completed - started) / 1000);
+}
+
 export default function Profile({ session, embedded = false, onAvatarUpdated, onStartTest }) {
     const iframeRef = useRef(null);
 
@@ -149,6 +157,14 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
 
                 case 'LOAD_STATS_STUDENT_LIST_REQUEST':
                     await handleLoadStatsStudentList(data.groupId);
+                    break;
+
+                case 'EDIT_TEST_REQUEST':
+                    handleOpenTeacherTests('edit', data.testId);
+                    break;
+
+                case 'ASSIGN_GROUPS_REQUEST':
+                    handleOpenTeacherTests('assign', data.testId);
                     break;
 
                 default:
@@ -782,12 +798,25 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
 
             let profilesData = [];
             if (groupIds.length > 0) {
-                const pr = await supabase
-                    .from('profiles')
-                    .select('id, first_name, last_name, email, group_id')
-                    .in('group_id', groupIds);
-                if (pr.error) throw pr.error;
-                profilesData = pr.data || [];
+                const studentsById = {};
+                for (const gid of groupIds) {
+                    const n = Number(gid);
+                    if (!Number.isFinite(n)) continue;
+                    const rpcStudents = await supabase.rpc('qf_students_in_group', { p_group_id: n });
+                    if (rpcStudents.error) continue;
+                    (rpcStudents.data || []).forEach((student) => {
+                        studentsById[String(student.id)] = { ...student, group_id: gid };
+                    });
+                }
+                profilesData = Object.values(studentsById);
+                if (profilesData.length === 0) {
+                    const pr = await supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name, email, group_id')
+                        .in('group_id', groupIds);
+                    if (pr.error) throw pr.error;
+                    profilesData = pr.data || [];
+                }
             }
             const studentIds = profilesData.map((p) => p.id);
 
@@ -835,12 +864,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
             const studentRows = profilesData
                 .map((student) => {
                     const best = bestAttemptByStudent[student.id] || null;
-                    const started = best?.started_at ? new Date(best.started_at).getTime() : null;
-                    const completed = best?.completed_at ? new Date(best.completed_at).getTime() : null;
-                    const durationSec =
-                        started && completed && completed >= started
-                            ? Math.round((completed - started) / 1000)
-                            : null;
+                    const durationSec = parseDurationSeconds(best?.started_at, best?.completed_at);
                     const score =
                         best?.percentage != null
                             ? Number(best.percentage) || 0
@@ -1079,7 +1103,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
 
                 const { data: attemptsData, error: attemptsErr } = await supabase
                     .from('test_results')
-                    .select('test_id, percentage, status')
+                    .select('test_id, percentage, status, started_at, completed_at')
                     .eq('student_id', profileId)
                     .in('test_id', testIds);
                 if (attemptsErr) throw attemptsErr;
@@ -1113,7 +1137,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                         testTitle: titleByTest[tid] || 'Без названия',
                         passed: true,
                         errors: errN,
-                        timeDisplay: '—',
+                        timeDisplay: formatDurationSec(parseDurationSeconds(best.started_at, best.completed_at)),
                         correctnessPct,
                     };
                 });
@@ -1166,17 +1190,31 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 qMap[t.id] = t.questions_count ?? 0;
             });
 
-            const { data: profilesData } = await supabase
-                .from('profiles')
-                .select('id, first_name, last_name, email')
-                .in('group_id', groupIds);
-            const profileIds = (profilesData || []).map((p) => p.id);
+            const studentsById = {};
+            for (const gid of groupIds) {
+                const n = Number(gid);
+                if (!Number.isFinite(n)) continue;
+                const rpcStudents = await supabase.rpc('qf_students_in_group', { p_group_id: n });
+                if (rpcStudents.error) continue;
+                (rpcStudents.data || []).forEach((student) => {
+                    studentsById[String(student.id)] = student;
+                });
+            }
+            let profilesData = Object.values(studentsById);
+            if (profilesData.length === 0) {
+                const { data: profFallback } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name, email')
+                    .in('group_id', groupIds);
+                profilesData = profFallback || [];
+            }
+            const profileIds = profilesData.map((p) => p.id);
 
             let attemptsData = [];
             if (profileIds.length > 0) {
                 const ar = await supabase
                     .from('test_results')
-                    .select('student_id, test_id, percentage, status')
+                    .select('student_id, test_id, percentage, status, started_at, completed_at')
                     .in('test_id', testIds)
                     .in('student_id', profileIds);
                 if (ar.error) throw ar.error;
@@ -1283,6 +1321,38 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                             : null,
                     fastest: null,
                 };
+                const withTotalDuration = withAnyCompleted
+                    .map((student) => {
+                        let totalDuration = 0;
+                        let valid = false;
+                        for (const tid of testIds) {
+                            const completedAttempts = attemptsData.filter(
+                                (a) =>
+                                    a.student_id === student.id &&
+                                    a.test_id === tid &&
+                                    a.status === 'completed'
+                            );
+                            if (completedAttempts.length === 0) continue;
+                            const best = completedAttempts.reduce((a, b) =>
+                                (a.percentage ?? -1) >= (b.percentage ?? -1) ? a : b
+                            );
+                            const dur = parseDurationSeconds(best.started_at, best.completed_at);
+                            if (dur != null) {
+                                totalDuration += dur;
+                                valid = true;
+                            }
+                        }
+                        return valid ? { student, totalDuration } : null;
+                    })
+                    .filter(Boolean);
+                if (withTotalDuration.length > 0) {
+                    withTotalDuration.sort((a, b) => a.totalDuration - b.totalDuration);
+                    const fastest = withTotalDuration[0];
+                    summary.fastest = {
+                        name: displayNameFromProfile(fastest.student),
+                        totalTime: formatDurationSec(fastest.totalDuration),
+                    };
+                }
             } else {
                 summary = {
                     totalStudents: nStudents,
@@ -1324,6 +1394,20 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
+    };
+
+    const handleOpenTeacherTests = (action, testId) => {
+        const payload = {
+            action: action === 'assign' ? 'assign' : 'edit',
+            testId: testId == null ? '' : String(testId),
+        };
+        try {
+            sessionStorage.setItem('qf_teacher_active_tab', 'tests');
+            sessionStorage.setItem('qf_teacher_tests_intent', JSON.stringify(payload));
+        } catch {
+            /* ignore */
+        }
+        window.dispatchEvent(new CustomEvent('qf-teacher-open-tests', { detail: payload }));
     };
 
     const sendMessageToIframe = (message) => {

@@ -50,6 +50,7 @@ function formatDuration(seconds) {
 }
 
 export default function TeacherControlPanel({ session }) {
+  const TESTS_INTENT_KEY = 'qf_teacher_tests_intent';
   const [tests, setTests] = useState([]);
   const [groups, setGroups] = useState([]);
   const [assignedGroupIds, setAssignedGroupIds] = useState([]);
@@ -64,6 +65,7 @@ export default function TeacherControlPanel({ session }) {
   const [assigning, setAssigning] = useState(false);
   const [notice, setNotice] = useState(null);
   const [testDraft, setTestDraft] = useState(createTestDraft);
+  const [intentApplied, setIntentApplied] = useState(false);
 
   const loadTests = useCallback(async () => {
     setLoading(true);
@@ -722,6 +724,73 @@ export default function TeacherControlPanel({ session }) {
       loadAssignedGroups(selectedTestId);
     }
   }, [view, selectedTestId, loadAssignedGroups]);
+
+  useEffect(() => {
+    if (intentApplied || tests.length === 0) return;
+    let raw = null;
+    try {
+      raw = sessionStorage.getItem(TESTS_INTENT_KEY);
+    } catch {
+      raw = null;
+    }
+    if (!raw) return;
+
+    let intent = null;
+    try {
+      intent = JSON.parse(raw);
+    } catch {
+      intent = null;
+    }
+    if (!intent || !intent.testId) return;
+
+    const exists = tests.some((test) => String(test.id) === String(intent.testId));
+    if (!exists) {
+      try {
+        sessionStorage.removeItem(TESTS_INTENT_KEY);
+      } catch {
+        /* ignore */
+      }
+      setIntentApplied(true);
+      return;
+    }
+
+    if (intent.action === 'assign') {
+      setView('groups');
+      setSelectedTestId(String(intent.testId));
+    } else {
+      setView('tests');
+      setNotice({
+        type: 'success',
+        text: 'Открыт список тестов для редактирования выбранного теста.',
+      });
+    }
+    try {
+      sessionStorage.removeItem(TESTS_INTENT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setIntentApplied(true);
+  }, [intentApplied, tests]);
+
+  useEffect(() => {
+    const onOpenFromProfile = (event) => {
+      const detail = event?.detail || {};
+      const testId = detail.testId == null ? '' : String(detail.testId);
+      if (!testId) return;
+      if (detail.action === 'assign') {
+        setView('groups');
+        setSelectedTestId(testId);
+        return;
+      }
+      setView('tests');
+      setNotice({
+        type: 'success',
+        text: 'Открыт список тестов для редактирования выбранного теста.',
+      });
+    };
+    window.addEventListener('qf-teacher-open-tests', onOpenFromProfile);
+    return () => window.removeEventListener('qf-teacher-open-tests', onOpenFromProfile);
+  }, []);
 
   const toggleGroupSelection = (groupId) => {
     const id = String(groupId);
