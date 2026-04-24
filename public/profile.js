@@ -803,7 +803,7 @@ function updateStudentTestsUI(tests) {
         const attemptsEl = document.createElement('span');
         attemptsEl.textContent = `Попыток: ${attemptsAllowed}`;
         const bonusEl = document.createElement('span');
-        bonusEl.textContent = `Доп. попытка: ↻ ${extraAttempts}`;
+        bonusEl.textContent = `Доп. попытка: ${extraAttempts}`;
 
         metaEl.appendChild(qEl);
         metaEl.appendChild(limitEl);
