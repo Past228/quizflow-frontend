@@ -13,21 +13,37 @@ function levelForTest(t) {
 export default function CatalogPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
-  const { groupId, loading: profileLoading } = useStudentProfile();
+  const [dateFilter, setDateFilter] = useState('all');
+  const { groupId, profile, loading: profileLoading } = useStudentProfile();
   const { tests, loading: testsLoading } = useStudentTests(groupId);
+  const extraAttempts = profile?.bonus_extra_attempt_count || 0;
 
   const rows = useMemo(() => {
+    const now = Date.now();
     const mapped = tests.map((t) => ({
       id: String(t.id),
       title: (t.title || 'Тест').toUpperCase(),
       level: levelForTest(t),
       time: t.time_limit_minutes ? `${t.time_limit_minutes} мин` : '—',
+      attempts: t.attempts_allowed || 1,
+      createdAt: t.created_at ? new Date(t.created_at) : null,
       tag: '★',
     }));
+    const filteredByDate = mapped.filter((x) => {
+      if (!x.createdAt || dateFilter === 'all') return true;
+      const ageMs = now - x.createdAt.getTime();
+      if (dateFilter === 'week') return ageMs <= 7 * 24 * 60 * 60 * 1000;
+      if (dateFilter === 'month') return ageMs <= 30 * 24 * 60 * 60 * 1000;
+      return true;
+    });
+    filteredByDate.sort((a, b) => {
+      if (dateFilter === 'oldest') return (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0);
+      return (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0);
+    });
     const q = query.trim().toLowerCase();
-    if (!q) return mapped;
-    return mapped.filter((x) => x.title.toLowerCase().includes(q));
-  }, [tests, query]);
+    if (!q) return filteredByDate;
+    return filteredByDate.filter((x) => x.title.toLowerCase().includes(q));
+  }, [tests, query, dateFilter]);
 
   const loading = profileLoading || testsLoading;
 
@@ -55,7 +71,33 @@ export default function CatalogPage() {
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Поиск тестов"
           />
+          <select
+            className="qf-search"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            aria-label="Фильтр тестов по дате"
+            style={{
+              maxWidth: 260,
+              appearance: 'none',
+              paddingRight: 42,
+              backgroundImage:
+                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'calc(100% - 14px) 50%',
+              backgroundSize: '14px 14px',
+            }}
+          >
+            <option value="all">Все даты</option>
+            <option value="newest">Сначала новые</option>
+            <option value="oldest">Сначала старые</option>
+            <option value="week">За 7 дней</option>
+            <option value="month">За 30 дней</option>
+          </select>
         </header>
+
+        <div style={{ marginBottom: 16, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)', fontWeight: 600 }}>
+          Доп. попытка: {extraAttempts}
+        </div>
 
         {loading && (
           <p style={{ color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)', fontSize: 16 }}>
@@ -129,6 +171,9 @@ export default function CatalogPage() {
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 14 }}>
                     Время: {card.time}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--qf-text-muted)', marginBottom: 12 }}>
+                    Попыток: {card.attempts}
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <span

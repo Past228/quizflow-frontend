@@ -3,6 +3,21 @@ import { supabase } from '../lib/supabaseClient';
 import { useStudentProfile } from '../context/StudentProfileContext';
 
 const BONUS_GLYPH = { attempt: '↻', hint: '💡', skip: '?' };
+const BONUS_FIELD_BY_ID = {
+  attempt: 'bonus_extra_attempt_count',
+  hint: 'bonus_hint_count',
+  skip: 'bonus_skip_count',
+};
+
+function resolveBonusField(bonus) {
+  const id = String(bonus?.id || '').toLowerCase();
+  const name = String(bonus?.name || '').toLowerCase();
+  if (BONUS_FIELD_BY_ID[id]) return BONUS_FIELD_BY_ID[id];
+  if (id.includes('attempt') || name.includes('доп') || name.includes('попыт')) return 'bonus_extra_attempt_count';
+  if (id.includes('hint') || name.includes('подсказ')) return 'bonus_hint_count';
+  if (id.includes('skip') || name.includes('пропуск')) return 'bonus_skip_count';
+  return null;
+}
 
 // ─── Column component ────────────────────────────────────────────────────────
 
@@ -147,19 +162,34 @@ export default function ShopPage() {
 
   async function handleBuy(item, itemType) {
     if (!profile) return;
-    const coins = profile.sp_coins ?? 0;
-
-    if (coins < item.price) {
-      showToast('error', 'Недостаточно монет!');
-      return;
-    }
 
     setPurchasing(`${itemType}_${item.id}`);
     try {
-      // Deduct coins
+      const { data: latestProfile, error: pErr } = await supabase
+        .from('profiles')
+        .select('sp_coins, bonus_skip_count, bonus_hint_count, bonus_extra_attempt_count')
+        .eq('id', profile.id)
+        .single();
+      if (pErr) throw pErr;
+
+      const coins = latestProfile?.sp_coins ?? 0;
+      if (coins < item.price) {
+        showToast('error', 'Недостаточно монет!');
+        return;
+      }
+
+      const profilePatch = { sp_coins: coins - item.price };
+      if (itemType === 'bonus') {
+        const bonusField = resolveBonusField(item);
+        if (bonusField) {
+          profilePatch[bonusField] = (latestProfile?.[bonusField] ?? 0) + 1;
+        }
+      }
+
+      // Deduct coins (+ increment bonus counter for bonus purchases).
       const { error: e1 } = await supabase
         .from('profiles')
-        .update({ sp_coins: coins - item.price })
+        .update(profilePatch)
         .eq('id', profile.id);
       if (e1) throw e1;
 

@@ -28,24 +28,9 @@ export function useLeaderboard(currentGroupId) {
           return;
         }
 
-        // Step 1 — aggregate scores from completed test sessions
-        const { data: results, error: resultsErr } = await supabase
-          .from('test_results')
-          .select('student_id, score')
-          .eq('status', 'completed');
-
-        if (resultsErr) throw resultsErr;
-
-        const scoreMap = {};
-        const testsMap = {};
-        (results || []).forEach((r) => {
-          scoreMap[r.student_id] = (scoreMap[r.student_id] || 0) + (r.score || 0);
-          testsMap[r.student_id] = (testsMap[r.student_id] || 0) + 1;
-        });
-
-        // Step 2 — RPC обходит RLS: у teacher-JWT часто 0 строк при прямом SELECT (у студента — ок)
+        // Step 1 — get leaderboard-safe profiles (RPC bypasses RLS visibility issues).
         const selectCols =
-          'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role';
+          'id, first_name, last_name, avatar_url, group_id, active_frame_id, active_color_id, active_prefix_id, incognito_mode, role, leaderboard_points, completed_tests_count';
         const rpcLb = await supabase.rpc('qf_leaderboard_profiles');
         let profilesRaw;
         if (!rpcLb.error && rpcLb.data != null) {
@@ -58,7 +43,7 @@ export function useLeaderboard(currentGroupId) {
 
         const profiles = (profilesRaw || []).filter(profileIsStudentForRanking);
 
-        // Step 3 — batch-load all referenced cosmetic items in parallel
+        // Step 2 — batch-load all referenced cosmetic items in parallel
         const unique = (arr) => [...new Set(arr.filter(Boolean))];
         const frameIds  = unique((profiles || []).map((p) => p.active_frame_id));
         const colorIds  = unique((profiles || []).map((p) => p.active_color_id));
@@ -74,15 +59,15 @@ export function useLeaderboard(currentGroupId) {
         const colorMap  = Object.fromEntries((colorsRes.data  || []).map((c) => [c.id, c]));
         const prefixMap = Object.fromEntries((prefixesRes.data|| []).map((p) => [p.id, p]));
 
-        // Step 4 — combine, sort, assign ranks
+        // Step 3 — combine, sort, assign ranks
         const ranked = (profiles || [])
           .map((p) => ({
             id: p.id,
             name: [p.first_name, p.last_name].filter(Boolean).join(' '),
             avatarUrl: p.avatar_url || null,
             groupId: p.group_id,
-            totalScore: scoreMap[p.id] || 0,
-            testsCompleted: testsMap[p.id] || 0,
+            totalScore: Number(p.leaderboard_points || 0),
+            testsCompleted: Number(p.completed_tests_count || 0),
             activeFrame:  p.active_frame_id  ? (frameMap[p.active_frame_id]   ?? null) : null,
             activeColor:  p.active_color_id  ? (colorMap[p.active_color_id]   ?? null) : null,
             activePrefix: p.active_prefix_id ? (prefixMap[p.active_prefix_id] ?? null) : null,
@@ -95,14 +80,13 @@ export function useLeaderboard(currentGroupId) {
         });
 
         if (!cancelled) {
+          const groupOnly = currentGroupId
+            ? ranked
+                .filter((r) => String(r.groupId ?? '') === String(currentGroupId ?? ''))
+                .map((row, idx) => ({ ...row, rank: idx + 1 }))
+            : [];
           setAll(ranked);
-          setGroupRanking(
-            currentGroupId
-              ? ranked.filter(
-                  (r) => String(r.groupId ?? '') === String(currentGroupId ?? '')
-                )
-              : []
-          );
+          setGroupRanking(groupOnly);
         }
       } catch (err) {
         console.error('useLeaderboard error:', err);

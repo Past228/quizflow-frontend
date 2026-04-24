@@ -41,7 +41,16 @@ function createTestDraft() {
   };
 }
 
+function formatDuration(seconds) {
+  const safe = Number(seconds);
+  if (!Number.isFinite(safe) || safe < 0) return '—';
+  const mins = Math.floor(safe / 60);
+  const secs = Math.floor(safe % 60);
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
 export default function TeacherControlPanel({ session }) {
+  const TESTS_INTENT_KEY = 'qf_teacher_tests_intent';
   const [tests, setTests] = useState([]);
   const [groups, setGroups] = useState([]);
   const [assignedGroupIds, setAssignedGroupIds] = useState([]);
@@ -53,9 +62,12 @@ export default function TeacherControlPanel({ session }) {
   const [resultsLoading, setResultsLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editingTestId, setEditingTestId] = useState(null);
   const [assigning, setAssigning] = useState(false);
   const [notice, setNotice] = useState(null);
   const [testDraft, setTestDraft] = useState(createTestDraft);
+  const [intentApplied, setIntentApplied] = useState(false);
+  const [testDateFilter, setTestDateFilter] = useState('newest');
 
   const loadTests = useCallback(async () => {
     setLoading(true);
@@ -66,7 +78,28 @@ export default function TeacherControlPanel({ session }) {
         .eq('teacher_id', session.user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setTests(data || []);
+
+      const testsList = data || [];
+      const testIds = testsList.map((t) => t.id);
+      if (testIds.length > 0) {
+        const { data: questionRows, error: qErr } = await supabase
+          .from('test_questions')
+          .select('test_id')
+          .in('test_id', testIds);
+        if (qErr) throw qErr;
+        const actualCountMap = {};
+        (questionRows || []).forEach((row) => {
+          actualCountMap[row.test_id] = (actualCountMap[row.test_id] || 0) + 1;
+        });
+        setTests(
+          testsList.map((test) => ({
+            ...test,
+            questions_count: actualCountMap[test.id] ?? 0,
+          }))
+        );
+      } else {
+        setTests(testsList);
+      }
     } catch (err) {
       console.error('Failed to load tests:', err);
       setNotice({ type: 'error', text: 'Не удалось загрузить тесты.' });
@@ -118,51 +151,270 @@ export default function TeacherControlPanel({ session }) {
   const loadResults = useCallback(async () => {
     setResultsLoading(true);
     try {
-      const testIds = tests.map((t) => t.id);
+      const { data: latestTests, error: latestTestsError } = await supabase
+        .from('tests')
+        .select('id, title')
+        .eq('teacher_id', session.user.id);
+      if (latestTestsError) throw latestTestsError;
+
+      const testsForResults = latestTests || [];
+      const testIds = testsForResults.map((t) => t.id);
       if (testIds.length === 0) {
         setResultRows([]);
         return;
       }
 
+      const testIdSet = new Set(testIds.map((id) => String(id)));
+
       const [assignmentsRes, attemptsRes] = await Promise.all([
         supabase.from('group_tests').select('test_id, group_id').in('test_id', testIds),
-        supabase.from('test_results').select('test_id, student_id, percentage, status').in('test_id', testIds),
+        supabase.rpc('qf_teacher_test_results_enriched', { p_test_id: null }),
       ]);
 
       if (assignmentsRes.error) throw assignmentsRes.error;
-      if (attemptsRes.error) throw attemptsRes.error;
+
+      let attempts = [];
+      if (attemptsRes.error) {
+        const msg = String(attemptsRes.error.message || '');
+        const rpcMissing =
+          msg.includes('qf_teacher_test_results_enriched') ||
+          msg.includes('function') ||
+          msg.includes('does not exist') ||
+          attemptsRes.error.code === 'PGRST202';
+        if (!rpcMissing) throw attemptsRes.error;
+        const legacy = await supabase.rpc('qf_teacher_test_results', { p_test_id: null });
+        if (legacy.error) {
+          const m2 = String(legacy.error.message || '');
+          const miss2 =
+            m2.includes('qf_teacher_test_results') || m2.includes('does not exist') || legacy.error.code === 'PGRST202';
+          if (!miss2) throw legacy.error;
+          const fallback = await supabase
+            .from('test_results')
+            .select('test_id, student_id, percentage, score, status, started_at, completed_at')
+            .in('test_id', testIds);
+          if (fallback.error) throw fallback.error;
+          attempts = fallback.data || [];
+        } else {
+          attempts = legacy.data || [];
+        }
+      } else {
+        attempts = attemptsRes.data || [];
+      }
 
       const assignments = assignmentsRes.data || [];
-      const attempts = attemptsRes.data || [];
+      attempts = attempts.filter((row) => testIdSet.has(String(row.test_id)));
 
-      const rows = tests.map((test) => {
-        const testAssignments = assignments.filter((a) => a.test_id === test.id);
-        const testAttempts = attempts.filter((a) => a.test_id === test.id);
-        const completedAttempts = testAttempts.filter((a) => a.status === 'completed');
-        const uniqueStudents = new Set(testAttempts.map((a) => a.student_id).filter(Boolean)).size;
-        const scored = completedAttempts.filter((a) => a.percentage != null).map((a) => Number(a.percentage));
-        const avgScore = scored.length > 0 ? scored.reduce((sum, value) => sum + value, 0) / scored.length : null;
+      const assignmentGroupIds = [...new Set(assignments.map((a) => a.group_id).filter(Boolean))];
+      const isEnriched = attempts.length > 0 && 'profile_group_id' in (attempts[0] || {});
+
+      const studentsById = {};
+      if (isEnriched) {
+        attempts.forEach((row) => {
+          const sid = String(row.student_id);
+          if (!sid) return;
+          if (!studentsById[sid]) {
+            studentsById[sid] = {
+              id: row.student_id,
+              first_name: row.first_name,
+              last_name: row.last_name,
+              email: row.email,
+              group_id: row.profile_group_id,
+              _gnum: row.group_number,
+              _cnum: row.course_number,
+              _bname: row.building_name,
+            };
+          }
+        });
+      } else {
+        const attemptStudentIds = [...new Set(attempts.map((a) => String(a.student_id || '')).filter(Boolean))];
+        const profileResults = await Promise.all(
+          attemptStudentIds.map((id) => supabase.rpc('qf_profile_by_id', { p_id: id }))
+        );
+        attemptStudentIds.forEach((id, i) => {
+          const res = profileResults[i];
+          if (res.error) return;
+          const raw = res.data;
+          const p = raw == null ? null : Array.isArray(raw) ? raw[0] : raw;
+          if (p) {
+            studentsById[id] = { ...p, _gnum: null, _cnum: null, _bname: null };
+          }
+        });
+      }
+
+      for (const gid of assignmentGroupIds) {
+        const n = Number(gid);
+        if (!Number.isFinite(n)) continue;
+        const { data: grpStudents, error: sgErr } = await supabase.rpc('qf_students_in_group', { p_group_id: n });
+        if (sgErr) {
+          console.warn('qf_students_in_group', sgErr);
+          continue;
+        }
+        (grpStudents || []).forEach((p) => {
+          const sid = String(p.id);
+          if (!studentsById[sid]) {
+            studentsById[sid] = { ...p, _gnum: null, _cnum: null, _bname: null };
+          }
+        });
+      }
+
+      const allGroupIds = [
+        ...new Set([
+          ...assignmentGroupIds,
+          ...Object.values(studentsById)
+            .map((s) => s.group_id)
+            .filter(Boolean),
+        ]),
+      ];
+      const { data: groupsData, error: groupsErr } =
+        allGroupIds.length > 0
+          ? await supabase
+              .from('student_groups')
+              .select('id, group_number, courses(course_number, buildings(name))')
+              .in('id', allGroupIds)
+          : { data: [], error: null };
+      if (groupsErr) throw groupsErr;
+      const groupsMap = Object.fromEntries((groupsData || []).map((g) => [String(g.id), g]));
+
+      const groupTitleFor = (student) => {
+        if (student == null) return 'Группа не указана';
+        if (student._gnum != null || student._cnum != null || student._bname) {
+          if (student._gnum == null && student._cnum == null && !student._bname) return 'Группа не указана';
+          return `Группа ${student._gnum ?? '—'}${
+            student._cnum != null
+              ? ` (${student._cnum} курс${student._bname ? `, ${student._bname}` : ''})`
+              : student._bname
+                ? ` (${student._bname})`
+                : ''
+          }`;
+        }
+        const groupMeta = groupsMap[String(student.group_id)];
+        if (!groupMeta) return 'Группа не указана';
+        return `Группа ${groupMeta.group_number}${
+          groupMeta.courses
+            ? ` (${groupMeta.courses.course_number} курс${
+                groupMeta.courses.buildings?.name ? `, ${groupMeta.courses.buildings.name}` : ''
+              })`
+            : ''
+        }`;
+      };
+
+      const displayName = (student) => {
+        if (student == null) return 'Студент';
+        const byName = [student.last_name, student.first_name].filter(Boolean).join(' ').trim();
+        if (byName) return byName;
+        if (student.email) return String(student.email);
+        return `ID: ${String(student.id)}`;
+      };
+
+      const rows = testsForResults.map((test) => {
+        const testAssignments = assignments.filter((a) => String(a.test_id) === String(test.id));
+        const assignedGroupIdsForTest = [...new Set(testAssignments.map((a) => String(a.group_id)).filter(Boolean))];
+        const assignedStudents = Object.values(studentsById).filter((s) =>
+          assignedGroupIdsForTest.includes(String(s.group_id))
+        );
+        let testAttempts = attempts.filter((a) => String(a.test_id) === String(test.id));
+        const attemptStudentIdsForTest = new Set(testAttempts.map((a) => String(a.student_id || '')).filter(Boolean));
+        const baseStudentIds = new Set([...assignedStudents.map((s) => String(s.id)), ...attemptStudentIdsForTest]);
+        const baseStudents =
+          baseStudentIds.size > 0
+            ? [...baseStudentIds].map(
+                (id) =>
+                  studentsById[id] || {
+                    id,
+                    first_name: '',
+                    last_name: '',
+                    email: null,
+                    group_id: null,
+                    _gnum: null,
+                    _cnum: null,
+                    _bname: null,
+                  }
+              )
+            : [];
+
+        const bestAttemptByStudent = {};
+        testAttempts.forEach((attempt) => {
+          const key = String(attempt.student_id || '');
+          if (!key) return;
+          const pct =
+            attempt.percentage != null
+              ? Number(attempt.percentage) || 0
+              : Number(attempt.score) || 0;
+          const prev = bestAttemptByStudent[key];
+          const prevPct =
+            prev?.percentage != null ? Number(prev.percentage) || 0 : Number(prev?.score) || 0;
+          if (!prev || pct > prevPct) {
+            bestAttemptByStudent[key] = attempt;
+          }
+        });
+
+        const studentRows = baseStudents
+          .map((student) => {
+            const best = bestAttemptByStudent[String(student.id)] || null;
+            const started = best?.started_at ? new Date(best.started_at).getTime() : null;
+            const completed = best?.completed_at ? new Date(best.completed_at).getTime() : null;
+            const durationSeconds =
+              started && completed && completed >= started ? Math.round((completed - started) / 1000) : null;
+
+            let groupTitle = groupTitleFor(student);
+            if (isEnriched && best && 'group_number' in best) {
+              const b = best;
+              if (b.group_number != null || b.course_number != null || b.building_name) {
+                groupTitle = `Группа ${b.group_number ?? '—'}${
+                  b.course_number != null
+                    ? ` (${b.course_number} курс${b.building_name ? `, ${b.building_name}` : ''})`
+                    : b.building_name
+                      ? ` (${b.building_name})`
+                      : ''
+                }`;
+              }
+            }
+
+            return {
+              studentId: student.id,
+              studentName: displayName(studentsById[String(student.id)] || student),
+              groupTitle,
+              passed: !!best,
+              percentage:
+                best?.percentage != null
+                  ? Number(best.percentage) || 0
+                  : best?.score != null
+                    ? Number(best.score) || 0
+                    : null,
+              durationSeconds,
+            };
+          })
+          .sort((a, b) => Number(b.percentage || -1) - Number(a.percentage || -1));
+
+        const passedRows = studentRows.filter((row) => row.passed && row.percentage != null);
+        const avgScore =
+          passedRows.length > 0
+            ? passedRows.reduce((sum, row) => sum + Number(row.percentage || 0), 0) / passedRows.length
+            : null;
 
         return {
           testId: test.id,
           testTitle: test.title || 'Без названия',
-          assignedGroups: new Set(testAssignments.map((a) => a.group_id).filter(Boolean)).size,
-          attemptsTotal: testAttempts.length,
-          completedTotal: completedAttempts.length,
-          uniqueStudents,
+          assignedGroups: assignedGroupIdsForTest.length,
+          assignedStudentsTotal: baseStudents.length,
+          passedStudentsTotal: studentRows.filter((row) => row.passed).length,
           avgScore,
+          studentRows,
         };
       });
 
       setResultRows(rows);
     } catch (err) {
       console.error('Failed to load results:', err);
-      setNotice({ type: 'error', text: 'Не удалось загрузить результаты.' });
+      setNotice({
+        type: 'error',
+        text: 'Не удалось загрузить результаты. В Supabase → SQL Editor выполните новый блок из конца файла supabase_rls_policies.sql (функции qf_teacher_test_results_enriched и qf_student_my_test_results).',
+      });
       setResultRows([]);
     } finally {
       setResultsLoading(false);
     }
-  }, [tests]);
+  }, [session.user.id]);
 
   useEffect(() => {
     loadTests();
@@ -175,7 +427,89 @@ export default function TeacherControlPanel({ session }) {
 
   const openCreateModal = () => {
     resetCreateDraft();
+    setEditingTestId(null);
     setShowCreateModal(true);
+  };
+
+  const openEditModal = async (testId) => {
+    setCreating(true);
+    try {
+      const { data: testRow, error: testErr } = await supabase
+        .from('tests')
+        .select('id, title, description, attempts_allowed, time_limit_minutes')
+        .eq('id', testId)
+        .eq('teacher_id', session.user.id)
+        .single();
+      if (testErr) throw testErr;
+
+      const { data: questionRows, error: qErr } = await supabase
+        .from('test_questions')
+        .select('id, question_text, difficulty, estimated_time_seconds')
+        .eq('test_id', testId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true });
+      if (qErr) throw qErr;
+      const questionIds = (questionRows || []).map((q) => q.id);
+      let optionsByQuestion = {};
+      if (questionIds.length > 0) {
+        const { data: optionRows, error: oErr } = await supabase
+          .from('test_question_options')
+          .select('question_id, option_text, explanation, is_correct, position')
+          .in('question_id', questionIds)
+          .order('position', { ascending: true });
+        if (oErr) throw oErr;
+        optionsByQuestion = (optionRows || []).reduce((acc, row) => {
+          if (!acc[row.question_id]) acc[row.question_id] = [];
+          acc[row.question_id].push(row);
+          return acc;
+        }, {});
+      }
+
+      const draftQuestions = (questionRows || []).map((q) => {
+        const rows = optionsByQuestion[q.id] || [];
+        const isMatching = rows.some((r) => (r.explanation || '').trim().length > 0);
+        if (isMatching) {
+          return {
+            id: makeId('q'),
+            type: QUESTION_TYPES.matching,
+            text: q.question_text || '',
+            difficulty: Number(q.difficulty || 0),
+            estimatedTimeSeconds: Number(q.estimated_time_seconds || 60),
+            options: [createChoiceOption(), createChoiceOption()],
+            pairs: rows.length > 0
+              ? rows.map((r) => ({ id: makeId('pair'), left: r.option_text || '', right: r.explanation || '' }))
+              : [createMatchingPair()],
+          };
+        }
+        const correctCount = rows.filter((r) => r.is_correct).length;
+        const type = correctCount > 1 ? QUESTION_TYPES.multiple : QUESTION_TYPES.single;
+        return {
+          id: makeId('q'),
+          type,
+          text: q.question_text || '',
+          difficulty: Number(q.difficulty || 0),
+          estimatedTimeSeconds: Number(q.estimated_time_seconds || 60),
+          options: rows.length > 0
+            ? rows.map((r) => ({ id: makeId('opt'), text: r.option_text || '', isCorrect: !!r.is_correct }))
+            : [createChoiceOption(), createChoiceOption()],
+          pairs: [createMatchingPair()],
+        };
+      });
+
+      setTestDraft({
+        title: testRow.title || '',
+        description: testRow.description || '',
+        attemptsAllowed: Number(testRow.attempts_allowed || 1),
+        timeLimitMinutes: Number(testRow.time_limit_minutes || 20),
+        questions: draftQuestions.length > 0 ? draftQuestions : [createQuestionDraft()],
+      });
+      setEditingTestId(testRow.id);
+      setShowCreateModal(true);
+    } catch (err) {
+      setNotice({ type: 'error', text: 'Ошибка загрузки теста для редактирования: ' + err.message });
+    } finally {
+      setCreating(false);
+    }
   };
 
   const updateDraftField = (field, value) => {
@@ -243,7 +577,6 @@ export default function TeacherControlPanel({ session }) {
       ...prev,
       questions: prev.questions.map((question) => {
         if (question.id !== questionId) return question;
-        if (question.options.length <= 2) return question;
         return { ...question, options: question.options.filter((option) => option.id !== optionId) };
       }),
     }));
@@ -288,7 +621,6 @@ export default function TeacherControlPanel({ session }) {
       ...prev,
       questions: prev.questions.map((question) => {
         if (question.id !== questionId) return question;
-        if (question.pairs.length <= 1) return question;
         return { ...question, pairs: question.pairs.filter((pair) => pair.id !== pairId) };
       }),
     }));
@@ -344,26 +676,50 @@ export default function TeacherControlPanel({ session }) {
 
     setCreating(true);
     try {
-      const { data: createdTest, error: testError } = await supabase
-        .from('tests')
-        .insert({
-          title: testDraft.title.trim(),
-          description: testDraft.description.trim() || null,
-          attempts_allowed: Number(testDraft.attemptsAllowed) || 1,
-          time_limit_minutes: Number(testDraft.timeLimitMinutes) || null,
-          questions_count: testDraft.questions.length,
-          teacher_id: session.user.id,
-          is_active: true,
-        })
-        .select('id')
-        .single();
-      if (testError) throw testError;
+      let testId = editingTestId;
+      if (editingTestId) {
+        const { error: updateErr } = await supabase
+          .from('tests')
+          .update({
+            title: testDraft.title.trim(),
+            description: testDraft.description.trim() || null,
+            attempts_allowed: Number(testDraft.attemptsAllowed) || 1,
+            time_limit_minutes: Number(testDraft.timeLimitMinutes) || null,
+            questions_count: testDraft.questions.length,
+          })
+          .eq('id', editingTestId)
+          .eq('teacher_id', session.user.id);
+        if (updateErr) throw updateErr;
+
+        // Do not delete historical questions/options: old attempts may reference them via FK.
+        const { error: delQErr } = await supabase
+          .from('test_questions')
+          .update({ is_active: false })
+          .eq('test_id', editingTestId);
+        if (delQErr) throw delQErr;
+      } else {
+        const { data: createdTest, error: testError } = await supabase
+          .from('tests')
+          .insert({
+            title: testDraft.title.trim(),
+            description: testDraft.description.trim() || null,
+            attempts_allowed: Number(testDraft.attemptsAllowed) || 1,
+            time_limit_minutes: Number(testDraft.timeLimitMinutes) || null,
+            questions_count: testDraft.questions.length,
+            teacher_id: session.user.id,
+            is_active: true,
+          })
+          .select('id')
+          .single();
+        if (testError) throw testError;
+        testId = createdTest.id;
+      }
 
       for (const question of testDraft.questions) {
         const { data: createdQuestion, error: questionError } = await supabase
           .from('test_questions')
           .insert({
-            test_id: createdTest.id,
+            test_id: testId,
             question_text: question.text.trim(),
             difficulty: Number(question.difficulty) || 0,
             estimated_time_seconds: Number(question.estimatedTimeSeconds) || 60,
@@ -400,7 +756,8 @@ export default function TeacherControlPanel({ session }) {
       }
 
       setShowCreateModal(false);
-      setNotice({ type: 'success', text: 'Тест и вопросы успешно сохранены в базу.' });
+      setEditingTestId(null);
+      setNotice({ type: 'success', text: editingTestId ? 'Тест успешно обновлен.' : 'Тест и вопросы успешно сохранены в базу.' });
       await loadTests();
     } catch (err) {
       setNotice({ type: 'error', text: 'Ошибка создания теста: ' + err.message });
@@ -412,15 +769,28 @@ export default function TeacherControlPanel({ session }) {
   const handleDelete = async (id) => {
     if (!confirm('Удалить этот тест?')) return;
     try {
-      const { error } = await supabase.from('tests').delete().eq('id', id).eq('teacher_id', session.user.id);
-      if (error) throw error;
+      const { error: rpcError } = await supabase.rpc('qf_teacher_delete_test', {
+        p_test_id: Number(id),
+      });
+      if (rpcError) {
+        const msg = String(rpcError.message || '');
+        const rpcMissing =
+          msg.includes('qf_teacher_delete_test') ||
+          msg.includes('function') ||
+          msg.includes('does not exist') ||
+          rpcError.code === 'PGRST202';
+        if (!rpcMissing) throw rpcError;
+        const { error } = await supabase.from('tests').delete().eq('id', id).eq('teacher_id', session.user.id);
+        if (error) throw error;
+      }
       if (selectedTestId === String(id)) {
         setSelectedTestId('');
         setAssignedGroupIds([]);
         setSelectedGroupIds([]);
       }
       setNotice({ type: 'success', text: 'Тест удален.' });
-      loadTests();
+      await loadTests();
+      if (view === 'results') await loadResults();
     } catch (err) {
       setNotice({ type: 'error', text: 'Ошибка удаления теста: ' + err.message });
     }
@@ -449,6 +819,22 @@ export default function TeacherControlPanel({ session }) {
     () => tests.find((test) => String(test.id) === String(selectedTestId)) || null,
     [tests, selectedTestId]
   );
+  const filteredTests = useMemo(() => {
+    const now = Date.now();
+    const list = [...tests].filter((t) => {
+      const ts = t.created_at ? new Date(t.created_at).getTime() : null;
+      if (!ts || testDateFilter === 'all' || testDateFilter === 'newest' || testDateFilter === 'oldest') return true;
+      if (testDateFilter === 'week') return now - ts <= 7 * 24 * 60 * 60 * 1000;
+      if (testDateFilter === 'month') return now - ts <= 30 * 24 * 60 * 60 * 1000;
+      return true;
+    });
+    list.sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return testDateFilter === 'oldest' ? ta - tb : tb - ta;
+    });
+    return list;
+  }, [tests, testDateFilter]);
 
   useEffect(() => {
     if (view === 'results') {
@@ -461,6 +847,67 @@ export default function TeacherControlPanel({ session }) {
       loadAssignedGroups(selectedTestId);
     }
   }, [view, selectedTestId, loadAssignedGroups]);
+
+  useEffect(() => {
+    if (intentApplied || tests.length === 0) return;
+    let raw = null;
+    try {
+      raw = sessionStorage.getItem(TESTS_INTENT_KEY);
+    } catch {
+      raw = null;
+    }
+    if (!raw) return;
+
+    let intent = null;
+    try {
+      intent = JSON.parse(raw);
+    } catch {
+      intent = null;
+    }
+    if (!intent || !intent.testId) return;
+
+    const exists = tests.some((test) => String(test.id) === String(intent.testId));
+    if (!exists) {
+      try {
+        sessionStorage.removeItem(TESTS_INTENT_KEY);
+      } catch {
+        /* ignore */
+      }
+      setIntentApplied(true);
+      return;
+    }
+
+    if (intent.action === 'assign') {
+      setView('groups');
+      setSelectedTestId(String(intent.testId));
+    } else {
+      setView('tests');
+      void openEditModal(String(intent.testId));
+    }
+    try {
+      sessionStorage.removeItem(TESTS_INTENT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setIntentApplied(true);
+  }, [intentApplied, tests]);
+
+  useEffect(() => {
+    const onOpenFromProfile = (event) => {
+      const detail = event?.detail || {};
+      const testId = detail.testId == null ? '' : String(detail.testId);
+      if (!testId) return;
+      if (detail.action === 'assign') {
+        setView('groups');
+        setSelectedTestId(testId);
+        return;
+      }
+      setView('tests');
+      void openEditModal(testId);
+    };
+    window.addEventListener('qf-teacher-open-tests', onOpenFromProfile);
+    return () => window.removeEventListener('qf-teacher-open-tests', onOpenFromProfile);
+  }, []);
 
   const toggleGroupSelection = (groupId) => {
     const id = String(groupId);
@@ -539,6 +986,27 @@ export default function TeacherControlPanel({ session }) {
         )}
 
         <div className="student-card" style={{ padding: '24px 28px', marginBottom: 28 }}>
+          <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
+            <select
+              value={testDateFilter}
+              onChange={(e) => setTestDateFilter(e.target.value)}
+              style={{
+                padding: '10px 12px',
+                border: '2px solid var(--qf-accent-border-soft)',
+                borderRadius: 'var(--qf-radius-md, 12px)',
+                fontSize: 14,
+                fontFamily: 'var(--qf-font)',
+                background: 'var(--qf-card)',
+                color: 'var(--qf-text-body)',
+              }}
+            >
+              <option value="newest">Сначала новые</option>
+              <option value="oldest">Сначала старые</option>
+              <option value="week">За 7 дней</option>
+              <option value="month">За 30 дней</option>
+              <option value="all">Все даты</option>
+            </select>
+          </div>
           <div
             style={{
               display: 'grid',
@@ -689,7 +1157,7 @@ export default function TeacherControlPanel({ session }) {
                 }}
               >
                 <option value="">Выберите тест</option>
-                {tests.map((test) => (
+                {filteredTests.map((test) => (
                   <option key={test.id} value={test.id}>
                     {test.title}
                   </option>
@@ -797,10 +1265,40 @@ export default function TeacherControlPanel({ session }) {
                       Групп назначено: {row.assignedGroups}
                     </div>
                     <div style={{ fontSize: 14, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>
-                      Попыток: {row.attemptsTotal} • Завершено: {row.completedTotal} • Учеников: {row.uniqueStudents}
+                      Студентов назначено: {row.assignedStudentsTotal} • Прошли тест: {row.passedStudentsTotal}
                     </div>
                     <div style={{ fontSize: 14, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>
                       Средний балл: {row.avgScore == null ? '—' : `${Math.round(row.avgScore * 10) / 10}%`}
+                    </div>
+                    <div style={{ overflowX: 'auto', marginTop: 6 }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--qf-accent-border-soft)' }}>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>Студент</th>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>Группа</th>
+                            <th style={{ textAlign: 'center', padding: '6px 4px' }}>Статус</th>
+                            <th style={{ textAlign: 'center', padding: '6px 4px' }}>Результат</th>
+                            <th style={{ textAlign: 'center', padding: '6px 4px' }}>Время</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {row.studentRows.map((student) => (
+                            <tr key={student.studentId} style={{ borderBottom: '1px solid rgba(229,231,235,0.6)' }}>
+                              <td style={{ padding: '6px 4px' }}>{student.studentName}</td>
+                              <td style={{ padding: '6px 4px', color: 'var(--qf-text-muted)' }}>{student.groupTitle}</td>
+                              <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                                {student.passed ? 'Пройден' : 'Не пройден'}
+                              </td>
+                              <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                                {student.percentage == null ? '—' : `${Math.round(student.percentage * 10) / 10}%`}
+                              </td>
+                              <td style={{ textAlign: 'center', padding: '6px 4px' }}>
+                                {formatDuration(student.durationSeconds)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 ))}
@@ -812,7 +1310,7 @@ export default function TeacherControlPanel({ session }) {
         {(view === 'actions' || view === 'tests') &&
           (loading ? (
             <p style={{ color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>Загрузка…</p>
-          ) : tests.length === 0 ? (
+          ) : filteredTests.length === 0 ? (
             <div className="student-card" style={{ textAlign: 'center', padding: 40 }}>
               <p style={{ fontSize: 18, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>
                 У вас пока нет тестов. Создайте первый тест!
@@ -820,7 +1318,7 @@ export default function TeacherControlPanel({ session }) {
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
-              {tests.map((t) => (
+              {filteredTests.map((t) => (
                 <div key={t.id} className="student-card" style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <h3 style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)', margin: 0 }}>
@@ -847,11 +1345,19 @@ export default function TeacherControlPanel({ session }) {
                     <span>Вопросов: {t.questions_count || 0}</span>
                     <span>Попыток: {t.attempts_allowed || 1}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       className="qf-btn-primary"
-                      style={{ flex: 1, fontSize: 13, padding: '8px 12px' }}
+                      style={{ flex: '1 1 120px', fontSize: 13, padding: '8px 12px', background: '#2563eb' }}
+                      onClick={() => openEditModal(t.id)}
+                    >
+                      Редактировать
+                    </button>
+                    <button
+                      type="button"
+                      className="qf-btn-primary"
+                      style={{ flex: '1 1 120px', fontSize: 13, padding: '8px 12px' }}
                       onClick={() => handleToggleActive(t.id, t.is_active)}
                     >
                       {t.is_active ? 'Деактивировать' : 'Активировать'}
@@ -859,7 +1365,7 @@ export default function TeacherControlPanel({ session }) {
                     <button
                       type="button"
                       style={{
-                        flex: 1,
+                        flex: '1 1 120px',
                         fontSize: 13,
                         padding: '8px 12px',
                         border: '2px solid #ef4444',
@@ -891,7 +1397,7 @@ export default function TeacherControlPanel({ session }) {
               justifyContent: 'center',
               zIndex: 1000,
             }}
-            onClick={() => setShowCreateModal(false)}
+            onClick={() => { setShowCreateModal(false); setEditingTestId(null); }}
           >
             <div
               className="student-card"
@@ -899,7 +1405,7 @@ export default function TeacherControlPanel({ session }) {
               onClick={(e) => e.stopPropagation()}
             >
               <h2 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)', marginBottom: 20 }}>
-                Создать новый тест
+                {editingTestId ? 'Редактировать тест' : 'Создать новый тест'}
               </h2>
               <form onSubmit={handleCreate}>
                 <div style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1178,15 +1684,14 @@ export default function TeacherControlPanel({ session }) {
                                 <button
                                   type="button"
                                   onClick={() => removeOption(question.id, option.id)}
-                                  disabled={question.options.length <= 2}
                                   style={{
                                     border: '1px solid #ef4444',
                                     color: '#ef4444',
                                     background: 'transparent',
                                     borderRadius: 8,
                                     padding: '4px 8px',
-                                    cursor: question.options.length <= 2 ? 'not-allowed' : 'pointer',
-                                    opacity: question.options.length <= 2 ? 0.5 : 1,
+                                    cursor: 'pointer',
+                                    opacity: 1,
                                   }}
                                 >
                                   ✕
@@ -1237,15 +1742,14 @@ export default function TeacherControlPanel({ session }) {
                                 <button
                                   type="button"
                                   onClick={() => removePair(question.id, pair.id)}
-                                  disabled={question.pairs.length <= 1}
                                   style={{
                                     border: '1px solid #ef4444',
                                     color: '#ef4444',
                                     background: 'transparent',
                                     borderRadius: 8,
                                     padding: '4px 8px',
-                                    cursor: question.pairs.length <= 1 ? 'not-allowed' : 'pointer',
-                                    opacity: question.pairs.length <= 1 ? 0.5 : 1,
+                                    cursor: 'pointer',
+                                    opacity: 1,
                                   }}
                                 >
                                   ✕
@@ -1264,7 +1768,7 @@ export default function TeacherControlPanel({ session }) {
                 <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
                   <button
                     type="button"
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => { setShowCreateModal(false); setEditingTestId(null); }}
                     style={{
                       padding: '10px 22px',
                       borderRadius: 'var(--qf-radius-md, 12px)',
@@ -1280,7 +1784,7 @@ export default function TeacherControlPanel({ session }) {
                     Отмена
                   </button>
                   <button type="submit" className="qf-btn-primary" disabled={creating} style={{ padding: '10px 22px', fontSize: 15 }}>
-                    {creating ? 'Создание…' : 'Создать'}
+                    {creating ? (editingTestId ? 'Сохранение…' : 'Создание…') : (editingTestId ? 'Сохранить' : 'Создать')}
                   </button>
                 </div>
               </form>

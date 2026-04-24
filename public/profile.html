@@ -2,7 +2,7 @@
 <html lang="ru">
 
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8"> <!--** какашки **-->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -157,7 +157,7 @@
             overflow: hidden;
             line-height: 1;
         }
-
+        
         .avatar-overlay {
             position: absolute;
             top: 0;
@@ -389,10 +389,11 @@
             display: flex;
             gap: 8px;
             margin-top: 12px;
+            flex-wrap: wrap;
         }
 
         .test-action-btn {
-            flex: 1;
+            flex: 1 1 120px;
             padding: 8px 12px;
             border: 1px solid #e5e7eb;
             border-radius: 6px;
@@ -1378,6 +1379,26 @@
                                     Ожидайте назначения тестов от преподавателя. Как только тесты будут назначены вашей
                                     группе, они появятся здесь.
                                 </p>
+                            </div>
+                        </div>
+
+                        <!-- Student results card -->
+                        <div class="card">
+                            <div class="tests-header">
+                                <h3 class="tests-title">Мои результаты</h3>
+                            </div>
+
+                            <div id="studentResultsLoading" class="loading-container" style="display: none;">
+                                <div class="spinner"></div>
+                                <div class="loading-text">Загрузка результатов...</div>
+                            </div>
+
+                            <div id="studentResultsGrid" class="tests-grid" style="display: none;"></div>
+
+                            <div id="studentResultsEmpty" class="empty-state" style="display: none;">
+                                <div style="font-size:48px;margin-bottom:12px;">📉</div>
+                                <h4 class="empty-title">Результатов пока нет</h4>
+                                <p class="empty-description">Пройдите назначенные тесты, чтобы увидеть результаты.</p>
                             </div>
                         </div>
 

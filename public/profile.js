@@ -95,6 +95,9 @@ const elements = {
     testsLoading: document.getElementById('testsLoading'),
     testsGrid: document.getElementById('testsGrid'),
     emptyTests: document.getElementById('emptyTests'),
+    studentResultsLoading: document.getElementById('studentResultsLoading'),
+    studentResultsGrid: document.getElementById('studentResultsGrid'),
+    studentResultsEmpty: document.getElementById('studentResultsEmpty'),
 
     // Inventory elements
     inventoryLoading: document.getElementById('inventoryLoading'),
@@ -343,6 +346,9 @@ window.addEventListener('message', function (event) {
         case 'INVENTORY_LOADED':
             handleInventoryLoaded(data.cosmetics, data.bonuses);
             break;
+        case 'STUDENT_RESULTS_LOADED':
+            handleStudentResultsLoaded((data && data.rows) || []);
+            break;
 
         case 'ITEM_APPLIED':
             handleItemApplied(data.itemType, data.itemId);
@@ -476,6 +482,11 @@ function handleProfileLoaded(profile, role) {
             showEmptyTests();
         }
         sendMessageToParent({ type: 'LOAD_INVENTORY_REQUEST', data: { profileId: profile.id } });
+        showStudentResultsLoading();
+        sendMessageToParent({
+            type: 'LOAD_STUDENT_RESULTS_REQUEST',
+            data: { profileId: profile.id, groupId: profile.group_id || null }
+        });
     }
 }
 
@@ -600,6 +611,47 @@ function showEmptyTests() {
     elements.emptyTests.style.display = 'block';
 }
 
+function showStudentResultsLoading() {
+    if (!elements.studentResultsLoading || !elements.studentResultsGrid || !elements.studentResultsEmpty) return;
+    elements.studentResultsGrid.style.display = 'none';
+    elements.studentResultsEmpty.style.display = 'none';
+    elements.studentResultsLoading.style.display = 'flex';
+}
+
+function handleStudentResultsLoaded(rows) {
+    if (!elements.studentResultsLoading || !elements.studentResultsGrid || !elements.studentResultsEmpty) return;
+    const items = rows || [];
+    elements.studentResultsLoading.style.display = 'none';
+    if (items.length === 0) {
+        elements.studentResultsGrid.style.display = 'none';
+        elements.studentResultsEmpty.style.display = 'block';
+        return;
+    }
+    elements.studentResultsEmpty.style.display = 'none';
+    elements.studentResultsGrid.style.display = 'grid';
+
+    let html = '';
+    items.forEach((row) => {
+        const statusText = row.passed ? 'Пройден' : 'Не пройден';
+        const resultText = row.bestResult == null ? '—' : `${Number(row.bestResult).toFixed(1)}%`;
+        const durationText = row.durationSec == null ? '—' : formatDurationSec(row.durationSec);
+        html += `
+            <div class="test-card">
+                <div class="test-header">
+                    <div><h4 class="test-title">${escapeHtml(row.testTitle || 'Без названия')}</h4></div>
+                    <span class="test-status ${row.passed ? 'active' : 'inactive'}">${statusText}</span>
+                </div>
+                <div class="test-meta">
+                    <span>Попыток: ${row.attemptsUsed ?? 0}</span>
+                    <span>Результат: ${resultText}</span>
+                    <span>Время: ${durationText}</span>
+                </div>
+            </div>
+        `;
+    });
+    elements.studentResultsGrid.innerHTML = html;
+}
+
 function showAvatarModal() {
     populateAvatarOptions();
     elements.avatarModal.classList.remove('hidden');
@@ -698,6 +750,7 @@ function updateStudyInfoUI(profile) {
 
 function updateStudentTestsUI(tests) {
     elements.testsCount.textContent = `${tests.length} тест${getRussianPlural(tests.length)}`;
+    const extraAttempts = Number(state.profile?.bonus_extra_attempt_count || 0);
 
     if (tests.length === 0) {
         showEmptyTests();
@@ -713,6 +766,7 @@ function updateStudentTestsUI(tests) {
     tests.forEach(test => {
         const questionsCount = test.questions_count || 'Не указано';
         const timeLimit = test.time_limit_minutes ? `${test.time_limit_minutes} мин` : 'Не ограничено';
+        const attemptsAllowed = test.attempts_allowed || 1;
 
         const card = document.createElement('div');
         card.className = 'test-card';
@@ -746,8 +800,15 @@ function updateStudentTestsUI(tests) {
         const limitEl = document.createElement('span');
         limitEl.textContent = `Лимит: ${timeLimit}`;
 
+        const attemptsEl = document.createElement('span');
+        attemptsEl.textContent = `Попыток: ${attemptsAllowed}`;
+        const bonusEl = document.createElement('span');
+        bonusEl.textContent = `Доп. попытка: ${extraAttempts}`;
+
         metaEl.appendChild(qEl);
         metaEl.appendChild(limitEl);
+        metaEl.appendChild(attemptsEl);
+        metaEl.appendChild(bonusEl);
 
         const startBtn = document.createElement('button');
         startBtn.className = 'start-test-btn';
@@ -858,7 +919,7 @@ function updateTeacherTestsUI(tests) {
                 <div class="test-meta">
                     <span>Вопросов: ${questionsCount}</span>
                     <span>Лимит: ${timeLimit}</span>
-                    <span>Попыток: ${test.max_attempts || 1}</span>
+                    <span>Попыток: ${test.attempts_allowed || 1}</span>
                 </div>
                 <div class="test-actions">
                     <button type="button" class="test-action-btn" onclick="handleEditTest(${tid})">Редактировать</button>
@@ -883,7 +944,7 @@ function handleDeleteTest(testId) {
 
 function handleTestDeleted(testId) {
     // Удаляем тест из состояния
-    state.teacherTests = state.teacherTests.filter(test => test.id !== testId);
+    state.teacherTests = state.teacherTests.filter(test => String(test.id) !== String(testId));
 
     // Обновляем UI
     updateTeacherTestsUI(state.teacherTests);
@@ -896,6 +957,14 @@ function handleTestDeleted(testId) {
 }
 
 // Helper functions
+function formatDurationSec(sec) {
+    const n = Number(sec);
+    if (!Number.isFinite(n) || n < 0) return '—';
+    const mins = Math.floor(n / 60);
+    const secs = Math.floor(n % 60);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
 function getRussianPlural(number) {
     if (number % 10 === 1 && number % 100 !== 11) {
         return '';
@@ -1264,12 +1333,16 @@ function handleStatsByTestLoaded(stats) {
     const div = document.getElementById('statsTestResult');
     if (!div) return;
 
-    if (!stats || !stats.rows) {
+    if (!stats) {
         div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет данных по этому тесту.</p>';
         return;
     }
 
-    if (stats.rows.length === 0) {
+    const studentRows = Array.isArray(stats.studentRows) ? stats.studentRows : [];
+    const groupRows = Array.isArray(stats.groupRows) ? stats.groupRows : [];
+    const summary = stats.summary || {};
+
+    if (studentRows.length === 0) {
         div.innerHTML = '<p style="color:#6b7280;font-size:14px;font-weight:500;">Нет назначенных групп или данных по этому тесту.</p>';
         return;
     }
@@ -1281,31 +1354,73 @@ function handleStatsByTestLoaded(stats) {
     let html =
         title +
         `
-        <div style="overflow-x:auto; margin-top:8px;">
+        <div style="display:flex; gap:16px; flex-wrap:wrap; margin:8px 0 14px;">
+            <span style="padding:6px 10px; border-radius:999px; background:#eef2ff; color:#3730a3; font-size:13px; font-weight:600;">
+                Назначено студентов: ${summary.assignedStudents ?? studentRows.length}
+            </span>
+            <span style="padding:6px 10px; border-radius:999px; background:#ecfdf5; color:#065f46; font-size:13px; font-weight:600;">
+                Прошли тест: ${summary.passedStudents ?? studentRows.filter(s => s.passed).length}
+            </span>
+            <span style="padding:6px 10px; border-radius:999px; background:#fff7ed; color:#9a3412; font-size:13px; font-weight:600;">
+                Средний балл: ${summary.avgScore != null ? Number(summary.avgScore).toFixed(1) + '%' : '—'}
+            </span>
+        </div>
+        <div style="overflow-x:auto; margin-top:8px; margin-bottom:14px;">
             <table style="width:100%; border-collapse:collapse; font-size:14px; font-family:inherit;">
                 <thead>
                     <tr style="border-bottom:2px solid #e5e7eb;">
+                        <th style="text-align:left; padding:10px 12px; font-weight:700; color:#374151;">Студент</th>
                         <th style="text-align:left; padding:10px 12px; font-weight:700; color:#374151;">Группа</th>
-                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Прошли (чел.)</th>
-                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Средний балл</th>
-                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Завершено попыток</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Статус</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Результат</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Время</th>
                     </tr>
                 </thead>
                 <tbody>
     `;
 
-    stats.rows.forEach((row) => {
+    studentRows.forEach((row) => {
         html += `
             <tr style="border-bottom:1px solid #f3f4f6;">
-                <td style="padding:10px 12px; color:#111827; font-weight:500;">${escapeHtml(row.groupTitle || '—')}</td>
-                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.peoplePassed ?? 0}</td>
-                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.avgScore != null ? row.avgScore.toFixed(1) + '%' : '—'}</td>
-                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.completedAttempts ?? 0}</td>
+                <td style="padding:10px 12px; color:#111827; font-weight:500;">${escapeHtml(row.studentName || '—')}</td>
+                <td style="padding:10px 12px; color:#6b7280;">${escapeHtml(row.groupTitle || '—')}</td>
+                <td style="text-align:center; padding:10px 12px; color:${row.passed ? '#166534' : '#6b7280'};">${row.passed ? 'Пройден' : 'Не пройден'}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.score != null ? Number(row.score).toFixed(1) + '%' : '—'}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${escapeHtml(row.duration || '—')}</td>
             </tr>
         `;
     });
 
     html += '</tbody></table></div>';
+
+    if (groupRows.length > 0) {
+        html += `
+        <div style="overflow-x:auto; margin-top:8px;">
+            <table style="width:100%; border-collapse:collapse; font-size:14px; font-family:inherit;">
+                <thead>
+                    <tr style="border-bottom:2px solid #e5e7eb;">
+                        <th style="text-align:left; padding:10px 12px; font-weight:700; color:#374151;">Группа</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Назначено (чел.)</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Прошли (чел.)</th>
+                        <th style="text-align:center; padding:10px 12px; font-weight:700; color:#374151;">Средний балл</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    groupRows.forEach((row) => {
+        html += `
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:10px 12px; color:#111827; font-weight:500;">${escapeHtml(row.groupTitle || '—')}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.assignedStudents ?? 0}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.peoplePassed ?? 0}</td>
+                <td style="text-align:center; padding:10px 12px; color:#6b7280;">${row.avgScore != null ? row.avgScore.toFixed(1) + '%' : '—'}</td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table></div>';
+    }
     div.innerHTML = html;
 }
 
@@ -1421,6 +1536,7 @@ function handleStatsByParamLoaded(stats) {
     if (stats.summary) {
         const s = stats.summary;
         const pct = s.pctFinishedAll != null ? s.pctFinishedAll + '%' : '—';
+        const finishedAllCount = s.finishedAllCount ?? 0;
         const most = s.mostErrors
             ? `${escapeHtml(s.mostErrors.name)} (${s.mostErrors.errors})`
             : '—';
@@ -1429,13 +1545,13 @@ function handleStatsByParamLoaded(stats) {
             : '—';
         const fast = s.fastest
             ? `${escapeHtml(s.fastest.name)} — ${escapeHtml(s.fastest.totalTime)}`
-            : 'Нет данных о времени (нужны поля duration_seconds в test_attempts)';
+            : 'Нет данных о времени';
         summaryHtml = `
             <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:10px; margin-bottom:16px;">
                 <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
                     <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Завершили все назначенные тесты</div>
                     <div style="font-size:20px; font-weight:800; color:#1e40af; margin-top:4px;">${pct}</div>
-                    <div style="font-size:12px; color:#6b7280; margin-top:4px;">${s.totalStudents ?? 0} студ., ${s.assignedTests ?? 0} тест.</div>
+                    <div style="font-size:12px; color:#6b7280; margin-top:4px;">${finishedAllCount}/${s.totalStudents ?? 0} студ., ${s.assignedTests ?? 0} тест.</div>
                 </div>
                 <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
                     <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Больше всего ошибок (сумма)</div>

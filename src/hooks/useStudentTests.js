@@ -30,7 +30,7 @@ export function useStudentTests(groupId) {
           // Step 2 — fetch only active tests whose IDs match
           const { data: testsData, error: testsError } = await supabase
             .from('tests')
-            .select('id, title, description, time_limit_minutes, questions_count')
+            .select('id, title, description, time_limit_minutes, questions_count, attempts_allowed, created_at')
             .in('id', testIds)
             .eq('is_active', true);
 

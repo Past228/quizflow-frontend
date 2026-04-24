@@ -102,6 +102,8 @@ CREATE POLICY "Users can insert own inventory"
 
 DROP POLICY IF EXISTS "Users can view own purchases"   ON user_purchases;
 DROP POLICY IF EXISTS "Users can insert own purchases" ON user_purchases;
+DROP POLICY IF EXISTS "Users can update own purchases" ON user_purchases;
+DROP POLICY IF EXISTS "Users can delete own purchases" ON user_purchases;
 
 CREATE POLICY "Users can view own purchases"
   ON user_purchases FOR SELECT TO authenticated
@@ -110,6 +112,15 @@ CREATE POLICY "Users can view own purchases"
 CREATE POLICY "Users can insert own purchases"
   ON user_purchases FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = profile_id);
+
+CREATE POLICY "Users can update own purchases"
+  ON user_purchases FOR UPDATE TO authenticated
+  USING (auth.uid() = profile_id)
+  WITH CHECK (auth.uid() = profile_id);
+
+CREATE POLICY "Users can delete own purchases"
+  ON user_purchases FOR DELETE TO authenticated
+  USING (auth.uid() = profile_id);
 
 -- ── profiles ──────────────────────────────────────────────────
 
@@ -324,3 +335,719 @@ GRANT EXECUTE ON FUNCTION public.qf_leaderboard_profiles() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.qf_profiles_for_building(bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.qf_students_in_group(bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.qf_profile_by_id(uuid) TO authenticated;
+
+-- ── test_questions / test_question_options ─────────────────────────────
+-- Students need SELECT to load assigned tests' questions.
+-- Teachers need full management for questions/options of their own tests.
+
+ALTER TABLE test_questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE test_question_options ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can read active test questions" ON test_questions;
+DROP POLICY IF EXISTS "Teachers can manage own test questions" ON test_questions;
+DROP POLICY IF EXISTS "Authenticated users can read question options" ON test_question_options;
+DROP POLICY IF EXISTS "Teachers can manage own question options" ON test_question_options;
+
+CREATE POLICY "Authenticated users can read active test questions"
+  ON test_questions FOR SELECT TO authenticated
+  USING (is_active = true);
+
+CREATE POLICY "Teachers can manage own test questions"
+  ON test_questions FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM tests t
+      WHERE t.id = test_questions.test_id
+        AND t.teacher_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM tests t
+      WHERE t.id = test_questions.test_id
+        AND t.teacher_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Authenticated users can read question options"
+  ON test_question_options FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM test_questions q
+      WHERE q.id = test_question_options.question_id
+        AND q.is_active = true
+    )
+  );
+
+CREATE POLICY "Teachers can manage own question options"
+  ON test_question_options FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM test_questions q
+      JOIN tests t ON t.id = q.test_id
+      WHERE q.id = test_question_options.question_id
+        AND t.teacher_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM test_questions q
+      JOIN tests t ON t.id = q.test_id
+      WHERE q.id = test_question_options.question_id
+        AND t.teacher_id = auth.uid()
+    )
+  );
+
+-- ── user_question_responses ──────────────────────────────────────────────
+-- Students write detailed answers for their own test_result rows.
+-- Teachers and students can read responses for analytics/review screens.
+
+ALTER TABLE user_question_responses ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can read question responses" ON user_question_responses;
+DROP POLICY IF EXISTS "Students can insert own question responses" ON user_question_responses;
+
+CREATE POLICY "Authenticated users can read question responses"
+  ON user_question_responses FOR SELECT TO authenticated
+  USING (true);
+
+CREATE POLICY "Students can insert own question responses"
+  ON user_question_responses FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM test_results tr
+      WHERE tr.id = user_question_responses.test_result_id
+        AND tr.student_id = auth.uid()
+    )
+  );
+
+-- ── Legacy tests repair (safe backfill) ──────────────────────────────────
+-- Run this block once after deploying the new test builder.
+-- It fixes old rows created before the new schema wiring:
+-- 1) sets default values in tests
+-- 2) activates old questions where is_active is NULL
+-- 3) recalculates tests.questions_count from test_questions
+-- 4) fixes option positions where NULL
+
+UPDATE tests
+SET
+  attempts_allowed = COALESCE(attempts_allowed, 1),
+  time_limit_minutes = COALESCE(time_limit_minutes, 20),
+  is_active = COALESCE(is_active, true),
+  updated_at = now()
+WHERE
+  attempts_allowed IS NULL
+  OR time_limit_minutes IS NULL
+  OR is_active IS NULL;
+
+UPDATE test_questions
+SET is_active = true
+WHERE is_active IS NULL;
+
+UPDATE test_question_options
+SET position = 0
+WHERE position IS NULL;
+
+UPDATE tests t
+SET
+  questions_count = q.cnt,
+  updated_at = now()
+FROM (
+  SELECT test_id, COUNT(*)::int AS cnt
+  FROM test_questions
+  GROUP BY test_id
+) q
+WHERE t.id = q.test_id;
+
+UPDATE tests
+SET
+  questions_count = 0,
+  updated_at = now()
+WHERE id NOT IN (SELECT DISTINCT test_id FROM test_questions);
+
+-- Optional diagnostic check:
+-- SELECT
+--   t.id,
+--   t.title,
+--   t.questions_count AS stored_questions_count,
+--   COUNT(q.id) AS actual_questions_count
+-- FROM tests t
+-- LEFT JOIN test_questions q ON q.test_id = t.id
+-- GROUP BY t.id, t.title, t.questions_count
+-- ORDER BY t.id DESC;
+
+-- Leaderboard cache fields on profiles (fast reads, deterministic sorting).
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS leaderboard_points integer NOT NULL DEFAULT 0;
+
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS completed_tests_count integer NOT NULL DEFAULT 0;
+
+WITH best_scores AS (
+  SELECT
+    tr.student_id,
+    tr.test_id,
+    MAX(COALESCE(tr.score, ROUND(COALESCE(tr.percentage, 0))::int, 0)) AS best_score
+  FROM test_results tr
+  WHERE tr.status = 'completed'
+  GROUP BY tr.student_id, tr.test_id
+),
+aggregated AS (
+  SELECT
+    student_id,
+    COALESCE(SUM(best_score), 0)::int AS leaderboard_points,
+    COUNT(*)::int AS completed_tests_count
+  FROM best_scores
+  GROUP BY student_id
+)
+UPDATE profiles p
+SET
+  leaderboard_points = COALESCE(a.leaderboard_points, 0),
+  completed_tests_count = COALESCE(a.completed_tests_count, 0)
+FROM aggregated a
+WHERE p.id = a.student_id;
+
+UPDATE profiles p
+SET
+  leaderboard_points = 0,
+  completed_tests_count = 0
+WHERE NOT EXISTS (
+  SELECT 1 FROM test_results tr
+  WHERE tr.student_id = p.id AND tr.status = 'completed'
+);
+
+-- ── RPC: atomic test submit (RLS-safe) ───────────────────────────────────
+-- Uses auth.uid() internally and updates:
+--   1) test_results
+--   2) user_question_responses
+--   3) profiles.sp_coins
+-- This avoids client-side RLS conflicts for multi-step completion flow.
+
+CREATE OR REPLACE FUNCTION public.qf_submit_test_result(
+  p_test_id integer,
+  p_score integer,
+  p_max_score integer,
+  p_percentage numeric,
+  p_started_at timestamptz,
+  p_completed_at timestamptz,
+  p_coins integer,
+  p_responses jsonb DEFAULT '[]'::jsonb
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_result_id integer;
+  v_item jsonb;
+  v_curr_coins integer;
+  v_points integer := 0;
+  v_completed_tests integer := 0;
+  v_attempts_limit integer := 1;
+  v_attempts_used integer := 0;
+  v_extra_granted integer := 0;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT COALESCE(t.attempts_allowed, 1)
+  INTO v_attempts_limit
+  FROM tests t
+  WHERE t.id = p_test_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Тест не найден';
+  END IF;
+
+  SELECT COUNT(*)::int
+  INTO v_attempts_used
+  FROM test_results tr
+  WHERE tr.test_id = p_test_id
+    AND tr.student_id = v_uid
+    AND tr.status = 'completed';
+
+  SELECT COALESCE(tea.granted_count, 0)
+  INTO v_extra_granted
+  FROM test_extra_attempts tea
+  WHERE tea.test_id = p_test_id
+    AND tea.student_id = v_uid;
+
+  IF v_attempts_used >= (v_attempts_limit + COALESCE(v_extra_granted, 0)) THEN
+    RAISE EXCEPTION 'Лимит попыток исчерпан';
+  END IF;
+
+  INSERT INTO test_results (
+    test_id,
+    student_id,
+    score,
+    max_score,
+    percentage,
+    started_at,
+    completed_at,
+    status
+  )
+  VALUES (
+    p_test_id,
+    v_uid,
+    p_score,
+    p_max_score,
+    p_percentage,
+    p_started_at,
+    p_completed_at,
+    'completed'
+  )
+  RETURNING id INTO v_result_id;
+
+  FOR v_item IN
+    SELECT value FROM jsonb_array_elements(COALESCE(p_responses, '[]'::jsonb))
+  LOOP
+    INSERT INTO user_question_responses (
+      test_result_id,
+      question_id,
+      selected_option_id,
+      is_correct,
+      points_earned,
+      question_difficulty
+    )
+    VALUES (
+      v_result_id,
+      (v_item->>'question_id')::uuid,
+      NULLIF(v_item->>'selected_option_id', '')::uuid,
+      COALESCE((v_item->>'is_correct')::boolean, false),
+      COALESCE((v_item->>'points_earned')::numeric, 0),
+      COALESCE((v_item->>'question_difficulty')::numeric, 0)
+    );
+  END LOOP;
+
+  SELECT sp_coins INTO v_curr_coins
+  FROM profiles
+  WHERE id = v_uid
+  FOR UPDATE;
+
+  SELECT
+    COALESCE(SUM(best_score), 0)::int,
+    COUNT(*)::int
+  INTO
+    v_points,
+    v_completed_tests
+  FROM (
+    SELECT
+      tr.test_id,
+      MAX(COALESCE(tr.score, ROUND(COALESCE(tr.percentage, 0))::int, 0)) AS best_score
+    FROM test_results tr
+    WHERE tr.student_id = v_uid
+      AND tr.status = 'completed'
+    GROUP BY tr.test_id
+  ) s;
+
+  UPDATE profiles
+  SET
+    sp_coins = COALESCE(v_curr_coins, 0) + COALESCE(p_coins, 0),
+    leaderboard_points = COALESCE(v_points, 0),
+    completed_tests_count = COALESCE(v_completed_tests, 0)
+  WHERE id = v_uid;
+
+  RETURN v_result_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_submit_test_result(integer, integer, integer, numeric, timestamptz, timestamptz, integer, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_submit_test_result(integer, integer, integer, numeric, timestamptz, timestamptz, integer, jsonb) TO authenticated;
+
+-- ── RPC: atomic bonus consume (profile + inventory) ───────────────────────
+-- Ensures one bonus use always decrements both:
+--   1) profiles.bonus_*_count
+--   2) user_purchases.amount (or deletes row when amount reaches 0)
+CREATE OR REPLACE FUNCTION public.qf_consume_bonus(p_bonus_key text)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_key text := lower(trim(coalesce(p_bonus_key, '')));
+  v_field text;
+  v_current integer := 0;
+  v_purchase_id text;
+  v_purchase_amount integer;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  v_field := CASE
+    WHEN v_key = 'hint' THEN 'bonus_hint_count'
+    WHEN v_key = 'skip' THEN 'bonus_skip_count'
+    WHEN v_key = 'attempt' THEN 'bonus_extra_attempt_count'
+    ELSE NULL
+  END;
+
+  IF v_field IS NULL THEN
+    RAISE EXCEPTION 'Unknown bonus key: %', p_bonus_key;
+  END IF;
+
+  EXECUTE format('SELECT COALESCE(%I, 0) FROM profiles WHERE id = $1 FOR UPDATE', v_field)
+    INTO v_current
+    USING v_uid;
+
+  IF COALESCE(v_current, 0) <= 0 THEN
+    RAISE EXCEPTION 'Этот бонус закончился.';
+  END IF;
+
+  SELECT up.id::text, COALESCE(up.amount, 0)
+  INTO v_purchase_id, v_purchase_amount
+  FROM user_purchases up
+  JOIN shop_bonuses sb ON sb.id = up.bonus_id
+  WHERE up.profile_id = v_uid
+    AND COALESCE(up.amount, 0) > 0
+    AND (
+      (v_key = 'hint' AND (lower(sb.id::text) LIKE '%hint%' OR lower(coalesce(sb.name, '')) LIKE '%подсказ%'))
+      OR
+      (v_key = 'skip' AND (lower(sb.id::text) LIKE '%skip%' OR lower(coalesce(sb.name, '')) LIKE '%пропуск%'))
+      OR
+      (v_key = 'attempt' AND (lower(sb.id::text) LIKE '%attempt%' OR lower(coalesce(sb.name, '')) LIKE '%попыт%' OR lower(coalesce(sb.name, '')) LIKE '%доп%'))
+    )
+  ORDER BY up.created_at DESC NULLS LAST, up.id DESC
+  LIMIT 1
+  FOR UPDATE OF up;
+
+  IF v_purchase_id IS NOT NULL THEN
+    IF v_purchase_amount > 1 THEN
+      UPDATE user_purchases
+      SET amount = v_purchase_amount - 1
+      WHERE id::text = v_purchase_id;
+    ELSE
+      DELETE FROM user_purchases
+      WHERE id::text = v_purchase_id;
+    END IF;
+  END IF;
+
+  EXECUTE format('UPDATE profiles SET %I = GREATEST(COALESCE(%I, 0) - 1, 0) WHERE id = $1', v_field, v_field)
+    USING v_uid;
+
+  EXECUTE format('SELECT COALESCE(%I, 0) FROM profiles WHERE id = $1', v_field)
+    INTO v_current
+    USING v_uid;
+
+  RETURN COALESCE(v_current, 0);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_consume_bonus(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_consume_bonus(text) TO authenticated;
+
+-- ── RPC: teacher deletes own test with dependencies ────────────────────────
+CREATE OR REPLACE FUNCTION public.qf_teacher_delete_test(p_test_id integer)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM tests t
+    WHERE t.id = p_test_id
+      AND t.teacher_id = v_uid
+  ) THEN
+    RAISE EXCEPTION 'Тест не найден или нет доступа на удаление';
+  END IF;
+
+  DELETE FROM user_question_responses uqr
+  USING test_results tr
+  WHERE uqr.test_result_id = tr.id
+    AND tr.test_id = p_test_id;
+
+  DELETE FROM test_results
+  WHERE test_id = p_test_id;
+
+  DELETE FROM test_question_options tqo
+  USING test_questions tq
+  WHERE tqo.question_id = tq.id
+    AND tq.test_id = p_test_id;
+
+  DELETE FROM test_questions
+  WHERE test_id = p_test_id;
+
+  DELETE FROM group_tests
+  WHERE test_id = p_test_id;
+
+  DELETE FROM tests
+  WHERE id = p_test_id
+    AND teacher_id = v_uid;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_teacher_delete_test(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_teacher_delete_test(integer) TO authenticated;
+
+-- ── RPC: teacher test results (RLS-safe read) ──────────────────────────────
+CREATE OR REPLACE FUNCTION public.qf_teacher_test_results(p_test_id integer DEFAULT NULL)
+RETURNS TABLE (
+  test_id integer,
+  student_id uuid,
+  percentage numeric,
+  score integer,
+  status text,
+  started_at timestamptz,
+  completed_at timestamptz
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT
+    tr.test_id,
+    tr.student_id,
+    tr.percentage,
+    tr.score,
+    tr.status,
+    tr.started_at,
+    tr.completed_at
+  FROM test_results tr
+  INNER JOIN tests t ON t.id = tr.test_id
+  WHERE auth.uid() IS NOT NULL
+    AND t.teacher_id = auth.uid()
+    AND (p_test_id IS NULL OR tr.test_id = p_test_id);
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_teacher_test_results(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_teacher_test_results(integer) TO authenticated;
+
+-- RPC: результаты тестов преподавателя с ФИО и группой (обходит RLS на profiles
+-- — у teacher-JWT прямой SELECT по profiles в части проектов даёт 0 строк).
+CREATE OR REPLACE FUNCTION public.qf_teacher_test_results_enriched(
+  p_test_id integer DEFAULT NULL
+)
+RETURNS TABLE (
+  test_id integer,
+  student_id uuid,
+  percentage numeric,
+  score integer,
+  status text,
+  started_at timestamptz,
+  completed_at timestamptz,
+  first_name text,
+  last_name text,
+  email text,
+  profile_group_id bigint,
+  group_number text,
+  course_number text,
+  building_name text
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT
+    tr.test_id,
+    tr.student_id,
+    tr.percentage,
+    tr.score,
+    tr.status,
+    tr.started_at,
+    tr.completed_at,
+    p.first_name,
+    p.last_name,
+    p.email,
+    p.group_id AS profile_group_id,
+    sg.group_number::text,
+    c.course_number::text,
+    b.name::text AS building_name
+  FROM public.test_results tr
+  INNER JOIN public.tests t ON t.id = tr.test_id
+  LEFT JOIN public.profiles p ON p.id = tr.student_id
+  LEFT JOIN public.student_groups sg ON sg.id = p.group_id
+  LEFT JOIN public.courses c ON c.id = sg.course_id
+  LEFT JOIN public.buildings b ON b.id = c.building_id
+  WHERE auth.uid() IS NOT NULL
+    AND t.teacher_id = auth.uid()
+    AND (p_test_id IS NULL OR tr.test_id = p_test_id);
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_teacher_test_results_enriched(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_teacher_test_results_enriched(integer) TO authenticated;
+
+-- RPC: свои результаты студента (с названием теста, в т.ч. неактивного — через JOIN под DEFINER)
+CREATE OR REPLACE FUNCTION public.qf_student_my_test_results()
+RETURNS TABLE (
+  test_id integer,
+  test_title text,
+  percentage numeric,
+  score integer,
+  status text,
+  started_at timestamptz,
+  completed_at timestamptz
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT
+    tr.test_id,
+    COALESCE(t.title, 'Тест #' || tr.test_id::text) AS test_title,
+    tr.percentage,
+    tr.score,
+    tr.status,
+    tr.started_at,
+    tr.completed_at
+  FROM public.test_results tr
+  LEFT JOIN public.tests t ON t.id = tr.test_id
+  WHERE tr.student_id = auth.uid()
+    AND (tr.status IS NULL OR tr.status = 'completed');
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_student_my_test_results() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_student_my_test_results() TO authenticated;
+
+-- ── Extra attempts per test (bonus "Доп. попытка") ──────────────────────────
+-- Each consumed "attempt" bonus grants +1 allowed attempt for a concrete test.
+-- This keeps limit logic deterministic across page reloads/devices.
+
+CREATE TABLE IF NOT EXISTS public.test_extra_attempts (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  test_id integer NOT NULL REFERENCES public.tests(id) ON DELETE CASCADE,
+  student_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  granted_count integer NOT NULL DEFAULT 0 CHECK (granted_count >= 0),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (test_id, student_id)
+);
+
+ALTER TABLE public.test_extra_attempts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can read own test extra attempts" ON public.test_extra_attempts;
+DROP POLICY IF EXISTS "Users can manage own test extra attempts" ON public.test_extra_attempts;
+
+CREATE POLICY "Users can read own test extra attempts"
+  ON public.test_extra_attempts FOR SELECT TO authenticated
+  USING (student_id = auth.uid());
+
+CREATE POLICY "Users can manage own test extra attempts"
+  ON public.test_extra_attempts FOR ALL TO authenticated
+  USING (student_id = auth.uid())
+  WITH CHECK (student_id = auth.uid());
+
+DROP FUNCTION IF EXISTS public.qf_can_start_test_attempt(integer);
+CREATE FUNCTION public.qf_can_start_test_attempt(p_test_id integer)
+RETURNS TABLE (
+  can_start boolean,
+  attempts_used integer,
+  attempts_limit integer,
+  extra_granted integer,
+  extra_available integer,
+  attempts_remaining integer
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_limit integer := 1;
+  v_used integer := 0;
+  v_granted integer := 0;
+  v_available integer := 0;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT COALESCE(t.attempts_allowed, 1)
+  INTO v_limit
+  FROM public.tests t
+  WHERE t.id = p_test_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Тест не найден';
+  END IF;
+
+  SELECT COUNT(*)::int
+  INTO v_used
+  FROM public.test_results tr
+  WHERE tr.test_id = p_test_id
+    AND tr.student_id = v_uid
+    AND tr.status = 'completed';
+
+  SELECT COALESCE(tea.granted_count, 0)
+  INTO v_granted
+  FROM public.test_extra_attempts tea
+  WHERE tea.test_id = p_test_id
+    AND tea.student_id = v_uid;
+
+  SELECT COALESCE(p.bonus_extra_attempt_count, 0)
+  INTO v_available
+  FROM public.profiles p
+  WHERE p.id = v_uid;
+
+  RETURN QUERY
+  SELECT
+    (v_used < (v_limit + v_granted)) AS can_start,
+    v_used AS attempts_used,
+    v_limit AS attempts_limit,
+    v_granted AS extra_granted,
+    v_available AS extra_available,
+    GREATEST((v_limit + v_granted) - v_used, 0) AS attempts_remaining;
+END;
+$$;
+
+DROP FUNCTION IF EXISTS public.qf_grant_extra_attempt_for_test(integer);
+CREATE FUNCTION public.qf_grant_extra_attempt_for_test(p_test_id integer)
+RETURNS TABLE (
+  granted_count integer,
+  extra_available integer
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_available integer := 0;
+  v_granted integer := 0;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  PERFORM public.qf_consume_bonus('attempt');
+
+  SELECT COALESCE(p.bonus_extra_attempt_count, 0)
+  INTO v_available
+  FROM public.profiles p
+  WHERE p.id = v_uid;
+
+  INSERT INTO public.test_extra_attempts (test_id, student_id, granted_count, updated_at)
+  VALUES (p_test_id, v_uid, 1, now())
+  ON CONFLICT (test_id, student_id)
+  DO UPDATE
+    SET granted_count = public.test_extra_attempts.granted_count + 1,
+        updated_at = now()
+  RETURNING public.test_extra_attempts.granted_count INTO v_granted;
+
+  RETURN QUERY SELECT v_granted, v_available;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qf_can_start_test_attempt(integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.qf_grant_extra_attempt_for_test(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.qf_can_start_test_attempt(integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.qf_grant_extra_attempt_for_test(integer) TO authenticated;

@@ -65,6 +65,12 @@ function TeacherApp({ session }) {
     }
   }, []);
 
+  useEffect(() => {
+    const openTestsTab = () => setTab('tests');
+    window.addEventListener('qf-teacher-open-tests', openTestsTab);
+    return () => window.removeEventListener('qf-teacher-open-tests', openTestsTab);
+  }, [setTab]);
+
   return (
     <TeacherLayout session={session} activeTab={tab} onTabChange={setTab} avatarRefreshKey={avatarRefreshKey}>
       <Suspense fallback={<StudentRouteFallback />}>
