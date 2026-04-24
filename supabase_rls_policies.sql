@@ -553,7 +553,6 @@ DECLARE
   v_completed_tests integer := 0;
   v_attempts_limit integer := 1;
   v_attempts_used integer := 0;
-  v_extra_granted integer := 0;
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
@@ -574,13 +573,7 @@ BEGIN
     AND tr.student_id = v_uid
     AND tr.status = 'completed';
 
-  SELECT COALESCE(tea.granted_count, 0)
-  INTO v_extra_granted
-  FROM test_extra_attempts tea
-  WHERE tea.test_id = p_test_id
-    AND tea.student_id = v_uid;
-
-  IF v_attempts_used >= (v_attempts_limit + COALESCE(v_extra_granted, 0)) THEN
+  IF v_attempts_used >= v_attempts_limit THEN
     RAISE EXCEPTION 'Лимит попыток исчерпан';
   END IF;
 
@@ -964,7 +957,6 @@ DECLARE
   v_uid uuid := auth.uid();
   v_limit integer := 1;
   v_used integer := 0;
-  v_granted integer := 0;
   v_available integer := 0;
 BEGIN
   IF v_uid IS NULL THEN
@@ -987,12 +979,6 @@ BEGIN
     AND tr.student_id = v_uid
     AND tr.status = 'completed';
 
-  SELECT COALESCE(tea.granted_count, 0)
-  INTO v_granted
-  FROM public.test_extra_attempts tea
-  WHERE tea.test_id = p_test_id
-    AND tea.student_id = v_uid;
-
   SELECT COALESCE(p.bonus_extra_attempt_count, 0)
   INTO v_available
   FROM public.profiles p
@@ -1000,12 +986,12 @@ BEGIN
 
   RETURN QUERY
   SELECT
-    (v_used < (v_limit + v_granted)) AS can_start,
+    (v_used < v_limit) AS can_start,
     v_used AS attempts_used,
     v_limit AS attempts_limit,
-    v_granted AS extra_granted,
+    0 AS extra_granted,
     v_available AS extra_available,
-    GREATEST((v_limit + v_granted) - v_used, 0) AS attempts_remaining;
+    GREATEST(v_limit - v_used, 0) AS attempts_remaining;
 END;
 $$;
 

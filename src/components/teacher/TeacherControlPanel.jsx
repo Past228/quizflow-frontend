@@ -62,6 +62,7 @@ export default function TeacherControlPanel({ session }) {
   const [resultsLoading, setResultsLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editingTestId, setEditingTestId] = useState(null);
   const [assigning, setAssigning] = useState(false);
   const [notice, setNotice] = useState(null);
   const [testDraft, setTestDraft] = useState(createTestDraft);
@@ -426,7 +427,88 @@ export default function TeacherControlPanel({ session }) {
 
   const openCreateModal = () => {
     resetCreateDraft();
+    setEditingTestId(null);
     setShowCreateModal(true);
+  };
+
+  const openEditModal = async (testId) => {
+    setCreating(true);
+    try {
+      const { data: testRow, error: testErr } = await supabase
+        .from('tests')
+        .select('id, title, description, attempts_allowed, time_limit_minutes')
+        .eq('id', testId)
+        .eq('teacher_id', session.user.id)
+        .single();
+      if (testErr) throw testErr;
+
+      const { data: questionRows, error: qErr } = await supabase
+        .from('test_questions')
+        .select('id, question_text, difficulty, estimated_time_seconds')
+        .eq('test_id', testId)
+        .order('created_at', { ascending: true });
+      if (qErr) throw qErr;
+      const questionIds = (questionRows || []).map((q) => q.id);
+      let optionsByQuestion = {};
+      if (questionIds.length > 0) {
+        const { data: optionRows, error: oErr } = await supabase
+          .from('test_question_options')
+          .select('question_id, option_text, explanation, is_correct, position')
+          .in('question_id', questionIds)
+          .order('position', { ascending: true });
+        if (oErr) throw oErr;
+        optionsByQuestion = (optionRows || []).reduce((acc, row) => {
+          if (!acc[row.question_id]) acc[row.question_id] = [];
+          acc[row.question_id].push(row);
+          return acc;
+        }, {});
+      }
+
+      const draftQuestions = (questionRows || []).map((q) => {
+        const rows = optionsByQuestion[q.id] || [];
+        const isMatching = rows.some((r) => (r.explanation || '').trim().length > 0);
+        if (isMatching) {
+          return {
+            id: makeId('q'),
+            type: QUESTION_TYPES.matching,
+            text: q.question_text || '',
+            difficulty: Number(q.difficulty || 0),
+            estimatedTimeSeconds: Number(q.estimated_time_seconds || 60),
+            options: [createChoiceOption(), createChoiceOption()],
+            pairs: rows.length > 0
+              ? rows.map((r) => ({ id: makeId('pair'), left: r.option_text || '', right: r.explanation || '' }))
+              : [createMatchingPair()],
+          };
+        }
+        const correctCount = rows.filter((r) => r.is_correct).length;
+        const type = correctCount > 1 ? QUESTION_TYPES.multiple : QUESTION_TYPES.single;
+        return {
+          id: makeId('q'),
+          type,
+          text: q.question_text || '',
+          difficulty: Number(q.difficulty || 0),
+          estimatedTimeSeconds: Number(q.estimated_time_seconds || 60),
+          options: rows.length > 0
+            ? rows.map((r) => ({ id: makeId('opt'), text: r.option_text || '', isCorrect: !!r.is_correct }))
+            : [createChoiceOption(), createChoiceOption()],
+          pairs: [createMatchingPair()],
+        };
+      });
+
+      setTestDraft({
+        title: testRow.title || '',
+        description: testRow.description || '',
+        attemptsAllowed: Number(testRow.attempts_allowed || 1),
+        timeLimitMinutes: Number(testRow.time_limit_minutes || 20),
+        questions: draftQuestions.length > 0 ? draftQuestions : [createQuestionDraft()],
+      });
+      setEditingTestId(testRow.id);
+      setShowCreateModal(true);
+    } catch (err) {
+      setNotice({ type: 'error', text: 'Ошибка загрузки теста для редактирования: ' + err.message });
+    } finally {
+      setCreating(false);
+    }
   };
 
   const updateDraftField = (field, value) => {
@@ -595,26 +677,62 @@ export default function TeacherControlPanel({ session }) {
 
     setCreating(true);
     try {
-      const { data: createdTest, error: testError } = await supabase
-        .from('tests')
-        .insert({
-          title: testDraft.title.trim(),
-          description: testDraft.description.trim() || null,
-          attempts_allowed: Number(testDraft.attemptsAllowed) || 1,
-          time_limit_minutes: Number(testDraft.timeLimitMinutes) || null,
-          questions_count: testDraft.questions.length,
-          teacher_id: session.user.id,
-          is_active: true,
-        })
-        .select('id')
-        .single();
-      if (testError) throw testError;
+      let testId = editingTestId;
+      if (editingTestId) {
+        const { error: updateErr } = await supabase
+          .from('tests')
+          .update({
+            title: testDraft.title.trim(),
+            description: testDraft.description.trim() || null,
+            attempts_allowed: Number(testDraft.attemptsAllowed) || 1,
+            time_limit_minutes: Number(testDraft.timeLimitMinutes) || null,
+            questions_count: testDraft.questions.length,
+          })
+          .eq('id', editingTestId)
+          .eq('teacher_id', session.user.id);
+        if (updateErr) throw updateErr;
+
+        const { data: oldQuestions, error: oldErr } = await supabase
+          .from('test_questions')
+          .select('id')
+          .eq('test_id', editingTestId);
+        if (oldErr) throw oldErr;
+        const oldIds = (oldQuestions || []).map((q) => q.id);
+        if (oldIds.length > 0) {
+          const { error: delOptErr } = await supabase
+            .from('test_question_options')
+            .delete()
+            .in('question_id', oldIds);
+          if (delOptErr) throw delOptErr;
+        }
+        const { error: delQErr } = await supabase
+          .from('test_questions')
+          .delete()
+          .eq('test_id', editingTestId);
+        if (delQErr) throw delQErr;
+      } else {
+        const { data: createdTest, error: testError } = await supabase
+          .from('tests')
+          .insert({
+            title: testDraft.title.trim(),
+            description: testDraft.description.trim() || null,
+            attempts_allowed: Number(testDraft.attemptsAllowed) || 1,
+            time_limit_minutes: Number(testDraft.timeLimitMinutes) || null,
+            questions_count: testDraft.questions.length,
+            teacher_id: session.user.id,
+            is_active: true,
+          })
+          .select('id')
+          .single();
+        if (testError) throw testError;
+        testId = createdTest.id;
+      }
 
       for (const question of testDraft.questions) {
         const { data: createdQuestion, error: questionError } = await supabase
           .from('test_questions')
           .insert({
-            test_id: createdTest.id,
+            test_id: testId,
             question_text: question.text.trim(),
             difficulty: Number(question.difficulty) || 0,
             estimated_time_seconds: Number(question.estimatedTimeSeconds) || 60,
@@ -651,7 +769,8 @@ export default function TeacherControlPanel({ session }) {
       }
 
       setShowCreateModal(false);
-      setNotice({ type: 'success', text: 'Тест и вопросы успешно сохранены в базу.' });
+      setEditingTestId(null);
+      setNotice({ type: 'success', text: editingTestId ? 'Тест успешно обновлен.' : 'Тест и вопросы успешно сохранены в базу.' });
       await loadTests();
     } catch (err) {
       setNotice({ type: 'error', text: 'Ошибка создания теста: ' + err.message });
@@ -776,10 +895,7 @@ export default function TeacherControlPanel({ session }) {
       setSelectedTestId(String(intent.testId));
     } else {
       setView('tests');
-      setNotice({
-        type: 'success',
-        text: 'Открыт список тестов для редактирования выбранного теста.',
-      });
+      void openEditModal(String(intent.testId));
     }
     try {
       sessionStorage.removeItem(TESTS_INTENT_KEY);
@@ -800,10 +916,7 @@ export default function TeacherControlPanel({ session }) {
         return;
       }
       setView('tests');
-      setNotice({
-        type: 'success',
-        text: 'Открыт список тестов для редактирования выбранного теста.',
-      });
+      void openEditModal(testId);
     };
     window.addEventListener('qf-teacher-open-tests', onOpenFromProfile);
     return () => window.removeEventListener('qf-teacher-open-tests', onOpenFromProfile);
@@ -1249,6 +1362,14 @@ export default function TeacherControlPanel({ session }) {
                     <button
                       type="button"
                       className="qf-btn-primary"
+                      style={{ flex: 1, fontSize: 13, padding: '8px 12px', background: '#2563eb' }}
+                      onClick={() => openEditModal(t.id)}
+                    >
+                      Редактировать
+                    </button>
+                    <button
+                      type="button"
+                      className="qf-btn-primary"
                       style={{ flex: 1, fontSize: 13, padding: '8px 12px' }}
                       onClick={() => handleToggleActive(t.id, t.is_active)}
                     >
@@ -1289,7 +1410,7 @@ export default function TeacherControlPanel({ session }) {
               justifyContent: 'center',
               zIndex: 1000,
             }}
-            onClick={() => setShowCreateModal(false)}
+            onClick={() => { setShowCreateModal(false); setEditingTestId(null); }}
           >
             <div
               className="student-card"
@@ -1297,7 +1418,7 @@ export default function TeacherControlPanel({ session }) {
               onClick={(e) => e.stopPropagation()}
             >
               <h2 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)', marginBottom: 20 }}>
-                Создать новый тест
+                {editingTestId ? 'Редактировать тест' : 'Создать новый тест'}
               </h2>
               <form onSubmit={handleCreate}>
                 <div style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1662,7 +1783,7 @@ export default function TeacherControlPanel({ session }) {
                 <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
                   <button
                     type="button"
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => { setShowCreateModal(false); setEditingTestId(null); }}
                     style={{
                       padding: '10px 22px',
                       borderRadius: 'var(--qf-radius-md, 12px)',
@@ -1678,7 +1799,7 @@ export default function TeacherControlPanel({ session }) {
                     Отмена
                   </button>
                   <button type="submit" className="qf-btn-primary" disabled={creating} style={{ padding: '10px 22px', fontSize: 15 }}>
-                    {creating ? 'Создание…' : 'Создать'}
+                    {creating ? (editingTestId ? 'Сохранение…' : 'Создание…') : (editingTestId ? 'Сохранить' : 'Создать')}
                   </button>
                 </div>
               </form>
