@@ -457,45 +457,75 @@ html.qf-theme-alt .student-card {
 /* ══════════════════════════════════════════════════════════════
    ВЕРСИЯ ДЛЯ СЛАБОВИДЯЩИХ (html.qf-a11y)
    Принципы:
-   • Крупный шрифт (120%), увеличенный интерлиньяж
-   • Повышенный контраст текста и границ элементов
+   • Крупный шрифт (заметно крупнее обычного), увеличенный интерлиньяж
+   • Высокий контраст текста и границ; фон страницы слегка отличается — режим виден сразу
    • Touch-targets кнопок и полей ≥ 48 px
    • Заметные кольца фокуса (3 px, синие)
-   • Меньше «тонкого» мутного цвета — серый текст темнее
+   • Меньше «тонкого» мутного цвета — вторичный текст темнее
    ══════════════════════════════════════════════════════════════ */
 html.qf-a11y {
-  font-size: 120%;
-  /* Повышенный контраст: более тёмный body-цвет */
-  --qf-text-body:    #0d1320;
-  --qf-text-muted:   #374151;
-  /* Видимые границы карточек */
-  --qf-border-subtle: #b6c4d4;
-  --qf-border-control: #6b7f96;
+  /* Базовый масштаб: сильнее прежнего 120 %, на широких экранах ещё + */
+  font-size: 128%;
+  /* Светлая тема: почти чёрный текст, заметный вторичный, контрастные границы */
+  --qf-text-body:    #030712;
+  --qf-text-muted:   #1e293b;
+  --qf-border-subtle: #94a3b8;
+  --qf-border-control: #475569;
+  /* Фон чуть насыщеннее обычного #eaf4fc — пользователь видит смену «холста» */
+  --qf-bg: #d8e8f8;
+  --qf-card: #ffffff;
+}
+
+@media (min-width: 901px) {
+  html.qf-a11y {
+    font-size: 140%;
+  }
 }
 
 /* Межстрочный интервал и трекинг для облегчения чтения */
 html.qf-a11y body {
-  line-height: 1.7;
-  letter-spacing: 0.015em;
+  line-height: 1.75;
+  letter-spacing: 0.02em;
+  word-spacing: 0.04em;
+}
+
+html.qf-a11y .student-app {
+  background: var(--qf-bg);
+}
+
+/* Заголовки страниц заметно крупнее в режиме доступности */
+html.qf-a11y .student-page-title {
+  font-size: clamp(1.75rem, 2.2vw, 2.75rem) !important;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+html.qf-a11y .home-section-title {
+  font-size: clamp(1.2rem, 1.8vw, 1.65rem) !important;
+  font-weight: var(--qf-fw-black);
 }
 
 /* Видимые границы карточек */
 html.qf-a11y .student-card {
-  border: 2px solid rgba(51, 143, 249, 0.22);
+  border: 3px solid rgba(18, 122, 182, 0.45);
+  box-shadow: 0 4px 18px rgba(18, 122, 182, 0.12);
 }
 
-/* Крупные интерактивные цели (≥ 48 px) */
+/* Крупные интерактивные цели */
 html.qf-a11y .qf-btn-primary {
-  min-height: 52px;
-  padding: 14px 28px;
-  font-size: 1.05em;
-  letter-spacing: 0.03em;
+  min-height: 56px;
+  padding: 16px 30px;
+  font-size: 1.12em;
+  font-weight: var(--qf-fw-bold);
+  letter-spacing: 0.04em;
+  border: 2px solid rgba(18, 122, 182, 0.35);
 }
 
 html.qf-a11y .qf-search {
-  min-height: 52px;
-  font-size: 1.05em;
+  min-height: 56px;
+  font-size: 1.1em;
   border-width: 2px;
+  border-color: var(--qf-border-control);
 }
 
 /* Жирные/заметные индикаторы фокуса */
@@ -595,16 +625,23 @@ html.qf-theme-alt .test-timer-strip {
    которые иначе перекрашивают текст в почти-чёрный на тёмном фоне
    ══════════════════════════════════════════════════════════════ */
 html.qf-theme-alt.qf-a11y {
-  /* Более яркий текст для высокого контраста на тёмном фоне */
-  --qf-text-body:      #e2eaf4;
-  --qf-text-muted:     #8a9daf;
-  --qf-border-subtle:  rgba(255, 255, 255, 0.18);
-  --qf-border-control: #5a7599;
+  /* Тёмная тема + доступность: ещё выше контраст и чуть светлее фон для отличия от обычной тёмной */
+  --qf-text-body:      #f1f5f9;
+  --qf-text-muted:     #cbd5e1;
+  --qf-border-subtle:  rgba(255, 255, 255, 0.22);
+  --qf-border-control: #7dd3fc;
+  --qf-bg:             #0f172a;
+  --qf-card:           #1e293b;
+  --qf-sidebar-bg:     #0c1222;
 }
 
-/* Карточки: видимая граница в тёмном a11y-режиме */
 html.qf-theme-alt.qf-a11y .student-card {
-  border: 2px solid rgba(96, 165, 250, 0.28);
+  border: 3px solid rgba(125, 211, 252, 0.45);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+html.qf-theme-alt.qf-a11y .student-page-title {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 /* Gothic A1 — цифры Black (макет) */
@@ -636,9 +673,9 @@ html.qf-theme-alt.qf-a11y .student-card {
     --qf-mobile-bottom-clearance: calc(152px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* Иначе 120% от a11y + узкий экран дают гигантский текст */
+  /* Меньше масштаб, чем на десктопе, но режим всё же заметен (опрос: «разницы не видно») */
   html.qf-a11y {
-    font-size: 100%;
+    font-size: 115%;
   }
 
   .student-app {

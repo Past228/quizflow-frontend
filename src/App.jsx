@@ -137,6 +137,56 @@ function TeacherSettingsToggle({ label, on, onToggle, isSwitch }) {
   );
 }
 
+function TeacherA11yRow({ on, onToggle }) {
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 12,
+      padding: '26px 32px',
+      borderBottom: '1px solid var(--qf-border-subtle)',
+    }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+        <div style={{
+          fontWeight: 'var(--qf-fw-medium)', fontSize: 20,
+          fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}
+        >
+          <span style={{
+            fontSize: 11, fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase',
+            padding: '4px 8px', borderRadius: 6,
+            background: 'rgba(18, 122, 182, 0.15)', color: 'var(--qf-dark-blue)',
+          }}
+          >Aa
+          </span>
+          Версия для слабовидящих
+        </div>
+        <button type="button" onClick={onToggle} style={{
+          minWidth: 88, padding: '14px 20px', border: 'none', borderRadius: 12,
+          background: on ? '#338ff9' : '#94a3b8', color: '#fff',
+          fontFamily: 'var(--qf-font)', fontWeight: 700, fontSize: 20, cursor: 'pointer',
+        }}
+        >
+          {on ? 'ВКЛ' : 'ВЫКЛ'}
+        </button>
+      </div>
+      <p style={{
+        margin: 0,
+        fontSize: 15,
+        fontWeight: 500,
+        lineHeight: 1.5,
+        color: 'var(--qf-text-muted)',
+        maxWidth: '48rem',
+      }}
+      >
+        Крупнее шрифт, выше контраст, заметнее кнопки и рамки. Фон страницы слегка меняется — так проще убедиться, что режим активен.
+      </p>
+    </div>
+  );
+}
+
 function TeacherSettingsPane() {
   const [themeOn, setThemeOn] = useState(() => {
     try { return localStorage.getItem('qf_setting_theme') === '1'; } catch { return false; }
@@ -167,9 +217,23 @@ function TeacherSettingsPane() {
     >
       <div className="student-page student-page--wide" style={{ maxWidth: 960, margin: '0 auto' }}>
         <h1 className="student-page-title" style={{ color: 'var(--qf-bright-blue)' }}>НАСТРОЙКИ</h1>
+        <p style={{
+          margin: '0 0 20px',
+          padding: '16px 18px',
+          borderRadius: 12,
+          background: 'linear-gradient(135deg, rgba(51, 143, 249, 0.1), rgba(32, 174, 185, 0.08))',
+          border: '1px solid rgba(51, 143, 249, 0.22)',
+          fontFamily: 'var(--qf-font)',
+          fontSize: 16,
+          fontWeight: 600,
+          lineHeight: 1.55,
+          color: 'var(--qf-text-body)',
+        }}>
+          Режим для слабовидящих включается <strong>здесь</strong>, в разделе «Настройки» (этот экран). После включения шрифт и контраст станут заметнее на всех страницах преподавателя.
+        </p>
         <div className="student-card" style={{ padding: '8px 0', display: 'flex', flexDirection: 'column' }}>
           <TeacherSettingsToggle label="Сменить тему" on={themeOn} onToggle={() => setThemeOn(v => !v)} isSwitch />
-          <TeacherSettingsToggle label="Версия для слабовидящих" on={a11y} onToggle={() => setA11y(v => !v)} />
+          <TeacherA11yRow on={a11y} onToggle={() => setA11y(v => !v)} />
           <div style={{ padding: '26px 32px' }}>
             <button
               type="button"
@@ -205,6 +269,14 @@ function TeacherHelpPane() {
             fontWeight: 500, color: 'var(--qf-text-body)', lineHeight: 1.7,
           }}>
             Если у вас возникли вопросы по работе с платформой, обратитесь к администратору вашего учебного заведения.
+          </p>
+          <p style={{
+            marginTop: 18,
+            fontFamily: 'var(--qf-font)', fontSize: 17,
+            fontWeight: 600, color: 'var(--qf-text-body)', lineHeight: 1.6,
+          }}
+          >
+            Крупный шрифт и контраст: вкладка «Настройки» → «Версия для слабовидящих».
           </p>
         </div>
       </div>
