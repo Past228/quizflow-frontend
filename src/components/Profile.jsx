@@ -1143,7 +1143,8 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 const rows = testIds.map((tid) => {
                     const arr = byTest[tid] || [];
                     const completed = arr.filter((a) => a.status === 'completed');
-                    if (completed.length === 0) {
+                    const anyWithScore = arr.filter((a) => a.percentage != null || a.score != null);
+                    if (completed.length === 0 && anyWithScore.length === 0) {
                         return {
                             testTitle: titleByTest[tid] || 'Без названия',
                             passed: false,
@@ -1152,18 +1153,33 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                             correctnessPct: null,
                         };
                     }
-                    const best = completed.reduce((a, b) =>
-                        (a.percentage ?? -1) >= (b.percentage ?? -1) ? a : b
-                    );
+                    const pickHigher = (a, b) => {
+                        const ap = a.percentage != null ? Number(a.percentage) : Number(a.score);
+                        const bp = b.percentage != null ? Number(b.percentage) : Number(b.score);
+                        return (ap ?? -1) >= (bp ?? -1) ? a : b;
+                    };
+                    const bestCompleted =
+                        completed.length > 0 ? completed.reduce((a, b) => pickHigher(a, b)) : null;
+                    const bestAny =
+                        anyWithScore.length > 0 ? anyWithScore.reduce((a, b) => pickHigher(a, b)) : null;
+                    const best = bestCompleted || bestAny;
                     const qn = qByTest[tid] || 0;
+                    const rawPct =
+                        best?.percentage != null
+                            ? Number(best.percentage)
+                            : best?.score != null
+                                ? Number(best.score)
+                                : null;
                     const correctnessPct =
-                        best.percentage != null ? Math.round(Number(best.percentage) * 10) / 10 : null;
+                        rawPct != null && Number.isFinite(rawPct)
+                            ? Math.round(rawPct * 10) / 10
+                            : null;
                     const errN = correctnessPct == null ? null : estimateWrongAnswers(qn, correctnessPct);
                     return {
                         testTitle: titleByTest[tid] || 'Без названия',
-                        passed: true,
+                        passed: completed.length > 0,
                         errors: errN,
-                        timeDisplay: formatDurationSec(parseDurationSeconds(best.started_at, best.completed_at)),
+                        timeDisplay: formatDurationSec(parseDurationSeconds(best?.started_at, best?.completed_at)),
                         correctnessPct,
                     };
                 });
