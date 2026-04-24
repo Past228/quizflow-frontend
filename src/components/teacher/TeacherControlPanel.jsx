@@ -697,17 +697,10 @@ export default function TeacherControlPanel({ session }) {
           .select('id')
           .eq('test_id', editingTestId);
         if (oldErr) throw oldErr;
-        const oldIds = (oldQuestions || []).map((q) => q.id);
-        if (oldIds.length > 0) {
-          const { error: delOptErr } = await supabase
-            .from('test_question_options')
-            .delete()
-            .in('question_id', oldIds);
-          if (delOptErr) throw delOptErr;
-        }
+        // Do not delete historical questions/options: old attempts may reference them via FK.
         const { error: delQErr } = await supabase
           .from('test_questions')
-          .delete()
+          .update({ is_active: false })
           .eq('test_id', editingTestId);
         if (delQErr) throw delQErr;
       } else {
@@ -1358,11 +1351,11 @@ export default function TeacherControlPanel({ session }) {
                     <span>Вопросов: {t.questions_count || 0}</span>
                     <span>Попыток: {t.attempts_allowed || 1}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       className="qf-btn-primary"
-                      style={{ flex: 1, fontSize: 13, padding: '8px 12px', background: '#2563eb' }}
+                      style={{ flex: '1 1 120px', fontSize: 13, padding: '8px 12px', background: '#2563eb' }}
                       onClick={() => openEditModal(t.id)}
                     >
                       Редактировать
@@ -1370,7 +1363,7 @@ export default function TeacherControlPanel({ session }) {
                     <button
                       type="button"
                       className="qf-btn-primary"
-                      style={{ flex: 1, fontSize: 13, padding: '8px 12px' }}
+                      style={{ flex: '1 1 120px', fontSize: 13, padding: '8px 12px' }}
                       onClick={() => handleToggleActive(t.id, t.is_active)}
                     >
                       {t.is_active ? 'Деактивировать' : 'Активировать'}
@@ -1378,7 +1371,7 @@ export default function TeacherControlPanel({ session }) {
                     <button
                       type="button"
                       style={{
-                        flex: 1,
+                        flex: '1 1 120px',
                         fontSize: 13,
                         padding: '8px 12px',
                         border: '2px solid #ef4444',

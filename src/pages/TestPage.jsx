@@ -97,6 +97,8 @@ export default function TestPage() {
   const [hiddenOptionIdsByQuestion, setHiddenOptionIdsByQuestion] = useState({});
   const [skipCorrectByQuestion, setSkipCorrectByQuestion] = useState({});
   const [bonusLoading, setBonusLoading] = useState('');
+  const [needsExtraAttempt, setNeedsExtraAttempt] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const startedAtRef = useRef(Date.now());
 
   useEffect(() => {
@@ -109,6 +111,7 @@ export default function TestPage() {
       setLoading(true);
       setError('');
       setWarning('');
+      setNeedsExtraAttempt(false);
       setQuestionPool([]);
       try {
         const { data: testData, error: testError } = await supabase
@@ -168,20 +171,33 @@ export default function TestPage() {
         const attemptsUsedManual = completed?.length || 0;
         const attemptsLimitManual = Number(testData.attempts_allowed || 1);
 
-        const manualCanStart = attemptsUsedManual < attemptsLimitManual;
+        const extraGrantedManualRes = await supabase
+          .from('test_extra_attempts')
+          .select('granted_count')
+          .eq('test_id', testId)
+          .eq('student_id', profile.id)
+          .maybeSingle();
+        const extraGrantedManual = extraGrantedManualRes.error ? 0 : Number(extraGrantedManualRes.data?.granted_count || 0);
+        const manualCanStart = attemptsUsedManual < attemptsLimitManual + extraGrantedManual;
         const normalizedGate = {
           can_start: Boolean(gate?.can_start || manualCanStart),
           attempts_used: Number(gate?.attempts_used ?? attemptsUsedManual),
           attempts_limit: Number(gate?.attempts_limit ?? attemptsLimitManual),
-          extra_granted: 0,
-          extra_available: 0,
+          extra_granted: Number(gate?.extra_granted ?? extraGrantedManual),
+          extra_available: Number(gate?.extra_available ?? profile?.bonus_extra_attempt_count ?? 0),
           attempts_remaining: Math.max(
             Number(gate?.attempts_remaining ?? 0),
-            Math.max(attemptsLimitManual - attemptsUsedManual, 0)
+            Math.max(attemptsLimitManual + extraGrantedManual - attemptsUsedManual, 0)
           ),
         };
 
         if (!normalizedGate.can_start) {
+          if ((normalizedGate.extra_available || 0) > 0) {
+            setNeedsExtraAttempt(true);
+            setTestMeta(testData);
+            setQuestions([]);
+            return;
+          }
           throw new Error('Вы исчерпали лимит попыток для этого теста.');
         }
 
@@ -252,7 +268,7 @@ export default function TestPage() {
     return () => {
       cancelled = true;
     };
-  }, [testId, profile?.id, profile?.group_id, profile?.bonus_extra_attempt_count]);
+  }, [testId, profile?.id, profile?.group_id, profile?.bonus_extra_attempt_count, retryNonce]);
 
   useEffect(() => {
     if (loading || result) return undefined;
@@ -477,6 +493,33 @@ export default function TestPage() {
     setIndex((prev) => prev + 1);
   };
 
+  const handleUseExtraAttempt = async () => {
+    setBonusLoading('attempt');
+    try {
+      const grant = await supabase.rpc('qf_grant_extra_attempt_for_test', {
+        p_test_id: Number(testId),
+      });
+      if (grant.error) {
+        const msg = String(grant.error.message || '');
+        const rpcMissing =
+          msg.includes('qf_grant_extra_attempt_for_test') ||
+          msg.includes('function') ||
+          msg.includes('does not exist') ||
+          grant.error.code === 'PGRST202';
+        if (!rpcMissing) throw grant.error;
+        const applied = await consumeBonus('attempt');
+        if (!applied) return;
+      }
+      await refreshProfile();
+      setNeedsExtraAttempt(false);
+      setRetryNonce((v) => v + 1);
+    } catch (err) {
+      setWarning(err.message || 'Не удалось применить доп. попытку.');
+    } finally {
+      setBonusLoading('');
+    }
+  };
+
   const evaluateQuestion = (question) => {
     if (skipCorrectByQuestion[question.id]) {
       return {
@@ -586,7 +629,15 @@ export default function TestPage() {
           .eq('status', 'completed');
         if (completedErr) throw completedErr;
         const attemptsUsed = (completedRows || []).length;
-        const attemptsLimit = Number(testMeta.attempts_allowed || 1);
+        let extraGranted = 0;
+        const extra = await supabase
+          .from('test_extra_attempts')
+          .select('granted_count')
+          .eq('test_id', testMeta.id)
+          .eq('student_id', profile.id)
+          .maybeSingle();
+        if (!extra.error) extraGranted = Number(extra.data?.granted_count || 0);
+        const attemptsLimit = Number(testMeta.attempts_allowed || 1) + extraGranted;
         if (attemptsUsed >= attemptsLimit) {
           throw new Error('Лимит попыток исчерпан для этого теста.');
         }
@@ -748,6 +799,36 @@ export default function TestPage() {
             <p style={{ margin: 0, color: '#b91c1c', fontFamily: 'var(--qf-font)', fontWeight: 600 }}>{error}</p>
             <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
               <button type="button" className="qf-btn-primary" onClick={() => navigate('/catalog')}>К каталогу</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (needsExtraAttempt && !result) {
+    return (
+      <div className="student-page-wrap">
+        <div className="student-page student-page--wide">
+          <div className="student-card" style={{ padding: 24, display: 'grid', gap: 12 }}>
+            <h2 style={{ margin: 0, fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)' }}>
+              Лимит попыток исчерпан
+            </h2>
+            <p style={{ margin: 0, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>
+              Используйте бонус "Доп. попытка", чтобы получить еще один запуск этого теста.
+            </p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="qf-btn-primary"
+                onClick={handleUseExtraAttempt}
+                disabled={bonusLoading === 'attempt' || extraAttemptCount <= 0}
+              >
+                {bonusLoading === 'attempt' ? 'Применение…' : `Использовать доп. попытку (${extraAttemptCount})`}
+              </button>
+              <button type="button" className="qf-btn-primary" onClick={() => navigate('/catalog')}>
+                К каталогу
+              </button>
             </div>
           </div>
         </div>
