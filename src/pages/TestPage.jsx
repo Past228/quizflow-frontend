@@ -64,7 +64,7 @@ export default function TestPage() {
   const [bonusLoading, setBonusLoading] = useState('');
   const [retryNonce, setRetryNonce] = useState(0);
   const [needsExtraAttempt, setNeedsExtraAttempt] = useState(false);
-  const [extraAttemptGranted, setExtraAttemptGranted] = useState(false);
+  const [attemptGate, setAttemptGate] = useState(null);
   const startedAtRef = useRef(Date.now());
 
   useEffect(() => {
@@ -78,6 +78,7 @@ export default function TestPage() {
       setError('');
       setWarning('');
       setNeedsExtraAttempt(false);
+      setAttemptGate(null);
       try {
         const { data: testData, error: testError } = await supabase
           .from('tests')
@@ -100,28 +101,41 @@ export default function TestPage() {
           throw new Error('Этот тест не назначен вашей группе.');
         }
 
-        const { data: completed, error: completedError } = await supabase
-          .from('test_results')
-          .select('id')
-          .eq('test_id', testId)
-          .eq('student_id', profile.id)
-          .eq('status', 'completed');
-        if (completedError) throw completedError;
-        const attemptsUsed = completed?.length || 0;
-        const baseAttempts = testData.attempts_allowed || 1;
-        const extraAttempts = profile?.bonus_extra_attempt_count || 0;
-        if (attemptsUsed >= baseAttempts) {
-          if (extraAttemptGranted) {
-            setExtraAttemptGranted(false);
-          } else {
-            if (extraAttempts > 0) {
-              setNeedsExtraAttempt(true);
-              setTestMeta(testData);
-              setQuestions([]);
-              return;
-            }
-            throw new Error('Вы исчерпали лимит попыток для этого теста.');
+        const gateRpc = await supabase.rpc('qf_can_start_test_attempt', {
+          p_test_id: Number(testId),
+        });
+        let gate = null;
+        if (!gateRpc.error && gateRpc.data != null) {
+          gate = Array.isArray(gateRpc.data) ? gateRpc.data[0] : gateRpc.data;
+        } else {
+          const { data: completed, error: completedError } = await supabase
+            .from('test_results')
+            .select('id')
+            .eq('test_id', testId)
+            .eq('student_id', profile.id)
+            .eq('status', 'completed');
+          if (completedError) throw completedError;
+          const attemptsUsed = completed?.length || 0;
+          const baseAttempts = Number(testData.attempts_allowed || 1);
+          const extraAttempts = Number(profile?.bonus_extra_attempt_count || 0);
+          gate = {
+            can_start: attemptsUsed < baseAttempts,
+            attempts_used: attemptsUsed,
+            attempts_limit: baseAttempts,
+            extra_granted: 0,
+            extra_available: extraAttempts,
+            attempts_remaining: Math.max(0, baseAttempts - attemptsUsed),
+          };
+        }
+        setAttemptGate(gate);
+        if (!gate?.can_start) {
+          if ((gate?.extra_available || 0) > 0) {
+            setNeedsExtraAttempt(true);
+            setTestMeta(testData);
+            setQuestions([]);
+            return;
           }
+          throw new Error('Вы исчерпали лимит попыток для этого теста.');
         }
 
         const { data: activeQuestions, error: questionError } = await supabase
@@ -186,7 +200,7 @@ export default function TestPage() {
     return () => {
       cancelled = true;
     };
-  }, [testId, profile?.id, profile?.group_id, profile?.bonus_extra_attempt_count, retryNonce, extraAttemptGranted]);
+  }, [testId, profile?.id, profile?.group_id, profile?.bonus_extra_attempt_count, retryNonce]);
 
   useEffect(() => {
     if (loading || result) return undefined;
@@ -206,6 +220,7 @@ export default function TestPage() {
   const hintCount = profile?.bonus_hint_count || 0;
   const skipCount = profile?.bonus_skip_count || 0;
   const extraAttemptCount = profile?.bonus_extra_attempt_count || 0;
+  const gateExtraAvailable = attemptGate?.extra_available ?? extraAttemptCount;
   const hiddenSet = new Set(currentQuestion ? (hiddenOptionIdsByQuestion[currentQuestion.id] || []) : []);
   const visibleOptions =
     currentQuestion?.type && currentQuestion.type !== QUESTION_TYPES.matching
@@ -387,11 +402,30 @@ export default function TestPage() {
   };
 
   const handleUseExtraAttempt = async () => {
-    const applied = await consumeBonus('attempt');
-    if (!applied) return;
-    setNeedsExtraAttempt(false);
-    setExtraAttemptGranted(true);
-    setRetryNonce((v) => v + 1);
+    setBonusLoading('attempt');
+    try {
+      const grant = await supabase.rpc('qf_grant_extra_attempt_for_test', {
+        p_test_id: Number(testId),
+      });
+      if (grant.error) {
+        const msg = String(grant.error.message || '');
+        const rpcMissing =
+          msg.includes('qf_grant_extra_attempt_for_test') ||
+          msg.includes('function') ||
+          msg.includes('does not exist') ||
+          grant.error.code === 'PGRST202';
+        if (!rpcMissing) throw grant.error;
+        const applied = await consumeBonus('attempt');
+        if (!applied) return;
+      }
+      await refreshProfile();
+      setNeedsExtraAttempt(false);
+      setRetryNonce((v) => v + 1);
+    } catch (err) {
+      setWarning(err.message || 'Не удалось применить доп. попытку.');
+    } finally {
+      setBonusLoading('');
+    }
   };
 
   const evaluateQuestion = (question) => {
@@ -665,9 +699,9 @@ export default function TestPage() {
                 type="button"
                 className="qf-btn-primary"
                 onClick={handleUseExtraAttempt}
-                disabled={bonusLoading === 'attempt' || extraAttemptCount <= 0}
+                disabled={bonusLoading === 'attempt' || gateExtraAvailable <= 0}
               >
-                {bonusLoading === 'attempt' ? 'Применение…' : `Использовать доп. попытку (${extraAttemptCount})`}
+                {bonusLoading === 'attempt' ? 'Применение…' : `Использовать доп. попытку (${gateExtraAvailable})`}
               </button>
               <button type="button" className="qf-btn-primary" onClick={() => navigate('/catalog')}>
                 К каталогу
