@@ -1532,6 +1532,7 @@ function handleStatsByParamLoaded(stats) {
     if (stats.summary) {
         const s = stats.summary;
         const pct = s.pctFinishedAll != null ? s.pctFinishedAll + '%' : '—';
+        const finishedAllCount = s.finishedAllCount ?? 0;
         const most = s.mostErrors
             ? `${escapeHtml(s.mostErrors.name)} (${s.mostErrors.errors})`
             : '—';
@@ -1546,7 +1547,7 @@ function handleStatsByParamLoaded(stats) {
                 <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
                     <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Завершили все назначенные тесты</div>
                     <div style="font-size:20px; font-weight:800; color:#1e40af; margin-top:4px;">${pct}</div>
-                    <div style="font-size:12px; color:#6b7280; margin-top:4px;">${s.totalStudents ?? 0} студ., ${s.assignedTests ?? 0} тест.</div>
+                    <div style="font-size:12px; color:#6b7280; margin-top:4px;">${finishedAllCount}/${s.totalStudents ?? 0} студ., ${s.assignedTests ?? 0} тест.</div>
                 </div>
                 <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #e5e7eb;">
                     <div style="font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase;">Больше всего ошибок (сумма)</div>

@@ -49,6 +49,14 @@ function parseDurationSeconds(startedAt, completedAt) {
     return Math.round((completed - started) / 1000);
 }
 
+function normalizeCourseNumber(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    const rounded = Math.trunc(n);
+    if (rounded < 1 || rounded > 4) return null;
+    return rounded;
+}
+
 export default function Profile({ session, embedded = false, onAvatarUpdated, onStartTest }) {
     const iframeRef = useRef(null);
 
@@ -920,10 +928,19 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 if (buildingId) query = query.eq('building_id', buildingId);
                 const { data, error } = await query;
                 if (error) throw error;
-                options = (data || []).map(c => ({
-                    id: c.id,
-                    name: `${c.course_number} курс` + (c.buildings ? ` — ${c.buildings.name}` : ''),
-                }));
+                options = (data || [])
+                    .map((c) => {
+                        const courseNumber = normalizeCourseNumber(c.course_number);
+                        if (courseNumber == null) return null;
+                        return {
+                            id: c.id,
+                            courseNumber,
+                            name: `${courseNumber} курс` + (c.buildings ? ` — ${c.buildings.name}` : ''),
+                        };
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => a.courseNumber - b.courseNumber || String(a.name).localeCompare(String(b.name)))
+                    .map(({ id, name }) => ({ id, name }));
             } else if (paramType === 'group') {
                 let courseIds = [];
                 if (buildingId) {
@@ -957,10 +974,19 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
             if (buildingId) query = query.eq('building_id', buildingId);
             const { data, error } = await query.order('course_number');
             if (error) throw error;
-            const options = (data || []).map((c) => ({
-                id: c.id,
-                name: `${c.course_number} курс` + (c.buildings ? ` — ${c.buildings.name}` : ''),
-            }));
+            const options = (data || [])
+                .map((c) => {
+                    const courseNumber = normalizeCourseNumber(c.course_number);
+                    if (courseNumber == null) return null;
+                    return {
+                        id: c.id,
+                        courseNumber,
+                        name: `${courseNumber} курс` + (c.buildings ? ` — ${c.buildings.name}` : ''),
+                    };
+                })
+                .filter(Boolean)
+                .sort((a, b) => a.courseNumber - b.courseNumber || String(a.name).localeCompare(String(b.name)))
+                .map(({ id, name }) => ({ id, name }));
             sendMessageToIframe({ type: 'STATS_STUDENT_COURSES_LOADED', data: { options } });
         } catch (err) {
             console.error('Stats student courses error:', err);
@@ -1212,13 +1238,24 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
 
             let attemptsData = [];
             if (profileIds.length > 0) {
-                const ar = await supabase
-                    .from('test_results')
-                    .select('student_id, test_id, percentage, status, started_at, completed_at')
-                    .in('test_id', testIds)
-                    .in('student_id', profileIds);
-                if (ar.error) throw ar.error;
-                attemptsData = ar.data || [];
+                const enriched = await supabase.rpc('qf_teacher_test_results_enriched', { p_test_id: null });
+                if (!enriched.error && Array.isArray(enriched.data)) {
+                    const testIdSet = new Set(testIds.map((id) => String(id)));
+                    const profileIdSet = new Set(profileIds.map((id) => String(id)));
+                    attemptsData = enriched.data.filter(
+                        (row) =>
+                            testIdSet.has(String(row.test_id)) &&
+                            profileIdSet.has(String(row.student_id))
+                    );
+                } else {
+                    const ar = await supabase
+                        .from('test_results')
+                        .select('student_id, test_id, percentage, status, started_at, completed_at')
+                        .in('test_id', testIds)
+                        .in('student_id', profileIds);
+                    if (ar.error) throw ar.error;
+                    attemptsData = ar.data || [];
+                }
             }
 
             const byTest = {};
@@ -1229,7 +1266,9 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
 
             const rows = testIds.map((tid) => {
                 const arr = byTest[tid] || [];
-                const scores = arr.filter((a) => a.percentage != null).map((a) => Number(a.percentage));
+                const scores = arr
+                    .filter((a) => a.status === 'completed' && a.percentage != null)
+                    .map((a) => Number(a.percentage));
                 const userIds = new Set(arr.map((a) => a.student_id).filter(Boolean));
                 const userIdsCompleted = new Set(
                     arr.filter((a) => a.status === 'completed').map((a) => a.student_id).filter(Boolean)
@@ -1304,6 +1343,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 summary = {
                     totalStudents: nStudents,
                     assignedTests: nTests,
+                    finishedAllCount,
                     pctFinishedAll: Math.round(pctFinishedAll * 10) / 10,
                     mostErrors:
                         mostErrors != null
@@ -1357,6 +1397,7 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                 summary = {
                     totalStudents: nStudents,
                     assignedTests: nTests,
+                    finishedAllCount: 0,
                     pctFinishedAll: 0,
                     mostErrors: null,
                     fewestErrors: null,
