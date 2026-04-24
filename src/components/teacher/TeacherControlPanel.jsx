@@ -66,6 +66,7 @@ export default function TeacherControlPanel({ session }) {
   const [notice, setNotice] = useState(null);
   const [testDraft, setTestDraft] = useState(createTestDraft);
   const [intentApplied, setIntentApplied] = useState(false);
+  const [testDateFilter, setTestDateFilter] = useState('newest');
 
   const loadTests = useCallback(async () => {
     setLoading(true);
@@ -712,6 +713,22 @@ export default function TeacherControlPanel({ session }) {
     () => tests.find((test) => String(test.id) === String(selectedTestId)) || null,
     [tests, selectedTestId]
   );
+  const filteredTests = useMemo(() => {
+    const now = Date.now();
+    const list = [...tests].filter((t) => {
+      const ts = t.created_at ? new Date(t.created_at).getTime() : null;
+      if (!ts || testDateFilter === 'all' || testDateFilter === 'newest' || testDateFilter === 'oldest') return true;
+      if (testDateFilter === 'week') return now - ts <= 7 * 24 * 60 * 60 * 1000;
+      if (testDateFilter === 'month') return now - ts <= 30 * 24 * 60 * 60 * 1000;
+      return true;
+    });
+    list.sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return testDateFilter === 'oldest' ? ta - tb : tb - ta;
+    });
+    return list;
+  }, [tests, testDateFilter]);
 
   useEffect(() => {
     if (view === 'results') {
@@ -869,6 +886,27 @@ export default function TeacherControlPanel({ session }) {
         )}
 
         <div className="student-card" style={{ padding: '24px 28px', marginBottom: 28 }}>
+          <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
+            <select
+              value={testDateFilter}
+              onChange={(e) => setTestDateFilter(e.target.value)}
+              style={{
+                padding: '10px 12px',
+                border: '2px solid var(--qf-accent-border-soft)',
+                borderRadius: 'var(--qf-radius-md, 12px)',
+                fontSize: 14,
+                fontFamily: 'var(--qf-font)',
+                background: 'var(--qf-card)',
+                color: 'var(--qf-text-body)',
+              }}
+            >
+              <option value="newest">Сначала новые</option>
+              <option value="oldest">Сначала старые</option>
+              <option value="week">За 7 дней</option>
+              <option value="month">За 30 дней</option>
+              <option value="all">Все даты</option>
+            </select>
+          </div>
           <div
             style={{
               display: 'grid',
@@ -1019,7 +1057,7 @@ export default function TeacherControlPanel({ session }) {
                 }}
               >
                 <option value="">Выберите тест</option>
-                {tests.map((test) => (
+                {filteredTests.map((test) => (
                   <option key={test.id} value={test.id}>
                     {test.title}
                   </option>
@@ -1172,7 +1210,7 @@ export default function TeacherControlPanel({ session }) {
         {(view === 'actions' || view === 'tests') &&
           (loading ? (
             <p style={{ color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>Загрузка…</p>
-          ) : tests.length === 0 ? (
+          ) : filteredTests.length === 0 ? (
             <div className="student-card" style={{ textAlign: 'center', padding: 40 }}>
               <p style={{ fontSize: 18, color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)' }}>
                 У вас пока нет тестов. Создайте первый тест!
@@ -1180,7 +1218,7 @@ export default function TeacherControlPanel({ session }) {
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
-              {tests.map((t) => (
+              {filteredTests.map((t) => (
                 <div key={t.id} className="student-card" style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <h3 style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)', margin: 0 }}>

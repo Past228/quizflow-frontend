@@ -750,6 +750,7 @@ function updateStudyInfoUI(profile) {
 
 function updateStudentTestsUI(tests) {
     elements.testsCount.textContent = `${tests.length} тест${getRussianPlural(tests.length)}`;
+    const extraAttempts = Number(state.profile?.bonus_extra_attempt_count || 0);
 
     if (tests.length === 0) {
         showEmptyTests();
@@ -801,10 +802,13 @@ function updateStudentTestsUI(tests) {
 
         const attemptsEl = document.createElement('span');
         attemptsEl.textContent = `Попыток: ${attemptsAllowed}`;
+        const bonusEl = document.createElement('span');
+        bonusEl.textContent = `Доп. попытка: ↻ ${extraAttempts}`;
 
         metaEl.appendChild(qEl);
         metaEl.appendChild(limitEl);
         metaEl.appendChild(attemptsEl);
+        metaEl.appendChild(bonusEl);
 
         const startBtn = document.createElement('button');
         startBtn.className = 'start-test-btn';

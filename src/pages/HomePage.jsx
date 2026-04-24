@@ -9,9 +9,10 @@ const BONUS_GLYPH = { attempt: '↻', hint: '💡', skip: '?' };
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { groupId, loading: profileLoading } = useStudentProfile();
+  const { groupId, profile, loading: profileLoading } = useStudentProfile();
   const { tests, loading: testsLoading } = useStudentTests(groupId);
   const { all: leaders, loading: leadersLoading } = useLeaderboard(groupId);
+  const [dateFilter, setDateFilter] = useState('newest');
 
   const [shopItems, setShopItems] = useState([]);
   const [shopPreviewLoading, setShopPreviewLoading] = useState(true);
@@ -77,7 +78,23 @@ export default function HomePage() {
     return null;
   }
 
-  const displayTests = tests.slice(0, 3);
+  const extraAttempts = profile?.bonus_extra_attempt_count || 0;
+  const displayTests = (() => {
+    const now = Date.now();
+    const filtered = (tests || []).filter((t) => {
+      const createdAt = t.created_at ? new Date(t.created_at).getTime() : null;
+      if (!createdAt || dateFilter === 'all' || dateFilter === 'newest' || dateFilter === 'oldest') return true;
+      if (dateFilter === 'week') return now - createdAt <= 7 * 24 * 60 * 60 * 1000;
+      if (dateFilter === 'month') return now - createdAt <= 30 * 24 * 60 * 60 * 1000;
+      return true;
+    });
+    filtered.sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateFilter === 'oldest' ? ta - tb : tb - ta;
+    });
+    return filtered.slice(0, 3);
+  })();
   const loading = profileLoading || testsLoading;
 
   return (
@@ -89,6 +106,24 @@ export default function HomePage() {
           <div className="home-layout__main">
             <section className="student-card">
               <h2 className="home-section-title">Доступные тесты:</h2>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                <select
+                  className="qf-search"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  aria-label="Фильтр тестов по дате"
+                  style={{ maxWidth: 220 }}
+                >
+                  <option value="newest">Сначала новые</option>
+                  <option value="oldest">Сначала старые</option>
+                  <option value="week">За 7 дней</option>
+                  <option value="month">За 30 дней</option>
+                  <option value="all">Все даты</option>
+                </select>
+                <div style={{ alignSelf: 'center', color: 'var(--qf-text-muted)', fontFamily: 'var(--qf-font)', fontWeight: 600 }}>
+                  Доп. попытка: ↻ {extraAttempts}
+                </div>
+              </div>
               {loading ? (
                 <p style={{ color: 'var(--qf-text-body)' }}>Загрузка…</p>
               ) : displayTests.length === 0 ? (

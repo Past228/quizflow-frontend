@@ -127,9 +127,43 @@ export default function TestPage() {
             attempts_remaining: Math.max(0, baseAttempts - attemptsUsed),
           };
         }
-        setAttemptGate(gate);
-        if (!gate?.can_start) {
-          if ((gate?.extra_available || 0) > 0) {
+        const { data: completed, error: completedError } = await supabase
+          .from('test_results')
+          .select('id')
+          .eq('test_id', testId)
+          .eq('student_id', profile.id)
+          .eq('status', 'completed');
+        if (completedError) throw completedError;
+        const attemptsUsedManual = completed?.length || 0;
+        const attemptsLimitManual = Number(testData.attempts_allowed || 1);
+
+        let extraGrantedManual = 0;
+        const extraRes = await supabase
+          .from('test_extra_attempts')
+          .select('granted_count')
+          .eq('test_id', testId)
+          .eq('student_id', profile.id)
+          .maybeSingle();
+        if (!extraRes.error) {
+          extraGrantedManual = Number(extraRes.data?.granted_count || 0);
+        }
+
+        const manualCanStart = attemptsUsedManual < attemptsLimitManual + extraGrantedManual;
+        const normalizedGate = {
+          can_start: Boolean(gate?.can_start || manualCanStart),
+          attempts_used: Number(gate?.attempts_used ?? attemptsUsedManual),
+          attempts_limit: Number(gate?.attempts_limit ?? attemptsLimitManual),
+          extra_granted: Number(gate?.extra_granted ?? extraGrantedManual),
+          extra_available: Number(gate?.extra_available ?? profile?.bonus_extra_attempt_count ?? 0),
+          attempts_remaining: Math.max(
+            Number(gate?.attempts_remaining ?? 0),
+            Math.max(attemptsLimitManual + extraGrantedManual - attemptsUsedManual, 0)
+          ),
+        };
+
+        setAttemptGate(normalizedGate);
+        if (!normalizedGate.can_start) {
+          if ((normalizedGate.extra_available || 0) > 0) {
             setNeedsExtraAttempt(true);
             setTestMeta(testData);
             setQuestions([]);
