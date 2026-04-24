@@ -151,16 +151,8 @@ function TeacherA11yRow({ on, onToggle }) {
         <div style={{
           fontWeight: 'var(--qf-fw-medium)', fontSize: 20,
           fontFamily: 'var(--qf-font)', color: 'var(--qf-text-body)',
-          display: 'flex', alignItems: 'center', gap: 10,
         }}
         >
-          <span style={{
-            fontSize: 11, fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase',
-            padding: '4px 8px', borderRadius: 6,
-            background: 'rgba(18, 122, 182, 0.15)', color: 'var(--qf-dark-blue)',
-          }}
-          >Aa
-          </span>
           Версия для слабовидящих
         </div>
         <button type="button" onClick={onToggle} style={{
@@ -217,20 +209,6 @@ function TeacherSettingsPane() {
     >
       <div className="student-page student-page--wide" style={{ maxWidth: 960, margin: '0 auto' }}>
         <h1 className="student-page-title" style={{ color: 'var(--qf-bright-blue)' }}>НАСТРОЙКИ</h1>
-        <p style={{
-          margin: '0 0 20px',
-          padding: '16px 18px',
-          borderRadius: 12,
-          background: 'linear-gradient(135deg, rgba(51, 143, 249, 0.1), rgba(32, 174, 185, 0.08))',
-          border: '1px solid rgba(51, 143, 249, 0.22)',
-          fontFamily: 'var(--qf-font)',
-          fontSize: 16,
-          fontWeight: 600,
-          lineHeight: 1.55,
-          color: 'var(--qf-text-body)',
-        }}>
-          Режим для слабовидящих включается <strong>здесь</strong>, в разделе «Настройки» (этот экран). После включения шрифт и контраст станут заметнее на всех страницах преподавателя.
-        </p>
         <div className="student-card" style={{ padding: '8px 0', display: 'flex', flexDirection: 'column' }}>
           <TeacherSettingsToggle label="Сменить тему" on={themeOn} onToggle={() => setThemeOn(v => !v)} isSwitch />
           <TeacherA11yRow on={a11y} onToggle={() => setA11y(v => !v)} />

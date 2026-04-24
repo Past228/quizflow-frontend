@@ -67,11 +67,6 @@ export default function SettingsPage() {
       <div className="student-page student-page--wide settings-page">
         <h1 className="settings-page__title">НАСТРОЙКИ</h1>
 
-        <p className="settings-lead">
-          Переключатели ниже меняют оформление приложения. Режим для слабовидящих находится{' '}
-          <strong>в этом разделе</strong> — откройте <strong>«Настройки»</strong> (иконка шестерёнки в боковом меню слева).
-        </p>
-
         <section className="student-card settings-card">
           <ThemeToggleRow on={themeOn} onToggle={() => setThemeOn((v) => !v)} />
           <ToggleRow
@@ -106,21 +101,8 @@ export default function SettingsPage() {
           font-family: var(--qf-font);
           letter-spacing: 0.06em;
           color: var(--qf-bright-blue);
-          margin: 0 0 16px;
+          margin: 0 0 32px;
           text-align: justify;
-        }
-        .settings-lead {
-          margin: 0 0 24px;
-          padding: 16px 18px;
-          border-radius: var(--qf-radius-md);
-          background: linear-gradient(135deg, rgba(51, 143, 249, 0.1), rgba(32, 174, 185, 0.08));
-          border: 1px solid rgba(51, 143, 249, 0.22);
-          font-family: var(--qf-font);
-          font-size: 16px;
-          font-weight: 600;
-          line-height: 1.55;
-          color: var(--qf-text-body);
-          text-align: left;
         }
         .settings-row--a11y {
           flex-wrap: wrap;
@@ -136,26 +118,6 @@ export default function SettingsPage() {
           flex: 1;
           min-width: 0;
           text-align: left;
-        }
-        .settings-a11y-title {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-weight: var(--qf-fw-medium);
-          font-size: 20px;
-          font-family: var(--qf-font);
-          color: var(--qf-text-body);
-        }
-        .settings-a11y-badge {
-          flex-shrink: 0;
-          font-size: 11px;
-          font-weight: var(--qf-fw-black);
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          padding: 4px 8px;
-          border-radius: 6px;
-          background: rgba(18, 122, 182, 0.15);
-          color: var(--qf-dark-blue);
         }
         .settings-a11y-desc {
           margin: 10px 0 0;
@@ -298,10 +260,6 @@ export default function SettingsPage() {
           font-size: 22px;
           padding: 14px 24px;
         }
-        html.qf-a11y .settings-lead {
-          font-size: 17px;
-          border-width: 2px;
-        }
         html.qf-a11y .settings-a11y-desc {
           font-size: 16px;
           color: var(--qf-text-body);
@@ -344,10 +302,7 @@ function A11yToggleRow({ on, onToggle }) {
   return (
     <div className="settings-row settings-row--theme settings-row--a11y">
       <div className="settings-a11y-stack">
-        <div className="settings-a11y-title">
-          <span className="settings-a11y-badge" aria-hidden>
-            Aa
-          </span>
+        <div className="settings-label settings-label--theme" style={{ marginBottom: 0 }}>
           Версия для слабовидящих
         </div>
         <p className="settings-a11y-desc">
