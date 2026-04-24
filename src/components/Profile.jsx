@@ -1109,7 +1109,26 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                     .select('test_id')
                     .eq('group_id', prof.group_id);
                 if (gterr) throw gterr;
-                const testIds = [...new Set((gtRows || []).map((r) => r.test_id).filter(Boolean))];
+                const assignedTestIds = [...new Set((gtRows || []).map((r) => r.test_id).filter(Boolean))];
+
+                let attemptsData = [];
+                {
+                    const rpcAttempts = await supabase.rpc('qf_teacher_test_results_enriched', { p_test_id: null });
+                    if (!rpcAttempts.error && Array.isArray(rpcAttempts.data)) {
+                        attemptsData = (rpcAttempts.data || []).filter(
+                            (row) => String(row.student_id) === String(profileId)
+                        );
+                    } else {
+                        const { data, error: attemptsErr } = await supabase
+                            .from('test_results')
+                            .select('test_id, percentage, score, status, started_at, completed_at')
+                            .eq('student_id', profileId);
+                        if (attemptsErr) throw attemptsErr;
+                        attemptsData = data || [];
+                    }
+                }
+                const attemptedTestIds = [...new Set((attemptsData || []).map((r) => r.test_id).filter(Boolean))];
+                const testIds = [...new Set([...assignedTestIds, ...attemptedTestIds])];
 
                 if (testIds.length === 0) {
                     emptyStudent(displayNameFromProfile(prof));
@@ -1126,13 +1145,6 @@ export default function Profile({ session, embedded = false, onAvatarUpdated, on
                     titleByTest[t.id] = t.title;
                     qByTest[t.id] = t.questions_count ?? 0;
                 });
-
-                const { data: attemptsData, error: attemptsErr } = await supabase
-                    .from('test_results')
-                    .select('test_id, percentage, status, started_at, completed_at')
-                    .eq('student_id', profileId)
-                    .in('test_id', testIds);
-                if (attemptsErr) throw attemptsErr;
 
                 const byTest = {};
                 attemptsData.forEach((a) => {
