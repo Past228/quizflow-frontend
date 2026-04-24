@@ -1,3 +1,30 @@
+var PASSWORD_MIN_LENGTH = 8;
+var PASSWORD_MAX_LENGTH = 64;
+
+/** Как пресет пароля в Supabase Email (латиница, цифра, спецсимвол) */
+function getSignupPasswordPolicyError(password) {
+    if (password == null || password === '') return 'Пароль обязателен';
+    if (password.length < PASSWORD_MIN_LENGTH) return 'Минимум ' + PASSWORD_MIN_LENGTH + ' символов';
+    if (password.length > PASSWORD_MAX_LENGTH) return 'Не более ' + PASSWORD_MAX_LENGTH + ' символов';
+    if (!/[a-z]/.test(password)) return 'Нужна строчная латинская буква (a–z)';
+    if (!/[A-Z]/.test(password)) return 'Нужна прописная латинская буква (A–Z)';
+    if (!/[0-9]/.test(password)) return 'Нужна хотя бы одна цифра';
+    if (!/[^A-Za-z0-9]/.test(password)) {
+        return 'Нужен спецсимвол (например ! @ # $ % ^ & * . , - _)';
+    }
+    return null;
+}
+
+function syncPasswordErrorDisplay() {
+    var v = elements.password.value;
+    if (!v) {
+        elements.passwordError.textContent = '';
+        return;
+    }
+    var err = getSignupPasswordPolicyError(v);
+    elements.passwordError.textContent = err || '';
+}
+
 // State management
 let state = {
     loading: false,
@@ -57,6 +84,9 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeEventListeners() {
     // Form submission
     elements.authForm.addEventListener('submit', handleFormSubmit);
+
+    elements.password.addEventListener('input', syncPasswordErrorDisplay);
+    elements.password.addEventListener('blur', syncPasswordErrorDisplay);
     
     // Toggle to login
     elements.toggleAuthBtn.addEventListener('click', handleToggleToLogin);
@@ -145,6 +175,13 @@ window.addEventListener('message', function(event) {
 // Event Handlers
 function handleFormSubmit(e) {
     e.preventDefault();
+
+    var pwdErr = getSignupPasswordPolicyError(elements.password.value);
+    if (pwdErr) {
+        displayValidationErrors({ password: pwdErr });
+        elements.password.focus();
+        return;
+    }
 
     const formData = {
         email: elements.email.value,

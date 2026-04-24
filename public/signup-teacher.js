@@ -42,6 +42,9 @@ function initializeEventListeners() {
     elements.authForm.addEventListener('submit', handleFormSubmit);
     elements.toggleToStudentBtn.addEventListener('click', handleToggleToStudent);
     elements.loginBtn.addEventListener('click', handleLoginClick);
+
+    elements.password.addEventListener('input', syncTeacherPasswordErrorDisplay);
+    elements.password.addEventListener('blur', syncTeacherPasswordErrorDisplay);
     
     // Автоматическое приведение кода к верхнему регистру
     elements.inviteCode.addEventListener('input', function() {
@@ -288,6 +291,16 @@ function getSignupPasswordPolicyError(password) {
         return 'Нужен спецсимвол (например ! @ # $ % ^ & * . , - _)';
     }
     return null;
+}
+
+function syncTeacherPasswordErrorDisplay() {
+    var v = elements.password.value;
+    if (!v) {
+        elements.passwordError.textContent = '';
+        return;
+    }
+    var err = getSignupPasswordPolicyError(v);
+    elements.passwordError.textContent = err || '';
 }
 
 function validateFormClient(formData) {

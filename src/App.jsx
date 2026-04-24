@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
 import AuthWithHTML from './components/AuthWithHTML';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import TeacherLayout from './components/teacher/TeacherLayout';
 import StudentLayout from './components/student/StudentLayout';
 
@@ -212,8 +213,11 @@ function TeacherHelpPane() {
 }
 
 function App() {
+  const location = useLocation();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const isResetPasswordRoute = location.pathname === '/auth/reset-password';
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -231,7 +235,7 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) {
+  if (loading && !isResetPasswordRoute) {
     return (
       <div
         className="app-root app-root--loading"
@@ -267,6 +271,16 @@ function App() {
     );
   }
 
+  if (isResetPasswordRoute) {
+    return (
+      <div className="app-root" style={{ background: 'var(--qf-bg, #eaf4fc)' }}>
+        <div className="app-root__fill">
+          <ResetPasswordPage />
+        </div>
+      </div>
+    );
+  }
+
   const isTeacher = session?.user?.user_metadata?.role === 'teacher';
 
   return (
@@ -280,25 +294,23 @@ function App() {
           <TeacherApp session={session} />
         </div>
       ) : (
-        <BrowserRouter>
-          <div className="app-root__fill">
-            <Suspense fallback={<StudentRouteFallback />}>
-              <Routes>
-                <Route path="/" element={<StudentLayout session={session} />}>
-                  <Route index element={<HomePage />} />
-                  <Route path="catalog" element={<CatalogPage />} />
-                  <Route path="test/:testId" element={<TestPage />} />
-                  <Route path="leaderboard" element={<LeaderboardPage />} />
-                  <Route path="shop" element={<ShopPage />} />
-                  <Route path="settings" element={<SettingsPage />} />
-                  <Route path="help" element={<HelpPage />} />
-                  <Route path="profile" element={<ProfileRoute />} />
-                </Route>
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Suspense>
-          </div>
-        </BrowserRouter>
+        <div className="app-root__fill">
+          <Suspense fallback={<StudentRouteFallback />}>
+            <Routes>
+              <Route path="/" element={<StudentLayout session={session} />}>
+                <Route index element={<HomePage />} />
+                <Route path="catalog" element={<CatalogPage />} />
+                <Route path="test/:testId" element={<TestPage />} />
+                <Route path="leaderboard" element={<LeaderboardPage />} />
+                <Route path="shop" element={<ShopPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="help" element={<HelpPage />} />
+                <Route path="profile" element={<ProfileRoute />} />
+              </Route>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </div>
       )}
     </div>
   );

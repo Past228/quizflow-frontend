@@ -178,6 +178,16 @@
         }
         .toggle-btn:hover { color: var(--qf-dark-blue); text-decoration: underline; }
 
+        .reset-intro {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 18px;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        .auth-panel-hidden { display: none !important; }
+
         .message {
             padding: 14px 16px;
             border-radius: var(--qf-radius-md);
@@ -232,28 +242,52 @@
 
     <main class="main">
         <div class="form-container">
-            <h2 class="form-title">Вход в систему</h2>
+            <div id="loginPanel">
+                <h2 class="form-title">Вход в систему</h2>
 
-            <div id="messageContainer"></div>
+                <div id="messageContainer"></div>
 
-            <form id="loginForm">
-                <div class="form-group">
-                    <label for="email">Email:</label>
-                    <input type="email" id="email" name="email" required minlength="5" maxlength="254" placeholder="Введите ваш email">
-                    <div class="error-text" id="emailError"></div>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email" required minlength="5" maxlength="254" placeholder="Введите ваш email">
+                        <div class="error-text" id="emailError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Пароль:</label>
+                        <input type="password" id="password" name="password" required maxlength="64" placeholder="Введите ваш пароль">
+                        <div class="error-text" id="passwordError"></div>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="submitBtn">Войти</button>
+                </form>
+
+                <div class="toggle-auth">
+                    <button type="button" class="toggle-btn" id="forgotPasswordBtn">Забыли пароль?</button>
                 </div>
-
-                <div class="form-group">
-                    <label for="password">Пароль:</label>
-                    <input type="password" id="password" name="password" required minlength="8" maxlength="64" placeholder="Введите ваш пароль">
-                    <div class="error-text" id="passwordError"></div>
+                <div class="toggle-auth">
+                    <button class="toggle-btn" id="toggleAuthBtn">Нет аккаунта? Зарегистрироваться</button>
                 </div>
+            </div>
 
-                <button type="submit" class="submit-btn" id="submitBtn">Войти</button>
-            </form>
-<!--** пуки каки **-->
-            <div class="toggle-auth">
-                <button class="toggle-btn" id="toggleAuthBtn">Нет аккаунта? Зарегистрироваться</button>
+            <div id="resetPanel" class="auth-panel-hidden">
+                <h2 class="form-title">Сброс пароля</h2>
+                <p class="reset-intro">Укажите email аккаунта — отправим ссылку для установки нового пароля.</p>
+
+                <div id="resetMessageContainer"></div>
+
+                <form id="resetRequestForm">
+                    <div class="form-group">
+                        <label for="resetEmail">Email:</label>
+                        <input type="email" id="resetEmail" name="resetEmail" required minlength="5" maxlength="254" placeholder="Введите ваш email">
+                        <div class="error-text" id="resetEmailError"></div>
+                    </div>
+                    <button type="submit" class="submit-btn" id="resetSubmitBtn">Отправить ссылку</button>
+                </form>
+                <div class="toggle-auth">
+                    <button type="button" class="toggle-btn" id="backToLoginBtn">← Вернуться ко входу</button>
+                </div>
             </div>
         </div>
     </main>

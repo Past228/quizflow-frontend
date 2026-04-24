@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { devLog, devWarn } from '../lib/devLog';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH, getSignupPasswordPolicyError } from '../lib/passwordPolicy';
 
 // Белый список разрешенных источников
 const ALLOWED_ORIGINS = [
@@ -16,8 +17,6 @@ const TIME_WINDOW = 15 * 60 * 1000; // 15 минут
 
 const EMAIL_MIN_LENGTH = 5;
 const EMAIL_MAX_LENGTH = 254;
-const PASSWORD_MIN_LENGTH = 8;
-const PASSWORD_MAX_LENGTH = 64;
 const PERSON_NAME_MIN_LENGTH = 2;
 const PERSON_NAME_MAX_LENGTH = 32;
 /** Пригласительный код (отдельно от email/пароля/ФИО) */
@@ -25,24 +24,6 @@ const INVITE_CODE_MAX_LENGTH = 20;
 
 const personNameContainsDigit = (value) =>
     typeof value === 'string' && /\d/.test(value.trim());
-
-/**
- * Политика пароля при регистрации — как пресет Supabase Email:
- * «Lowercase, uppercase letters, digits and symbols» (латиница + цифры + не-буквенно-цифровой символ).
- * Возвращает текст ошибки или null, если пароль подходит.
- */
-const getSignupPasswordPolicyError = (password) => {
-    if (password == null || password === '') return 'Пароль обязателен';
-    if (password.length < PASSWORD_MIN_LENGTH) return `Минимум ${PASSWORD_MIN_LENGTH} символов`;
-    if (password.length > PASSWORD_MAX_LENGTH) return `Не более ${PASSWORD_MAX_LENGTH} символов`;
-    if (!/[a-z]/.test(password)) return 'Нужна строчная латинская буква (a–z)';
-    if (!/[A-Z]/.test(password)) return 'Нужна прописная латинская буква (A–Z)';
-    if (!/[0-9]/.test(password)) return 'Нужна хотя бы одна цифра';
-    if (!/[^A-Za-z0-9]/.test(password)) {
-        return 'Нужен спецсимвол (например ! @ # $ % ^ & * . , - _)';
-    }
-    return null;
-};
 
 /**
  * 429 / rate limit при signUp чаще всего — лимит запросов Auth с одного IP (аудитория за одним Wi‑Fi),
@@ -97,6 +78,10 @@ export default function AuthWithHTML() {
 
                 case 'LOGIN_FORM_SUBMIT':
                     await handleSignIn(data);
+                    break;
+
+                case 'PASSWORD_RESET_REQUEST':
+                    await handlePasswordResetRequest(data);
                     break;
 
                 case 'VALIDATE_INVITE_CODE':
@@ -240,14 +225,55 @@ export default function AuthWithHTML() {
         }
     };
 
+    const handlePasswordResetRequest = async (payload) => {
+        const emailRaw = typeof payload?.email === 'string' ? payload.email : '';
+        const emailTrim = emailRaw.trim();
+        setLoading(true);
+        try {
+            const errors = {};
+            if (!emailTrim) {
+                errors.resetEmail = 'Email обязателен';
+            } else if (emailTrim.length < EMAIL_MIN_LENGTH) {
+                errors.resetEmail = `Минимум ${EMAIL_MIN_LENGTH} символов`;
+            } else if (emailTrim.length > EMAIL_MAX_LENGTH) {
+                errors.resetEmail = `Не более ${EMAIL_MAX_LENGTH} символов`;
+            } else if (!isValidEmail(emailTrim)) {
+                errors.resetEmail = 'Некорректный формат email';
+            }
+            if (Object.keys(errors).length > 0) {
+                sendMessageToIframe({
+                    type: 'VALIDATION_ERRORS',
+                    data: { errors }
+                });
+                return;
+            }
+
+            const redirectTo = `${window.location.origin}/auth/reset-password`;
+            const { error } = await supabase.auth.resetPasswordForEmail(emailTrim, { redirectTo });
+            if (error) throw error;
+
+            sendMessageToIframe({
+                type: 'PASSWORD_RESET_SENT',
+                data: {
+                    message:
+                        'Если такой аккаунт зарегистрирован, на email отправлена ссылка для сброса пароля. Проверьте почту и папку «Спам».',
+                }
+            });
+        } catch (err) {
+            sendMessageToIframe({
+                type: 'AUTH_ERROR',
+                data: { message: err.message || 'Не удалось отправить письмо' }
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleStudentSignUp = async (formData) => {
         setLoading(true);
 
         try {
-            // Проверка rate limit
-            checkRateLimit(formData.email);
-
-            // Валидация и санитизация данных
+            // Сначала валидация полей — не тратим rate limit на заведомо неверную форму
             const errors = validateStudentSignUpForm(formData);
             if (Object.keys(errors).length > 0) {
                 sendMessageToIframe({
@@ -256,6 +282,8 @@ export default function AuthWithHTML() {
                 });
                 return;
             }
+
+            checkRateLimit(formData.email);
 
             // Очистка данных
             const cleanData = {
@@ -373,8 +401,6 @@ export default function AuthWithHTML() {
         setLoading(true);
 
         try {
-            checkRateLimit(formData.email);
-
             const errors = validateTeacherSignUpForm(formData);
             if (Object.keys(errors).length > 0) {
                 sendMessageToIframe({
@@ -383,6 +409,8 @@ export default function AuthWithHTML() {
                 });
                 return;
             }
+
+            checkRateLimit(formData.email);
 
             const cleanData = {
                 email: sanitizeInput(formData.email).toLowerCase(),
@@ -868,10 +896,9 @@ export default function AuthWithHTML() {
             errors.email = 'Некорректный формат email';
         }
 
+        // Без минимальной длины: старые аккаунты могли зарегистрироваться с паролем от 6 символов (до смены правил).
         if (!formData.password) {
             errors.password = 'Пароль обязателен';
-        } else if (formData.password.length < PASSWORD_MIN_LENGTH) {
-            errors.password = `Минимум ${PASSWORD_MIN_LENGTH} символов`;
         } else if (formData.password.length > PASSWORD_MAX_LENGTH) {
             errors.password = `Не более ${PASSWORD_MAX_LENGTH} символов`;
         }
