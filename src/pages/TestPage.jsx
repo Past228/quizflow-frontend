@@ -101,6 +101,47 @@ export default function TestPage() {
   const [retryNonce, setRetryNonce] = useState(0);
   const startedAtRef = useRef(Date.now());
 
+  const getAttemptGate = async (currentTestId, currentProfileId, baseAttempts) => {
+    const rpcGateRes = await supabase.rpc('qf_can_start_test_attempt', {
+      p_test_id: Number(currentTestId),
+    });
+    const rpcGate =
+      !rpcGateRes.error && rpcGateRes.data != null
+        ? (Array.isArray(rpcGateRes.data) ? rpcGateRes.data[0] : rpcGateRes.data)
+        : null;
+
+    const { data: completed, error: completedError } = await supabase
+      .from('test_results')
+      .select('id')
+      .eq('test_id', currentTestId)
+      .eq('student_id', currentProfileId)
+      .eq('status', 'completed');
+    if (completedError) throw completedError;
+    const attemptsUsed = completed?.length || 0;
+
+    const extraRes = await supabase
+      .from('test_extra_attempts')
+      .select('granted_count')
+      .eq('test_id', currentTestId)
+      .eq('student_id', currentProfileId)
+      .maybeSingle();
+    const extraGranted = extraRes.error ? 0 : Number(extraRes.data?.granted_count || 0);
+    const attemptsLimit = Number(baseAttempts || 1);
+    const canStartManual = attemptsUsed < attemptsLimit + extraGranted;
+
+    return {
+      can_start: Boolean((rpcGate?.can_start ?? false) || canStartManual),
+      attempts_used: Number(rpcGate?.attempts_used ?? attemptsUsed),
+      attempts_limit: Number(rpcGate?.attempts_limit ?? attemptsLimit),
+      extra_granted: Number(rpcGate?.extra_granted ?? extraGranted),
+      extra_available: Number(rpcGate?.extra_available ?? profile?.bonus_extra_attempt_count ?? 0),
+      attempts_remaining: Math.max(
+        Number(rpcGate?.attempts_remaining ?? 0),
+        Math.max(attemptsLimit + extraGranted - attemptsUsed, 0)
+      ),
+    };
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -135,61 +176,7 @@ export default function TestPage() {
           throw new Error('Этот тест не назначен вашей группе.');
         }
 
-        const gateRpc = await supabase.rpc('qf_can_start_test_attempt', {
-          p_test_id: Number(testId),
-        });
-        let gate = null;
-        if (!gateRpc.error && gateRpc.data != null) {
-          gate = Array.isArray(gateRpc.data) ? gateRpc.data[0] : gateRpc.data;
-        } else {
-          const { data: completed, error: completedError } = await supabase
-            .from('test_results')
-            .select('id')
-            .eq('test_id', testId)
-            .eq('student_id', profile.id)
-            .eq('status', 'completed');
-          if (completedError) throw completedError;
-          const attemptsUsed = completed?.length || 0;
-          const baseAttempts = Number(testData.attempts_allowed || 1);
-          const extraAttempts = Number(profile?.bonus_extra_attempt_count || 0);
-          gate = {
-            can_start: attemptsUsed < baseAttempts,
-            attempts_used: attemptsUsed,
-            attempts_limit: baseAttempts,
-            extra_granted: 0,
-            extra_available: extraAttempts,
-            attempts_remaining: Math.max(0, baseAttempts - attemptsUsed),
-          };
-        }
-        const { data: completed, error: completedError } = await supabase
-          .from('test_results')
-          .select('id')
-          .eq('test_id', testId)
-          .eq('student_id', profile.id)
-          .eq('status', 'completed');
-        if (completedError) throw completedError;
-        const attemptsUsedManual = completed?.length || 0;
-        const attemptsLimitManual = Number(testData.attempts_allowed || 1);
-
-        const extraGrantedManualRes = await supabase
-          .from('test_extra_attempts')
-          .select('granted_count')
-          .eq('test_id', testId)
-          .eq('student_id', profile.id)
-          .maybeSingle();
-        const extraGrantedManual = extraGrantedManualRes.error ? 0 : Number(extraGrantedManualRes.data?.granted_count || 0);
-        const manualCanStart = attemptsUsedManual < attemptsLimitManual + extraGrantedManual;
-        const normalizedGate = {
-          can_start: Boolean(gate?.can_start || manualCanStart),
-          attempts_used: Number(gate?.attempts_used ?? attemptsUsedManual),
-          attempts_limit: Number(gate?.attempts_limit ?? attemptsLimitManual),
-          extra_granted: Number(gate?.extra_granted ?? extraGrantedManual),
-          extra_available: Number(gate?.extra_available ?? profile?.bonus_extra_attempt_count ?? 0),
-          attempts_remaining: Math.max(
-            Number(gate?.attempts_remaining ?? 0),
-            Math.max(attemptsLimitManual + extraGrantedManual - attemptsUsedManual, 0)
-          ),
-        };
+        const normalizedGate = await getAttemptGate(testId, profile.id, testData.attempts_allowed || 1);
 
         if (!normalizedGate.can_start) {
           if ((normalizedGate.extra_available || 0) > 0) {
@@ -612,36 +599,8 @@ export default function TestPage() {
         throw new Error('Сессия истекла. Войдите в аккаунт снова.');
       }
 
-      const gateRpc = await supabase.rpc('qf_can_start_test_attempt', {
-        p_test_id: Number(testMeta.id),
-      });
-      if (!gateRpc.error && gateRpc.data != null) {
-        const gate = Array.isArray(gateRpc.data) ? gateRpc.data[0] : gateRpc.data;
-        if (!gate?.can_start) {
-          throw new Error('Лимит попыток исчерпан для этого теста.');
-        }
-      } else {
-        const { data: completedRows, error: completedErr } = await supabase
-          .from('test_results')
-          .select('id')
-          .eq('test_id', testMeta.id)
-          .eq('student_id', profile.id)
-          .eq('status', 'completed');
-        if (completedErr) throw completedErr;
-        const attemptsUsed = (completedRows || []).length;
-        let extraGranted = 0;
-        const extra = await supabase
-          .from('test_extra_attempts')
-          .select('granted_count')
-          .eq('test_id', testMeta.id)
-          .eq('student_id', profile.id)
-          .maybeSingle();
-        if (!extra.error) extraGranted = Number(extra.data?.granted_count || 0);
-        const attemptsLimit = Number(testMeta.attempts_allowed || 1) + extraGranted;
-        if (attemptsUsed >= attemptsLimit) {
-          throw new Error('Лимит попыток исчерпан для этого теста.');
-        }
-      }
+      const submitGate = await getAttemptGate(testMeta.id, profile.id, testMeta.attempts_allowed || 1);
+      if (!submitGate.can_start) throw new Error('Лимит попыток исчерпан для этого теста.');
 
       const evaluations = questions.map((q) => evaluateQuestion(q));
       const points = evaluations.reduce((s, v) => s + v.points, 0);
@@ -949,6 +908,15 @@ export default function TestPage() {
                     onClick={handleSkipQuestion}
                   >
                     {bonusLoading === 'skip' ? 'Пропуск…' : `Пропуск (${skipCount})`}
+                  </button>
+                  <button
+                    type="button"
+                    className="qf-btn-primary"
+                    style={{ padding: '8px 12px', fontSize: 14, background: '#2563eb' }}
+                    disabled={extraAttemptCount <= 0 || !!bonusLoading}
+                    onClick={handleUseExtraAttempt}
+                  >
+                    {bonusLoading === 'attempt' ? 'Доп. попытка…' : `Доп. попытка (${extraAttemptCount})`}
                   </button>
                 </div>
                 {warning && (

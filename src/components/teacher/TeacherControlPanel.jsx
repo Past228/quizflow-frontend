@@ -446,6 +446,7 @@ export default function TeacherControlPanel({ session }) {
         .from('test_questions')
         .select('id, question_text, difficulty, estimated_time_seconds')
         .eq('test_id', testId)
+        .eq('is_active', true)
         .order('created_at', { ascending: true });
       if (qErr) throw qErr;
       const questionIds = (questionRows || []).map((q) => q.id);
@@ -576,7 +577,6 @@ export default function TeacherControlPanel({ session }) {
       ...prev,
       questions: prev.questions.map((question) => {
         if (question.id !== questionId) return question;
-        if (question.options.length <= 2) return question;
         return { ...question, options: question.options.filter((option) => option.id !== optionId) };
       }),
     }));
@@ -621,7 +621,6 @@ export default function TeacherControlPanel({ session }) {
       ...prev,
       questions: prev.questions.map((question) => {
         if (question.id !== questionId) return question;
-        if (question.pairs.length <= 1) return question;
         return { ...question, pairs: question.pairs.filter((pair) => pair.id !== pairId) };
       }),
     }));
@@ -692,11 +691,6 @@ export default function TeacherControlPanel({ session }) {
           .eq('teacher_id', session.user.id);
         if (updateErr) throw updateErr;
 
-        const { data: oldQuestions, error: oldErr } = await supabase
-          .from('test_questions')
-          .select('id')
-          .eq('test_id', editingTestId);
-        if (oldErr) throw oldErr;
         // Do not delete historical questions/options: old attempts may reference them via FK.
         const { error: delQErr } = await supabase
           .from('test_questions')
@@ -1690,15 +1684,14 @@ export default function TeacherControlPanel({ session }) {
                                 <button
                                   type="button"
                                   onClick={() => removeOption(question.id, option.id)}
-                                  disabled={question.options.length <= 2}
                                   style={{
                                     border: '1px solid #ef4444',
                                     color: '#ef4444',
                                     background: 'transparent',
                                     borderRadius: 8,
                                     padding: '4px 8px',
-                                    cursor: question.options.length <= 2 ? 'not-allowed' : 'pointer',
-                                    opacity: question.options.length <= 2 ? 0.5 : 1,
+                                    cursor: 'pointer',
+                                    opacity: 1,
                                   }}
                                 >
                                   ✕
@@ -1749,15 +1742,14 @@ export default function TeacherControlPanel({ session }) {
                                 <button
                                   type="button"
                                   onClick={() => removePair(question.id, pair.id)}
-                                  disabled={question.pairs.length <= 1}
                                   style={{
                                     border: '1px solid #ef4444',
                                     color: '#ef4444',
                                     background: 'transparent',
                                     borderRadius: 8,
                                     padding: '4px 8px',
-                                    cursor: question.pairs.length <= 1 ? 'not-allowed' : 'pointer',
-                                    opacity: question.pairs.length <= 1 ? 0.5 : 1,
+                                    cursor: 'pointer',
+                                    opacity: 1,
                                   }}
                                 >
                                   ✕
